@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 MAX_TITLE_LENGTH = 200
 MAX_OPTION_TITLE_LENGTH = 50
 NEW_POLL = "Let's create a new poll! First, send me the title."
-NEW_OPTION = "New poll:\n {}\n\nNow send me the first answer option."
+NEW_OPTION = "New poll:\n{}\n\nNow send me the first answer option."
 NEXT_OPTION = "Nice! Now send me another answer option, or /done to finish."
 DONE = "\U0001f44d Poll created! You may now publish it to a group or send it to your friends."
 HELP = "This bot will help you create polls where people can leave their names. " + \
@@ -142,9 +142,10 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     # Handle poll option button
     if action.isdigit():
-        poll, status = Poll.toggle(poll_id, int(action), uid, user_profile)
+        status = poll.toggle(poll_id, int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode="HTML",
                                 reply_markup=poll.build_option_buttons(is_admin))
+        query.answer(text=status)
         return
     # Handle refresh button
     elif action == backend.REFRESH and is_admin:

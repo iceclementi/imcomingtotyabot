@@ -88,6 +88,7 @@ class Poll(object):
         self.poll_id = poll_id
         self.title = ""
         self.options = []
+        self.single_response = True
         self.created_date = datetime.now()
         self.expiry = POLL_EXPIRY
 
@@ -108,6 +109,12 @@ class Poll(object):
 
     def add_option(self, option) -> None:
         self.options.append(option)
+
+    def is_single_response(self) -> bool:
+        return self.single_response
+
+    def set_single_response(self, is_single_response: bool) -> None:
+        self.single_response = is_single_response
 
     def get_created_date(self) -> datetime:
         return self.created_date
@@ -138,15 +145,15 @@ class Poll(object):
     def get_poll_by_id(poll_id: str):
         return all_polls.get(poll_id, None)
 
-    @staticmethod
-    def toggle(poll_id: str, opt_id: int, uid: int, user_profile: dict):
-        poll = all_polls.get(poll_id, None)
-        if not poll:
-            return None, "Sorry, this pole has been deleted."
-        if opt_id >= len(poll.get_options()):
-            return None, "Sorry, invalid option."
-        status = poll.get_options()[opt_id].toggle(uid, user_profile)
-        return poll, status
+    def toggle(self, opt_id: int, uid: int, user_profile: dict) -> str:
+        if opt_id >= len(self.options):
+            return "Sorry, invalid option."
+
+        if self.single_response:
+            for i, option in enumerate(self.options):
+                if i != opt_id:
+                    option.remove_user(uid)
+        return self.options[opt_id].toggle(uid, user_profile)
 
     def generate_respondents_summary(self) -> str:
         all_respondents_uid = set(uid for option in self.options for uid in option.respondents)
@@ -201,6 +208,10 @@ class Option(object):
     def comment_required(self) -> bool:
         return self.comment_required
 
+    def remove_user(self, uid: int) -> None:
+        if uid in self.respondents:
+            self.respondents.pop(uid)
+
     def toggle(self, uid: int, user_profile: dict) -> str:
         if uid in self.respondents:
             self.respondents.pop(uid, None)
@@ -211,7 +222,8 @@ class Option(object):
         return f"You are {action} {self.title}!"
 
     def generate_namelist(self) -> str:
-        return "\n".join(f"{first_name} {last_name}" for first_name, last_name in self.respondents.values())
+        return "\n".join(f"{first_name} {last_name}" if last_name else first_name
+                         for first_name, last_name in self.respondents.values())
 
     def render_text(self) -> str:
         title = make_html_bold(self.title)
