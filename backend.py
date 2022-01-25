@@ -117,8 +117,12 @@ class Poll(object):
     def is_single_response(self) -> bool:
         return self.single_response
 
-    def toggle_response_type(self) -> None:
+    def toggle_response_type(self) -> str:
+        if any(option.has_votes() for option in self.options):
+            return "Cannot change response type for non-empty poll."
         self.single_response = not self.single_response
+        status = "single response" if self.single_response else "multi-response"
+        return f"Response type is changed to {status}."
 
     def get_created_date(self) -> datetime:
         return self.created_date
@@ -223,6 +227,9 @@ class Option(object):
 
     def comment_required(self) -> bool:
         return self.comment_required
+
+    def has_votes(self) -> bool:
+        return not self.respondents
 
     def remove_user(self, uid: int) -> None:
         if uid in self.respondents:
