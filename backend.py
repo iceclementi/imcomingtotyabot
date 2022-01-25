@@ -229,7 +229,7 @@ class Option(object):
         return self.comment_required
 
     def has_votes(self) -> bool:
-        return not self.respondents
+        return len(self.respondents) > 0
 
     def remove_user(self, uid: int) -> None:
         if uid in self.respondents:
