@@ -40,7 +40,7 @@ class Session(object):
     def set_state(self, state: str) -> None:
         self.state = state
 
-    def get_poll(self) -> Poll:
+    def get_poll(self):
         return self.poll
 
     def get_start_date(self) -> datetime:
