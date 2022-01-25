@@ -96,7 +96,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
             return
         else:
             poll = Poll.get_poll_by_id(session.get_poll_id())
-            poll.options.add_option(Option(text))
+            poll.add_option(Option(text))
 
             if len(poll.get_options()) < 10:
                 update.message.reply_text(NEXT_OPTION)
