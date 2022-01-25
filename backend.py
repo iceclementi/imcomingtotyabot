@@ -53,7 +53,7 @@ class Session(object):
         self.expiry = expiry
 
     @staticmethod
-    def get_session_by_id(uid: int) -> Session:
+    def get_session_by_id(uid: int):
         uid = to_id_string(uid)
         return all_sessions.get(uid, None)
 
