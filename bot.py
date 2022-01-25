@@ -63,7 +63,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
 
 def handle_help(update: Update, context: CallbackContext) -> None:
     """Display a help message."""
-    update.message.reply_text("Use /quiz, /poll or /preview to test this bot.")
+    update.message.reply_text(HELP)
 
 
 def handle_message(update: Update, context: CallbackContext) -> None:

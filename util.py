@@ -1,4 +1,6 @@
 """Util methods"""
+import string
+import random
 from telegram import InlineKeyboardButton
 
 

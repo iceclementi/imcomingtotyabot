@@ -1,7 +1,4 @@
 """Backend models"""
-
-import string
-import random
 from datetime import datetime
 from collections import OrderedDict
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
