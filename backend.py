@@ -123,6 +123,9 @@ class Poll(object):
         self.options = []
         self.created_date = datetime.now()
 
+    def delete_poll(self) -> None:
+        all_polls.pop(self.poll_id)
+
     @staticmethod
     def create_new_poll(uid: int) -> str:
         poll_id = create_random_string(RANDOM_LENGTH)

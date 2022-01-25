@@ -7,7 +7,7 @@ from telegram import (
     ParseMode, KeyboardButton, KeyboardButtonPollType, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 )
 from telegram.ext import (
-    Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+    Updater, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, Filters
 )
 
 # Environment settings
@@ -55,9 +55,14 @@ def handle_done(update: Update, context: CallbackContext) -> None:
         update.message.reply_text(ERROR_EARLY_DONE)
         return
 
-    session.set_progress(backend.NONE)
+    session.end_session()
     update.message.reply_text(DONE)
-    deliver_poll_admin(update, poll)
+    deliver_poll(update, poll, True)
+
+
+def handle_help(update: Update, context: CallbackContext) -> None:
+    """Display a help message."""
+    update.message.reply_text("Use /quiz, /poll or /preview to test this bot.")
 
 
 def handle_message(update: Update, context: CallbackContext) -> None:
@@ -102,14 +107,70 @@ def handle_message(update: Update, context: CallbackContext) -> None:
                 update.message.reply_text(NEXT_OPTION)
                 return
 
-            session.set_progress(backend.NONE)
+            session.end_session()
             update.message.reply_text(DONE)
-            deliver_poll_admin(update, poll)
+            deliver_poll(update, poll, True)
+            return
+    # Handle other cases
+    else:
+        update.message.reply_text(HELP)
 
 
-def handle_help(update: Update, context: CallbackContext) -> None:
-    """Display a help message."""
-    update.message.reply_text("Use /quiz, /poll or /preview to test this bot.")
+def handle_callback_query(update: Update, context: CallbackContext) -> None:
+    extract_user_data = lambda user: \
+        (user.id, {"first_name": user.first_name, "last_name": user.last_name, "username": user.username})
+
+    query = update.callback_query
+    uid, user_profile = extract_user_data(query.from_user)
+    inline_mid = query.inline_message_id
+    is_admin = not inline_mid
+
+    try:
+        poll_id, action = query.data.split()
+    except (AttributeError, IndexError, ValueError):
+        logger.warning("Invalid callback query data.")
+        query.answer(text="Invalid callback query data!")
+        return
+
+    poll = Poll.get_poll_by_id(poll_id)
+
+    # Poll is deleted or has error
+    if not poll:
+        query.edit_message_reply_markup()
+        query.answer(text="Sorry, this poll has been deleted.")
+        return
+
+    # Handle poll option button
+    if action.isdigit():
+        poll, status = Poll.toggle(poll_id, int(action), uid, user_profile)
+        query.edit_message_text(poll.render_text(), parse_mode="HTML",
+                                reply_markup=poll.build_option_buttons(is_admin))
+        return
+    # Handle refresh button
+    elif action == backend.REFRESH and is_admin:
+        query.edit_message_text(poll.render_text(), parse_mode="HTML", reply_markup=poll.build_admin_buttons())
+        query.answer(text="Results updated!")
+        return
+    # Handle vote button
+    elif action == backend.VOTE and is_admin:
+        query.edit_message_reply_markup(reply_markup=poll.poll.build_option_buttons(True))
+        query.answer(text="You may now vote!")
+        return
+    # Handle delete button
+    elif action == backend.DELETE and is_admin:
+        poll.delete_poll()
+        query.edit_message_reply_markup()
+        query.answer(text="Poll deleted!")
+        return
+    # Handle back button
+    elif action == backend.BACK and is_admin:
+        query.edit_message_reply_markup(reply_markup=poll.build_admin_buttons())
+        return
+    # Handle other cases
+    else:
+        logger.warning("Invalid callback query data.")
+        query.answer(text="Invalid callback query data!")
+        return
 
 
 def handle_error(update: Update, context: CallbackContext) -> None:
@@ -117,8 +178,10 @@ def handle_error(update: Update, context: CallbackContext) -> None:
     logger.warning(f"Update {update} caused error {context.error}")
 
 
-def deliver_poll_admin(update: Update, poll: Poll):
-    update.message.reply_text(poll.render_text(), parse_mode="HTML", reply_markup=poll.build_admin_buttons())
+def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
+    """Deliver the poll in admin mode."""
+    if is_admin:
+        update.message.reply_text(poll.render_text(), parse_mode="HTML", reply_markup=poll.build_admin_buttons())
 
 
 def main():
@@ -130,11 +193,14 @@ def main():
 
     # Command handlers
     dispatcher.add_handler(CommandHandler("start", handle_start))
-    dispatcher.add_handler(CommandHandler("help", handle_help))
     dispatcher.add_handler(CommandHandler("done", handle_done))
+    dispatcher.add_handler(CommandHandler("help", handle_help))
 
     # Message handlers
     dispatcher.add_handler(MessageHandler(Filters.text, handle_message))
+
+    # Callback query handlers
+    dispatcher.add_handler(CallbackQueryHandler(handle_callback_query))
 
     # Error handlers
     dispatcher.add_error_handler(handle_error)
