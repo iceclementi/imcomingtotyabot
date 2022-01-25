@@ -6,7 +6,7 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Settings
 RANDOM_LENGTH = 4
-EMOJI_PEOPLE = u"\U0001f465"
+EMOJI_PEOPLE = "\U0001f465"
 SESSION_EXPIRY = 1  # In hours
 POLL_EXPIRY = 720
 
@@ -163,8 +163,8 @@ class Poll(object):
         header = [make_html_bold_first_line(self.title)]
         body = [option.render_text() for option in self.options]
         # footer = [f"{EMOJI_PEOPLE} {self.generate_respondents_summary}"]
-        # return "\n\n".join(header + body + footer)
-        return "\n\n".join(header + body)
+        footer = [f"{self.generate_respondents_summary}"]
+        return "\n\n".join(header + body + footer)
 
     def build_option_buttons(self, is_admin=False) -> InlineKeyboardMarkup:
         buttons = []
