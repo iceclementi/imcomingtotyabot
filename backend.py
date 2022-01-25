@@ -16,6 +16,8 @@ TITLE = "title"
 OPTION = "option"
 
 PUBLISH = "publish"
+REFRESH = "refresh"
+VOTE = "vote"
 DELETE = "delete"
 BACK = "back"
 
@@ -50,6 +52,11 @@ class Session(object):
     def set_expiry(self, expiry: int) -> None:
         self.expiry = expiry
 
+    @staticmethod
+    def get_session_by_id(uid: int) -> Session:
+        uid = to_id_string(uid)
+        return all_sessions.get(uid, None)
+
 
 class Poll(object):
     def __init__(self, uid: str, expiry=POLL_EXPIRY) -> None:
@@ -59,6 +66,12 @@ class Poll(object):
         self.options = []
         self.created_date = datetime.now()
         self.expiry = expiry
+
+    def get_creator_id(self) -> str:
+        return self.creator_id
+
+    def get_poll_id(self) -> str:
+        return self.poll_id
 
     def get_title(self) -> str:
         return self.title
@@ -91,6 +104,26 @@ class Poll(object):
         status = poll.get_options()[opt_id].toggle(uid, user_profile)
         return poll, status
 
+    def generate_respondents_summary(self) -> str:
+        all_respondents_uid = set(uid for option in self.options for uid in option.respondents.key())
+        respondents_count = len(all_respondents_uid)
+        if respondents_count == 0:
+            summary = "Nobody responded"
+        elif respondents_count == 1:
+            summary = "1 person responded"
+        else:
+            summary = f"{respondents_count} people responded"
+        return summary
+
+    def generate_options_summary(self) -> str:
+        return " / ".join(option.title for option in self.options)
+
+    def render_text(self) -> str:
+        header = [make_html_bold_first_line(self.title)]
+        body = [option.render_text() for option in self.options]
+        footer = [f"{EMOJI_PEOPLE} {self.generate_respondents_summary}"]
+        return "\n\n".join(header + body + footer)
+
     def build_option_buttons(self, is_admin=False) -> InlineKeyboardMarkup:
         buttons = []
         for i, option in enumerate(self.options):
@@ -101,6 +134,17 @@ class Poll(object):
             back_data = f"{self.poll_id} {BACK}"
             back_button = InlineKeyboardButton("Back", callback_data=back_data)
             buttons.append([back_button])
+        return InlineKeyboardMarkup(buttons)
+
+    def build_admin_buttons(self) -> InlineKeyboardMarkup:
+        publish_button = InlineKeyboardButton("Publish", switch_inline_query=self.title)
+        refresh_data = f"{self.poll_id} {REFRESH}"
+        refresh_button = InlineKeyboardButton("Refresh", callback_data=refresh_data)
+        vote_data = f"{self.poll_id} {VOTE}"
+        vote_button = InlineKeyboardButton("Vote", callback_data=vote_data)
+        delete_data = f"{self.poll_id} {DELETE}"
+        delete_button = InlineKeyboardButton("Delete", callback_data=delete_data)
+        buttons = [[publish_button], [refresh_button], [vote_button, delete_button]]
         return InlineKeyboardMarkup(buttons)
 
 
@@ -128,7 +172,7 @@ class Option(object):
     def render_text(self) -> str:
         title = make_html_bold(self.title)
         if self.respondents:
-            title += f" ({len(self.respondents)}{EMOJI_PEOPLE})"
+            title += f" ({len(self.respondents)} {EMOJI_PEOPLE})"
         namelist = strip_html_symbols(self.generate_namelist())
         return f"{title}\n{namelist}"
 
