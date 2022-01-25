@@ -190,7 +190,7 @@ class Poll(object):
 
 
 class Option(object):
-    def __init__(self, title: str, is_comment_required: bool) -> None:
+    def __init__(self, title: str, is_comment_required=False) -> None:
         self.title = title
         self.comment_required = is_comment_required
         self.respondents = OrderedDict()
