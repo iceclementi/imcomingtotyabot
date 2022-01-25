@@ -5,12 +5,12 @@ from collections import OrderedDict
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Settings
-RANDOM_LENGTH = 20
+RANDOM_LENGTH = 4
 EMOJI_PEOPLE = u"\U0001f465"
 SESSION_EXPIRY = 1  # In hours
 POLL_EXPIRY = 720
 
-# State types
+# Session Progress types
 NONE = "none"
 TITLE = "title"
 OPTION = "option"
@@ -27,21 +27,24 @@ all_polls = dict()
 
 
 class Session(object):
-    def __init__(self, uid: str) -> None:
+    def __init__(self, uid: int) -> None:
         self.uid = uid
-        self.state = TITLE
-        self.poll = Poll(uid)
+        self.progress = TITLE
+        self.poll_id = ""
         self.start_date = datetime.now()
         self.expiry = SESSION_EXPIRY
 
-    def get_state(self) -> str:
-        return self.state
+    def get_progress(self) -> str:
+        return self.progress
 
-    def set_state(self, state: str) -> None:
-        self.state = state
+    def set_progress(self, state: str) -> None:
+        self.progress = state
 
-    def get_poll(self):
-        return self.poll
+    def get_poll_id(self) -> str:
+        return self.poll_id
+
+    def set_poll_id(self, poll_id: str) -> None:
+        self.poll_id = poll_id
 
     def get_start_date(self) -> datetime:
         return self.start_date
@@ -52,22 +55,43 @@ class Session(object):
     def set_expiry(self, expiry: int) -> None:
         self.expiry = expiry
 
+    def end_session(self) -> None:
+        all_sessions.pop(self.uid)
+
+    def reset_session(self):
+        self.progress = TITLE
+        self.start_date = datetime.now()
+        poll = Poll.get_poll_by_id(self.poll_id)
+        if poll:
+            poll.reset_poll()
+        else:
+            self.poll_id = Poll.create_new_poll(self.uid)
+
+    @staticmethod
+    def start_new_session(uid: int) -> None:
+        session = Session.get_session_by_id(uid)
+        if not session:
+            session = Session(uid)
+            session.set_poll_id(Poll.create_new_poll(uid))
+            all_sessions[uid] = session
+        else:
+            session.reset_session()
+
     @staticmethod
     def get_session_by_id(uid: int):
-        uid = to_id_string(uid)
         return all_sessions.get(uid, None)
 
 
 class Poll(object):
-    def __init__(self, uid: str, expiry=POLL_EXPIRY) -> None:
+    def __init__(self, uid: int) -> None:
         self.creator_id = uid
-        self.poll_id = uid + create_random_string(RANDOM_LENGTH)
+        self.poll_id = create_random_string(RANDOM_LENGTH)
         self.title = ""
         self.options = []
         self.created_date = datetime.now()
-        self.expiry = expiry
+        self.expiry = POLL_EXPIRY
 
-    def get_creator_id(self) -> str:
+    def get_creator_id(self) -> int:
         return self.creator_id
 
     def get_poll_id(self) -> str:
@@ -94,8 +118,25 @@ class Poll(object):
     def set_expiry(self, expiry: int) -> None:
         self.expiry = expiry
 
+    def reset_poll(self):
+        self.title = ""
+        self.options = []
+        self.created_date = datetime.now()
+
     @staticmethod
-    def toggle(poll_id: str, opt_id: int, uid: str, user_profile: dict):
+    def create_new_poll(uid: int) -> str:
+        poll_id = create_random_string(RANDOM_LENGTH)
+        while poll_id in all_polls:
+            poll_id = create_random_string(RANDOM_LENGTH)
+        all_polls[poll_id] = Poll(uid)
+        return poll_id
+
+    @staticmethod
+    def get_poll_by_id(poll_id: str):
+        return all_polls.get(poll_id, None)
+
+    @staticmethod
+    def toggle(poll_id: str, opt_id: int, uid: int, user_profile: dict):
         poll = all_polls.get(poll_id, None)
         if not poll:
             return None, "Sorry, this pole has been deleted."
@@ -157,7 +198,7 @@ class Option(object):
     def comment_required(self) -> bool:
         return self.comment_required
 
-    def toggle(self, uid: str, user_profile: dict) -> str:
+    def toggle(self, uid: int, user_profile: dict) -> str:
         if uid in self.respondents:
             self.respondents.pop(uid, None)
             action = "removed from"
@@ -182,7 +223,6 @@ def to_id_string(uid: int) -> str:
 
 
 def start_new_session(uid: int) -> None:
-    uid = to_id_string(uid)
     all_sessions[uid] = Session(uid)
 
 
