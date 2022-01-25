@@ -118,7 +118,7 @@ def handle_error(update: Update, context: CallbackContext) -> None:
 
 
 def deliver_poll_admin(update: Update, poll: Poll):
-    update.message.reply_text(poll.render_text(), parse_mode="HTML", reply_markup=poll.build_admin_buttons())
+    update.message.reply_text(poll.render_text(), parse_mode="HTML")
 
 
 def main():
@@ -131,6 +131,7 @@ def main():
     # Command handlers
     dispatcher.add_handler(CommandHandler("start", handle_start))
     dispatcher.add_handler(CommandHandler("help", handle_help))
+    dispatcher.add_handler(CommandHandler("done", handle_done))
 
     # Message handlers
     dispatcher.add_handler(MessageHandler(Filters.text, handle_message))
