@@ -19,6 +19,7 @@ PUBLISH = "publish"
 REFRESH = "refresh"
 VOTE = "vote"
 DELETE = "delete"
+DELETE_YES = "delete-yes"
 BACK = "back"
 
 creators = set()
@@ -196,6 +197,14 @@ class Poll(object):
         delete_data = f"{self.poll_id} {DELETE}"
         delete_button = InlineKeyboardButton("Delete", callback_data=delete_data)
         buttons = [[publish_button], [refresh_button], [vote_button, delete_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_delete_confirmation_buttons(self) -> InlineKeyboardMarkup:
+        yes_data = f"{self.poll_id} {DELETE_YES}"
+        yes_button = InlineKeyboardButton("Delete", callback_data=yes_data)
+        no_data = f"{self.poll_id} {BACK}"
+        no_button = InlineKeyboardButton("No", callback_data=no_data)
+        buttons = [[yes_button, no_button]]
         return InlineKeyboardMarkup(buttons)
 
 

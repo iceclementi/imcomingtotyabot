@@ -159,6 +159,11 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         return
     # Handle delete button
     elif action == backend.DELETE and is_admin:
+        query.edit_message_reply_markup(poll.build_delete_confirmation_buttons())
+        query.answer(text="Confirm delete?")
+        return
+    # Handle delete confirmation button
+    elif action == backend.DELETE_YES and is_admin:
         poll.delete_poll()
         query.edit_message_reply_markup(None)
         query.answer(text="Poll deleted!")
