@@ -118,6 +118,7 @@ def handle_error(update: Update, context: CallbackContext) -> None:
 
 
 def deliver_poll_admin(update: Update, poll: Poll):
+    # update.message.reply_text(poll.render_text(), parse_mode="HTML", reply_markup=poll.build_admin_buttons())
     update.message.reply_text(poll.render_text(), parse_mode="HTML")
 
 
