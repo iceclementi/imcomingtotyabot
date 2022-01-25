@@ -161,8 +161,8 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     # Handle toggle response button
     elif action == backend.RESPONSE and is_admin:
         status = poll.toggle_response_type()
-        query.edit_message_reply_markup(poll.build_customise_buttons())
         query.answer(text=status)
+        query.edit_message_reply_markup(poll.build_customise_buttons())
         return
     # Handle vote button
     elif action == backend.VOTE and is_admin:
