@@ -136,7 +136,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     # Poll is deleted or has error
     if not poll:
-        query.edit_message_reply_markup()
+        query.edit_message_reply_markup(None)
         query.answer(text="Sorry, this poll has been deleted.")
         return
 
@@ -153,18 +153,18 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         return
     # Handle vote button
     elif action == backend.VOTE and is_admin:
-        query.edit_message_reply_markup(reply_markup=poll.poll.build_option_buttons(True))
+        query.edit_message_reply_markup(poll.build_option_buttons(True))
         query.answer(text="You may now vote!")
         return
     # Handle delete button
     elif action == backend.DELETE and is_admin:
         poll.delete_poll()
-        query.edit_message_reply_markup()
+        query.edit_message_reply_markup(None)
         query.answer(text="Poll deleted!")
         return
     # Handle back button
     elif action == backend.BACK and is_admin:
-        query.edit_message_reply_markup(reply_markup=poll.build_admin_buttons())
+        query.edit_message_reply_markup(poll.build_admin_buttons())
         return
     # Handle other cases
     else:
