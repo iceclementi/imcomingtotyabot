@@ -83,9 +83,9 @@ class Session(object):
 
 
 class Poll(object):
-    def __init__(self, uid: int) -> None:
+    def __init__(self, uid: int, poll_id: str) -> None:
         self.creator_id = uid
-        self.poll_id = create_random_string(RANDOM_LENGTH)
+        self.poll_id = poll_id
         self.title = ""
         self.options = []
         self.created_date = datetime.now()
@@ -131,7 +131,7 @@ class Poll(object):
         poll_id = create_random_string(RANDOM_LENGTH)
         while poll_id in all_polls:
             poll_id = create_random_string(RANDOM_LENGTH)
-        all_polls[poll_id] = Poll(uid)
+        all_polls[poll_id] = Poll(uid, poll_id)
         return poll_id
 
     @staticmethod
