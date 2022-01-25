@@ -3,6 +3,7 @@ import os
 import logging
 import backend
 from backend import Session, Poll, Option
+import util
 from telegram import (
     ParseMode, KeyboardButton, KeyboardButtonPollType, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 )
@@ -90,7 +91,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         poll.set_title(text)
         session.set_progress(backend.OPTION)
 
-        bold_title = backend.make_html_bold_first_line(text)
+        bold_title = util.make_html_bold_first_line(text)
         response = NEW_OPTION.format(bold_title)
         update.message.reply_text(response, parse_mode="HTML")
         return
@@ -151,6 +152,17 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     elif action == backend.REFRESH and is_admin:
         query.edit_message_text(poll.render_text(), parse_mode="HTML", reply_markup=poll.build_admin_buttons())
         query.answer(text="Results updated!")
+        return
+    # Handle customise button
+    elif action == backend.CUSTOMISE and is_admin:
+        query.edit_message_reply_markup(poll.build_customise_buttons())
+        query.answer(text=None)
+        return
+    # Handle toggle response button
+    elif action == backend.RESPONSE and is_admin:
+        poll.toggle_response_type()
+        query.edit_message_reply_markup(poll.build_customise_buttons())
+        query.answer(text=None)
         return
     # Handle vote button
     elif action == backend.VOTE and is_admin:

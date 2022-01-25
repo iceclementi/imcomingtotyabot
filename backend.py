@@ -1,8 +1,11 @@
+"""Backend models"""
+
 import string
 import random
 from datetime import datetime
 from collections import OrderedDict
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+import util
 
 # Settings
 RANDOM_LENGTH = 4
@@ -15,8 +18,11 @@ NONE = "none"
 TITLE = "title"
 OPTION = "option"
 
+# Button actions
 PUBLISH = "publish"
 REFRESH = "refresh"
+CUSTOMISE = "custom"
+RESPONSE = "response"
 VOTE = "vote"
 DELETE = "delete"
 DELETE_YES = "delete-yes"
@@ -114,8 +120,8 @@ class Poll(object):
     def is_single_response(self) -> bool:
         return self.single_response
 
-    def set_single_response(self, is_single_response: bool) -> None:
-        self.single_response = is_single_response
+    def toggle_response_type(self) -> None:
+        self.single_response = not self.single_response
 
     def get_created_date(self) -> datetime:
         return self.created_date
@@ -136,9 +142,9 @@ class Poll(object):
 
     @staticmethod
     def create_new_poll(uid: int) -> str:
-        poll_id = create_random_string(RANDOM_LENGTH)
+        poll_id = util.create_random_string(RANDOM_LENGTH)
         while poll_id in all_polls:
-            poll_id = create_random_string(RANDOM_LENGTH)
+            poll_id = util.create_random_string(RANDOM_LENGTH)
         all_polls[poll_id] = Poll(uid, poll_id)
         return poll_id
 
@@ -171,7 +177,7 @@ class Poll(object):
         return " / ".join(option.title for option in self.options)
 
     def render_text(self) -> str:
-        header = [make_html_bold_first_line(self.title)]
+        header = [util.make_html_bold_first_line(self.title)]
         body = [option.render_text() for option in self.options]
         footer = [f"{EMOJI_PEOPLE} {self.generate_respondents_summary()}"]
         return "\n\n".join(header + body + footer)
@@ -179,31 +185,32 @@ class Poll(object):
     def build_option_buttons(self, is_admin=False) -> InlineKeyboardMarkup:
         buttons = []
         for i, option in enumerate(self.options):
-            option_data = f"{self.poll_id} {i}"
-            option_button = InlineKeyboardButton(option.title, callback_data=option_data)
+            option_button = util.build_button(option.get_title(), self.poll_id, str(i))
             buttons.append([option_button])
         if is_admin:
-            back_data = f"{self.poll_id} {BACK}"
-            back_button = InlineKeyboardButton("Back", callback_data=back_data)
+            back_button = util.build_button("Back", self.poll_id, BACK)
             buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_admin_buttons(self) -> InlineKeyboardMarkup:
         publish_button = InlineKeyboardButton("Publish", switch_inline_query=self.title)
-        refresh_data = f"{self.poll_id} {REFRESH}"
-        refresh_button = InlineKeyboardButton("Refresh", callback_data=refresh_data)
-        vote_data = f"{self.poll_id} {VOTE}"
-        vote_button = InlineKeyboardButton("Vote", callback_data=vote_data)
-        delete_data = f"{self.poll_id} {DELETE}"
-        delete_button = InlineKeyboardButton("Delete", callback_data=delete_data)
-        buttons = [[publish_button], [refresh_button], [vote_button, delete_button]]
+        refresh_button = util.build_button("Refresh", self.poll_id, REFRESH)
+        customise_button = util.build_button("Customise", self.poll_id, CUSTOMISE)
+        vote_button = util.build_button("Vote", self.poll_id, VOTE)
+        delete_button = util.build_button("Delete", self.poll_id, DELETE)
+        buttons = [[publish_button], [refresh_button], [customise_button], [vote_button, delete_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_customise_buttons(self) -> InlineKeyboardMarkup:
+        response_text = "Multi-Response" if self.single_response else "Single Response"
+        toggle_response_button = util.build_button(f"Change to {response_text}", self.poll_id, RESPONSE)
+        back_button = util.build_button("Back", self.poll_id, BACK)
+        buttons = [[toggle_response_button], [back_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_delete_confirmation_buttons(self) -> InlineKeyboardMarkup:
-        yes_data = f"{self.poll_id} {DELETE_YES}"
-        yes_button = InlineKeyboardButton("Delete", callback_data=yes_data)
-        no_data = f"{self.poll_id} {BACK}"
-        no_button = InlineKeyboardButton("No", callback_data=no_data)
+        yes_button = util.build_button("Delete", self.poll_id, DELETE_YES)
+        no_button = util.build_button("No", self.poll_id, BACK)
         buttons = [[yes_button, no_button]]
         return InlineKeyboardMarkup(buttons)
 
@@ -213,6 +220,9 @@ class Option(object):
         self.title = title
         self.comment_required = is_comment_required
         self.respondents = OrderedDict()
+
+    def get_title(self) -> str:
+        return self.title
 
     def comment_required(self) -> bool:
         return self.comment_required
@@ -235,34 +245,8 @@ class Option(object):
                          for first_name, last_name in self.respondents.values())
 
     def render_text(self) -> str:
-        title = make_html_bold(self.title)
+        title = util.make_html_bold(self.title)
         if self.respondents:
             title += f" ({len(self.respondents)} {EMOJI_PEOPLE})"
-        namelist = strip_html_symbols(self.generate_namelist())
+        namelist = util.strip_html_symbols(self.generate_namelist())
         return f"{title}\n{namelist}"
-
-
-def to_id_string(uid: int) -> str:
-    return str(uid).zfill(64)
-
-
-def start_new_session(uid: int) -> None:
-    all_sessions[uid] = Session(uid)
-
-
-def create_random_string(n: int) -> str:
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=n))
-
-
-def strip_html_symbols(text):
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-def make_html_bold(text):
-    return f"<b>{strip_html_symbols(text)}</b>"
-
-
-def make_html_bold_first_line(text):
-    text_split = text.split("\n", 1)
-    output = make_html_bold(text_split[0])
-    return output + "\n" + strip_html_symbols(text_split[1]) if len(text_split) > 1 else output
