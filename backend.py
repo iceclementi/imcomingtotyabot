@@ -162,7 +162,6 @@ class Poll(object):
     def render_text(self) -> str:
         header = [make_html_bold_first_line(self.title)]
         body = [option.render_text() for option in self.options]
-        # footer = [f"{EMOJI_PEOPLE} {self.generate_respondents_summary}"]
         footer = [f"{EMOJI_PEOPLE} {self.generate_respondents_summary()}"]
         return "\n\n".join(header + body + footer)
 
