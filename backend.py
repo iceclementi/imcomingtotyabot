@@ -82,7 +82,7 @@ class Poll(object):
     def get_options(self) -> list:
         return self.options
 
-    def add_option(self, option) -> void:
+    def add_option(self, option) -> None:
         self.options.append(option)
 
     def get_created_date(self) -> datetime:
