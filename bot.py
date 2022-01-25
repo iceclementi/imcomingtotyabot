@@ -142,7 +142,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     # Handle poll option button
     if action.isdigit():
-        status = poll.toggle(poll_id, int(action), uid, user_profile)
+        status = poll.toggle(int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode="HTML",
                                 reply_markup=poll.build_option_buttons(is_admin))
         query.answer(text=status)
