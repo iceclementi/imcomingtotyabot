@@ -4,11 +4,10 @@ import logging
 import backend
 from backend import Session, Poll, Option
 import util
-from telegram import (
-    ParseMode, KeyboardButton, KeyboardButtonPollType, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
-)
+from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import (
-    Updater, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, Filters
+    Updater, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
+    RegexHandler, Filters
 )
 
 # Environment settings
@@ -19,7 +18,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 # Bot settings
-MAX_TITLE_LENGTH = 200
+MAX_TITLE_LENGTH = 100
 MAX_OPTION_TITLE_LENGTH = 50
 NEW_POLL = "Let's create a new poll! First, send me the title."
 NEW_OPTION = "New poll:\n{}\n\nNow send me the first answer option."
@@ -42,8 +41,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
 def handle_done(update: Update, context: CallbackContext) -> None:
     """Finish building the poll."""
-    user = update.effective_user
-    uid = user.id
+    uid = update.effective_user.id
     session = Session.get_session_by_id(uid)
 
     if not session:
@@ -61,18 +59,44 @@ def handle_done(update: Update, context: CallbackContext) -> None:
     deliver_poll(update, poll, True)
 
 
+def handle_polls(update: Update, context: CallbackContext) -> None:
+    """Display all recent polls created by user."""
+    uid = update.effective_user.id
+
+    header = [util.make_html_bold("Your polls")]
+
+    recent_polls = Poll.get_polls_created_by_user(uid, 20)
+    body = [f"{i + 1}. {poll.generate_linked_summary()}" for i, poll in enumerate(recent_polls)]
+
+    response = "\n\n".join(header + body)
+    update.message.reply_text(response, parse_mode="HTML")
+
+
+def handle_poll_view(update: Update, context: CallbackContext) -> None:
+    """Display the poll identified by its poll id"""
+    uid = update.effective_user.id
+    text = update.message.text
+
+    poll = Poll.get_poll_by_id(text[6:])
+    if poll and poll.get_creator_id() == uid:
+        deliver_poll(update, poll, is_admin=True)
+        return
+    else:
+        update.message.reply_text(HELP)
+
+
 def handle_help(update: Update, context: CallbackContext) -> None:
     """Display a help message."""
     update.message.reply_text(HELP)
 
 
 def handle_message(update: Update, context: CallbackContext) -> None:
+    """Handles a message from the user."""
     text = update.message.text
     if not text:
         return
 
-    user = update.effective_user
-    uid = user.id
+    uid = update.effective_user.id
     session = Session.get_session_by_id(uid)
 
     if not session:
@@ -118,6 +142,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
 
 def handle_callback_query(update: Update, context: CallbackContext) -> None:
+    """Handles a callback query."""
     extract_user_data = lambda user: \
         (user.id, {"first_name": user.first_name, "last_name": user.last_name, "username": user.username})
 
@@ -191,6 +216,12 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         return
 
 
+def handle_inline_query(update: Update, context: CallbackContext) -> None:
+    """Handles an inline query."""
+    query = update.inline_query
+    text = query.query.lower()
+
+
 def handle_error(update: Update, context: CallbackContext) -> None:
     """Log errors caused by Updates."""
     logger.warning(f"Update {update} caused error {context.error}")
@@ -215,10 +246,14 @@ def main():
     dispatcher.add_handler(CommandHandler("help", handle_help))
 
     # Message handlers
+    dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/poll_\w+$"), handle_poll_view))
     dispatcher.add_handler(MessageHandler(Filters.text, handle_message))
 
     # Callback query handlers
     dispatcher.add_handler(CallbackQueryHandler(handle_callback_query))
+
+    # Inline query handlers
+    dispatcher.add_handler(InlineQueryHandler(handle_inline_query))
 
     # Error handlers
     dispatcher.add_error_handler(handle_error)
