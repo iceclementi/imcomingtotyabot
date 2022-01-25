@@ -146,7 +146,7 @@ class Poll(object):
         return poll, status
 
     def generate_respondents_summary(self) -> str:
-        all_respondents_uid = set(uid for option in self.options for uid in option.respondents.key())
+        all_respondents_uid = set(uid for option in self.options for uid in option.respondents)
         respondents_count = len(all_respondents_uid)
         if respondents_count == 0:
             summary = "Nobody responded"
