@@ -185,10 +185,11 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     if action.isdigit():
         if poll.is_user_comment_required(int(action), uid):
             query.answer(text=REASON)
-            query.message.reply_text(
+            reply_message = query.message.reply_text(
                 f"@{user_profile['username']} {REASON} #{poll_id}_{action}", parse_mode=ParseMode.HTML,
                 reply_markup=ForceReply()
             )
+            reply_message.delete(timeout=30)
             return
         status = poll.toggle(int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
@@ -308,12 +309,14 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
         logger.warning("Invalid poll option from reply message.")
         return
 
-    update.message.reply_text(str(poll.get_message_chat_ids()))
-
     poll.toggle(int(option_id), uid, user_profile, comment)
     for message_id, chat_id in poll.get_message_chat_ids():
         context.bot.edit_message_text(poll.render_text(), message_id=message_id, chat_id=chat_id,
                                       parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
+
+    # Delete user and bot message
+    update.message.reply_to_message.delete()
+    update.message.delete()
 
 
 def handle_error(update: Update, context: CallbackContext) -> None:
