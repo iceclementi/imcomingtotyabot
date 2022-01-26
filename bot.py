@@ -38,6 +38,7 @@ ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MA
 ERROR_EARLY_DONE_TITLE = "Sorry, please add a title to the poll."
 ERROR_EARLY_DONE_OPTION = "Sorry, please add at least one option to the poll."
 REASON = "Please enter a reason/comment."
+DELETED_POLL = "Sorry, the poll has been deleted."
 
 
 def handle_start(update: Update, context: CallbackContext) -> None:
@@ -121,9 +122,20 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
 def handle_show(update: Update, context: CallbackContext) -> None:
     """Displays the standard poll identified by its poll id"""
     uid = update.effective_user.id
-    text = update.message.text
+    split_text = update.message.text.split(" ")
 
-    update.message.reply_text(text)
+    if len(split_text) < 2:
+        return
+
+    poll_id = split_text[1]
+    poll = Poll.get_poll_by_id(poll_id)
+
+    if not poll:
+        update.message.reply_text(DELETED_POLL)
+        return
+
+    update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML,
+                              reply_markup=poll.build_option_buttons(), reply_to_message_id=None)
 
 
 def handle_help(update: Update, context: CallbackContext) -> None:
@@ -210,7 +222,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     # Poll is deleted or has error
     if not poll:
         query.edit_message_reply_markup(None)
-        query.answer(text="Sorry, this poll has been deleted.")
+        query.answer(text=DELETED_POLL)
         return
 
     if message:
@@ -338,7 +350,7 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
 
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
-        update.message.reply_text("Sorry, the poll has been deleted.")
+        update.message.reply_text(DELETED_POLL)
         return
 
     if int(option_id) >= len(poll.get_options()):
