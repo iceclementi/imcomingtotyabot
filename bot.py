@@ -176,7 +176,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     # Handle poll option button
     if action.isdigit():
-        if poll.is_user_comment_required(poll_id, uid):
+        if poll.is_user_comment_required(int(action), uid):
             query.answer(text=REASON)
             query.message.reply_text(
                 f"@{user_profile['username']} {REASON} #{poll_id}-{action}", parse_mode=ParseMode.HTML,
