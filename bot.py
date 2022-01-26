@@ -123,6 +123,8 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
 
 def handle_show(update: Update, context: CallbackContext) -> None:
     """Displays the standard poll identified by its poll id"""
+    text = update.message.text
+
     poll_id = re.match(r"^/show_(\w+).*$", text).group(1)
     poll = Poll.get_poll_by_id(poll_id)
 
