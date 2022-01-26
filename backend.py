@@ -243,7 +243,7 @@ class Poll(object):
             option_button = util.build_button(button_text, self.poll_id, f"{COMMENT}-{i}")
             buttons.append([option_button])
         back_button = util.build_button("Back", self.poll_id, BACK)
-        buttons.append(back_button)
+        buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_delete_confirmation_buttons(self) -> InlineKeyboardMarkup:
