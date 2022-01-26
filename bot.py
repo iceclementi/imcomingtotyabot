@@ -55,7 +55,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
         update.message.reply_text(HELP)
         return
 
-    poll = Poll.get_poll_by_id(session.get_poll_id())
+    poll = Poll.get_temp_poll_by_id(session.get_poll_id())
 
     if not poll.get_options():
         update.message.reply_text(ERROR_EARLY_DONE)
