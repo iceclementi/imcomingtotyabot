@@ -220,8 +220,6 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         query.answer(text=DELETED_POLL)
         return
 
-    if message:
-        poll.add_message_chat_id((message.message_id, message.chat_id))
     is_admin = is_user_admin(message)
 
     # Handle poll option button
