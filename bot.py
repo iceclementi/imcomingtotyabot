@@ -103,6 +103,10 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if not update.message:
         return
 
+    if not update.message.reply_to_message:
+        handle_reply_message(update, context)
+        return
+
     text = update.message.text
     if not text:
         return
@@ -174,16 +178,16 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         query.answer(text="Sorry, this poll has been deleted.")
         return
 
-    if inline_mid:
-        poll.add_inline_id(inline_mid)
+    if not inline_mid:
+        poll.add_message_chat_id((query.message.message_id, query.message.chat_id))
 
     # Handle poll option button
     if action.isdigit():
         if poll.is_user_comment_required(int(action), uid):
             query.answer(text=REASON)
             query.message.reply_text(
-                f"@{user_profile['username']} {REASON} #{poll_id}-{action}", parse_mode=ParseMode.HTML,
-                reply_markup=ForceReply(input_field_placeholder=f"@{BOT_NAME} /comment_{poll_id}-{action}")
+                f"@{user_profile['username']} {REASON} #{poll_id}_{action}", parse_mode=ParseMode.HTML,
+                reply_markup=ForceReply()
             )
             return
         status = poll.toggle(int(action), uid, user_profile)
@@ -276,9 +280,11 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
     uid, user_profile = extract_user_data(update.effective_user)
     comment = update.message.text
 
+    update.message.reply_text(update.message.text)
+
     try:
         reply, poll_details = update.message.reply_to_message.rsplit("#", 1)
-        poll_id, option_id = poll_details.split("-")
+        poll_id, option_id = poll_details.split("_")
         if not option_id.isdigit():
             raise ValueError
     except (AttributeError, IndexError, ValueError):

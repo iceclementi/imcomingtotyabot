@@ -95,7 +95,7 @@ class Poll(object):
         self.title = ""
         self.options = []
         self.single_response = True
-        self.inline_ids = []
+        self.message_chat_ids = []
         self.created_date = datetime.now()
         self.expiry = POLL_EXPIRY
 
@@ -127,12 +127,12 @@ class Poll(object):
         status = "single response" if self.single_response else "multi-response"
         return f"Response type is changed to {status}."
 
-    def get_inline_ids(self) -> list:
-        return self.inline_ids
+    def get_message_chat_ids(self) -> list:
+        return self.message_chat_ids
 
-    def add_inline_id(self, inline_id: str) -> None:
-        if inline_id not in self.inline_ids:
-            self.inline_ids.append(inline_id)
+    def add_message_chat_id(self, message_chat_id: str) -> None:
+        if message_chat_id not in self.message_chat_ids:
+            self.message_chat_ids.append(message_chat_id)
 
     def get_created_date(self) -> datetime:
         return self.created_date
