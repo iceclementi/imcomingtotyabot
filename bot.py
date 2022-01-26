@@ -181,7 +181,6 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     if action.isdigit():
         if poll.is_user_comment_required(int(action), uid):
             query.answer(text=REASON)
-            query.bot.send_message()
             query.message.reply_text(
                 f"@{user_profile['username']} {REASON} #{poll_id}-{action}", parse_mode=ParseMode.HTML,
                 reply_markup=ForceReply(input_field_placeholder=f"@{BOT_NAME} /comment_{poll_id}-{action}")
@@ -263,7 +262,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     polls = Poll.get_polls_created_by_user(uid, filters=text, limit=10)
     for poll in polls:
         query_result = InlineQueryResultArticle(
-            id= poll.get_poll_id(), title=poll.get_title(), description=poll.generate_options_summary(),
+            id=poll.get_poll_id(), title=poll.get_title(), description=poll.generate_options_summary(),
             input_message_content=InputTextMessageContent(poll.render_text(), parse_mode=ParseMode.HTML),
             reply_markup=poll.build_option_buttons()
         )

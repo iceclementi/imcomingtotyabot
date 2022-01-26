@@ -25,3 +25,9 @@ def make_html_bold_first_line(text):
 def build_button(text: str, poll_id: str, action: str) -> InlineKeyboardButton:
     data = f"{poll_id} {action}"
     return InlineKeyboardButton(text, callback_data=data)
+
+
+def build_switch_button(text: str, placeholder: str, to_self=False) -> InlineKeyboardButton:
+    return InlineKeyboardButton(text, switch_inline_query_current_chat=placeholder) if to_self \
+        else InlineKeyboardButton(text, switch_inline_query=placeholder)
+

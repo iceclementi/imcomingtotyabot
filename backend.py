@@ -9,6 +9,7 @@ POLL_ID_LENGTH = 4
 EMOJI_PEOPLE = "\U0001f465"
 SESSION_EXPIRY = 1  # In hours
 POLL_EXPIRY = 720
+BOT_NAME = "tyacountmeintbot"
 
 # Session Progress types
 NONE = "none"
@@ -219,15 +220,13 @@ class Poll(object):
         for i, option in enumerate(self.options):
             option_button = util.build_button(option.get_title(), self.poll_id, str(i))
             buttons.append([option_button])
-        test_button = InlineKeyboardButton("Test", switch_inline_query_current_chat ="/testing")
-        buttons.append([test_button])
         if is_admin:
             back_button = util.build_button("Back", self.poll_id, BACK)
             buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_admin_buttons(self) -> InlineKeyboardMarkup:
-        publish_button = InlineKeyboardButton("Publish", switch_inline_query=self.title)
+        publish_button = util.build_switch_button("Publish", self.title)
         refresh_button = util.build_button("Refresh", self.poll_id, REFRESH)
         customise_button = util.build_button("Customise", self.poll_id, CUSTOMISE)
         vote_button = util.build_button("Vote", self.poll_id, VOTE)
