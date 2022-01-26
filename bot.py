@@ -1,9 +1,6 @@
 """Main Interface"""
 import os
 import logging
-
-import telegram.error
-
 import backend
 from backend import Session, Poll, Option
 import util
@@ -15,6 +12,7 @@ from telegram.ext import (
     CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
     RegexHandler, Filters, Updater, JobQueue
 )
+import telegram.error
 
 # Environment settings
 TOKEN = os.environ["TOKEN"]
@@ -130,7 +128,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
             update.message.reply_text(ERROR_TITLE_TOO_LONG)
             return
 
-        poll = Poll.get_poll_by_id(session.get_poll_id())
+        poll = Poll.get_temp_poll_by_id(session.get_poll_id())
         poll.set_title(text)
         session.set_progress(backend.OPTION)
 
@@ -144,7 +142,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
             update.message.reply_text(ERROR_OPTION_TITLE_TOO_LONG)
             return
         else:
-            poll = Poll.get_poll_by_id(session.get_poll_id())
+            poll = Poll.get_temp_poll_by_id(session.get_poll_id())
             poll.add_option(Option(text))
 
             if len(poll.get_options()) < 10:

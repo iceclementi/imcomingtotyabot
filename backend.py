@@ -29,6 +29,7 @@ BACK = "back"
 
 creators = set()
 all_sessions = dict()
+temp_polls = dict()
 all_polls = dict()
 
 
@@ -63,22 +64,23 @@ class Session(object):
 
     def end_session(self) -> None:
         all_sessions.pop(self.uid)
+        all_polls[self.poll_id] = temp_polls.pop(self.poll_id)
 
     def reset_session(self):
         self.progress = TITLE
         self.start_date = datetime.now()
-        poll = Poll.get_poll_by_id(self.poll_id)
+        poll = Poll.get_temp_poll_by_id(self.poll_id)
         if poll:
             poll.reset_poll()
         else:
-            self.poll_id = Poll.create_new_poll(self.uid)
+            self.poll_id = Poll.create_new_temp_poll(self.uid)
 
     @staticmethod
     def start_new_session(uid: int) -> None:
         session = Session.get_session_by_id(uid)
         if not session:
             session = Session(uid)
-            session.set_poll_id(Poll.create_new_poll(uid))
+            session.set_poll_id(Poll.create_new_temp_poll(uid))
             all_sessions[uid] = session
         else:
             session.reset_session()
@@ -149,19 +151,26 @@ class Poll(object):
         self.created_date = datetime.now()
 
     def delete_poll(self) -> None:
-        all_polls.pop(self.poll_id)
+        if self.poll_id in all_polls:
+            all_polls.pop(self.poll_id)
+        if self.poll_id in temp_polls:
+            temp_polls.pop(self.poll_id)
 
     @staticmethod
-    def create_new_poll(uid: int) -> str:
+    def create_new_temp_poll(uid: int) -> str:
         poll_id = util.create_random_string(POLL_ID_LENGTH)
-        while poll_id in all_polls:
+        while poll_id in all_polls or poll_id in temp_polls:
             poll_id = util.create_random_string(POLL_ID_LENGTH)
-        all_polls[poll_id] = Poll(uid, poll_id)
+        temp_polls[poll_id] = Poll(uid, poll_id)
         return poll_id
 
     @staticmethod
     def get_poll_by_id(poll_id: str):
         return all_polls.get(poll_id, None)
+
+    @staticmethod
+    def get_temp_poll_by_id(poll_id: str):
+        return temp_polls.get(poll_id, None)
 
     @staticmethod
     def get_polls_created_by_user(uid: int, filters="", limit=50) -> list:
