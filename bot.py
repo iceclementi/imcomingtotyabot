@@ -9,14 +9,15 @@ from telegram import (
     InputTextMessageContent, ForceReply
 )
 from telegram.ext import (
-    Updater, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
-    RegexHandler, Filters
+    CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
+    RegexHandler, Filters, Updater, JobQueue
 )
 
 # Environment settings
 TOKEN = os.environ["TOKEN"]
 PORT = int(os.environ.get("PORT", 8443))
 BOT_NAME = "tyacountmeintbot"
+updater = Updater(TOKEN, use_context=True)
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -189,7 +190,8 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
                 f"@{user_profile['username']} {REASON} #{poll_id}_{action}", parse_mode=ParseMode.HTML,
                 reply_markup=ForceReply()
             )
-            reply_message.delete(timeout=10000)
+
+            updater.job_queue.run_once(delete_message, 10, context=reply_message)
             return
         status = poll.toggle(int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
@@ -335,10 +337,13 @@ def extract_user_data(user: User) -> tuple:
     return user.id, {"first_name": user.first_name, "last_name": user.last_name, "username": user.username}
 
 
+def delete_message(context: CallbackContext) -> None:
+    message = context.job.context
+    message.delete()
+
+
 def main():
     """Starts the bot."""
-    updater = Updater(TOKEN, use_context=True)
-
     # Dispatcher to register handlers
     dispatcher = updater.dispatcher
 
