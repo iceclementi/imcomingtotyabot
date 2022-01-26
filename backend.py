@@ -239,7 +239,7 @@ class Poll(object):
     def build_option_comment_buttons(self) -> InlineKeyboardMarkup:
         buttons = []
         for i, option in enumerate(self.options):
-            button_text = option.get_title() + (" (required)" if option.comment_required() else "")
+            button_text = option.get_title() + (" (required)" if option.is_comment_required() else "")
             option_button = util.build_button(button_text, self.poll_id, f"{COMMENT}-{i}")
             buttons.append([option_button])
         back_button = util.build_button("Back", self.poll_id, BACK)
@@ -262,7 +262,7 @@ class Option(object):
     def get_title(self) -> str:
         return self.title
 
-    def comment_required(self) -> bool:
+    def is_comment_required(self) -> bool:
         return self.comment_required
 
     def has_votes(self) -> bool:
