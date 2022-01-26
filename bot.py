@@ -35,7 +35,8 @@ HELP = "This bot will help you create polls where people can leave their names. 
            "individual friends.\n\nSend /polls to manage your existing polls."
 ERROR_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_TITLE_LENGTH} characters)."
 ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_OPTION_TITLE_LENGTH} characters)."
-ERROR_EARLY_DONE = "Sorry, please add at least one option to the poll."
+ERROR_EARLY_DONE_TITLE = "Sorry, please add a title to the poll."
+ERROR_EARLY_DONE_OPTION = "Sorry, please add at least one option to the poll."
 REASON = "Please enter a reason/comment."
 
 
@@ -57,8 +58,14 @@ def handle_done(update: Update, context: CallbackContext) -> None:
 
     poll = Poll.get_temp_poll_by_id(session.get_poll_id())
 
+    # Check if there is a title
+    if not poll.get_title():
+        update.message.reply_text(ERROR_EARLY_DONE_TITLE)
+        return
+
+    # Check if there are options
     if not poll.get_options():
-        update.message.reply_text(ERROR_EARLY_DONE)
+        update.message.reply_text(ERROR_EARLY_DONE_OPTION)
         return
 
     session.end_session()
