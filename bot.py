@@ -131,8 +131,6 @@ def handle_show(update: Update, context: CallbackContext) -> None:
     if poll:
         update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML,
                                   reply_markup=poll.build_option_buttons(), reply_to_message_id=None)
-    else:
-        update.message.reply_text(DELETED_POLL)
 
 
 def handle_help(update: Update, context: CallbackContext) -> None:
@@ -409,8 +407,8 @@ def main():
     dispatcher.add_handler(CommandHandler("help", handle_help))
 
     # Message handlers
-    dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/poll_\w+$"), handle_poll_view))
-    dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/show_\w+$"), handle_show))
+    dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/poll_\w+.*$"), handle_poll_view))
+    dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/show_\w+.*$"), handle_show))
     dispatcher.add_handler(MessageHandler(Filters.text, handle_message))
 
     # Callback query handlers
