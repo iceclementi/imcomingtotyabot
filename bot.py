@@ -227,7 +227,6 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     uid = update.effective_user.id
     inline_query = update.inline_query
     text = inline_query.query.lower()
-    update.message.reply_text(text)
 
     results = []
     polls = Poll.get_polls_created_by_user(uid, filters=text, limit=10)
