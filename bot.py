@@ -1,6 +1,9 @@
 """Main Interface"""
 import os
 import logging
+
+import telegram.error
+
 import backend
 from backend import Session, Poll, Option
 import util
@@ -161,8 +164,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     """Handles a callback query."""
     query = update.callback_query
     uid, user_profile = extract_user_data(query.from_user)
-    inline_mid = query.inline_message_id
-    is_admin = not inline_mid
+    message = query.message
 
     try:
         poll_id, action = query.data.split()
@@ -179,8 +181,9 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         query.answer(text="Sorry, this poll has been deleted.")
         return
 
-    if not inline_mid:
-        poll.add_message_chat_id((query.message.message_id, query.message.chat_id))
+    if message:
+        poll.add_message_chat_id((message.message_id, message.chat_id))
+    is_admin = message and message.chat.type == "private"
 
     # Handle poll option button
     if action.isdigit():
@@ -191,7 +194,8 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
                 reply_markup=ForceReply()
             )
 
-            updater.job_queue.run_once(delete_message, 10, context=reply_message)
+            # Delete reply message after 10 minutes
+            updater.job_queue.run_once(delete_message, 600, context=reply_message)
             return
         status = poll.toggle(int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
@@ -312,9 +316,13 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
         return
 
     poll.toggle(int(option_id), uid, user_profile, comment)
+    is_admin = update.message.chat.type == "private"
+
     for message_id, chat_id in poll.get_message_chat_ids():
-        context.bot.edit_message_text(poll.render_text(), message_id=message_id, chat_id=chat_id,
-                                      parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
+        context.bot.edit_message_text(
+            poll.render_text(), message_id=message_id, chat_id=chat_id,
+            parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons(is_admin=is_admin)
+        )
 
     # Delete user and bot message
     update.message.reply_to_message.delete()
@@ -338,8 +346,11 @@ def extract_user_data(user: User) -> tuple:
 
 
 def delete_message(context: CallbackContext) -> None:
-    message = context.job.context
-    message.delete()
+    try:
+        message = context.job.context
+        message.delete()
+    except telegram.error.TelegramError:
+        logger.info("Message has been deleted.")
 
 
 def main():
