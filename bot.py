@@ -229,8 +229,8 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         if poll.is_user_comment_required(int(action), uid):
             query.answer(text=REASON)
             reply_message = query.message.reply_text(
-                f"@{user_profile['username']} {REASON} #{poll_id}_{action}", parse_mode=ParseMode.HTML,
-                reply_markup=ForceReply()
+                f"@{user_profile['username']} {REASON} #{poll_id}_{action}_{message.message_id}",
+                parse_mode=ParseMode.HTML, reply_markup=ForceReply()
             )
 
             # Delete reply message after 10 minutes
@@ -335,8 +335,8 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
 
         # Retrieve poll details
         _, poll_details = text.rsplit("#", 1)
-        poll_id, option_id = poll_details.split("_")
-        if not option_id.isdigit():
+        poll_id, opt_id, message_id = poll_details.split("_")
+        if not opt_id.isdigit():
             raise ValueError
     except (AttributeError, IndexError, ValueError):
         update.message.reply_text("Invalid reply message format!")
@@ -348,19 +348,19 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
         update.message.reply_text(DELETED_POLL)
         return
 
-    if int(option_id) >= len(poll.get_options()):
+    if int(opt_id) >= len(poll.get_options()):
         update.message.reply_text("Invalid poll option.")
         logger.warning("Invalid poll option from reply message.")
         return
 
-    poll.toggle(int(option_id), uid, user_profile, comment)
+    poll.toggle(int(opt_id), uid, user_profile, comment)
     is_admin = is_user_admin(update.message)
 
-    for message_id, chat_id in poll.get_message_chat_ids():
-        context.bot.edit_message_text(
-            poll.render_text(), message_id=message_id, chat_id=chat_id,
-            parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons(is_admin=is_admin)
-        )
+    chat_id = update.message.chat_id
+    context.bot.edit_message_text(
+        poll.render_text(), message_id=message_id, chat_id=chat_id,
+        parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons(is_admin=is_admin)
+    )
 
     # Delete user and bot message
     update.message.reply_to_message.delete()
