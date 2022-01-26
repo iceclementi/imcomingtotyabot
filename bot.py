@@ -5,7 +5,8 @@ import backend
 from backend import Session, Poll, Option
 import util
 from telegram import (
-    Update, ParseMode, KeyboardButton, ReplyKeyboardMarkup, InlineQueryResultArticle, InputTextMessageContent
+    Update, ParseMode, User, Message, KeyboardButton, ReplyKeyboardMarkup, InlineQueryResultArticle,
+    InputTextMessageContent
 )
 from telegram.ext import (
     Updater, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
@@ -32,17 +33,18 @@ HELP = "This bot will help you create polls where people can leave their names. 
 ERROR_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_TITLE_LENGTH} characters)."
 ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_OPTION_TITLE_LENGTH} characters)."
 ERROR_EARLY_DONE = "Sorry, please add at least one option to the poll."
+REASON = "Please enter a reason/comment."
 
 
 def handle_start(update: Update, context: CallbackContext) -> None:
-    """Inform the user about what the bot can do."""
+    """Informs the user about what the bot can do."""
     user = update.effective_user
     Session.start_new_session(user.id)
     update.message.reply_text(NEW_POLL)
 
 
 def handle_done(update: Update, context: CallbackContext) -> None:
-    """Finish building the poll."""
+    """Finishes building the poll."""
     uid = update.effective_user.id
     session = Session.get_session_by_id(uid)
 
@@ -62,7 +64,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
 
 
 def handle_polls(update: Update, context: CallbackContext) -> None:
-    """Display all recent polls created by user."""
+    """Displays all recent polls created by user."""
     uid = update.effective_user.id
 
     header = [util.make_html_bold("Your polls")]
@@ -78,7 +80,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
 
 
 def handle_poll_view(update: Update, context: CallbackContext) -> None:
-    """Display the poll identified by its poll id"""
+    """Displays the poll identified by its poll id"""
     uid = update.effective_user.id
     text = update.message.text
 
@@ -91,7 +93,7 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
 
 
 def handle_help(update: Update, context: CallbackContext) -> None:
-    """Display a help message."""
+    """Displays a help message."""
     update.message.reply_text(HELP)
 
 
@@ -148,9 +150,6 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
 def handle_callback_query(update: Update, context: CallbackContext) -> None:
     """Handles a callback query."""
-    extract_user_data = lambda user: \
-        (user.id, {"first_name": user.first_name, "last_name": user.last_name, "username": user.username})
-
     query = update.callback_query
     uid, user_profile = extract_user_data(query.from_user)
     inline_mid = query.inline_message_id
@@ -170,6 +169,9 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         query.edit_message_reply_markup(None)
         query.answer(text="Sorry, this poll has been deleted.")
         return
+
+    if inline_mid:
+        poll.add_inline_id(inline_mid)
 
     # Handle poll option button
     if action.isdigit():
@@ -194,6 +196,23 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         query.answer(text=status)
         query.edit_message_reply_markup(poll.build_customise_buttons())
         return
+    # Handle enforce comments button
+    elif action == backend.COMMENT and is_admin:
+        query.edit_message_reply_markup(poll.build_option_comment_buttons())
+        query.answer(text=None)
+        return
+    # Handle toggle comments required button
+    elif action.startswith(f"{backend.COMMENT}-") and is_admin:
+        _, opt_id = action.rsplit("-", 1)
+        if opt_id.isdigit():
+            status = poll.toggle_comment_requirement(int(opt_id))
+            query.edit_message_reply_markup(poll.build_option_comment_buttons())
+            query.answer(text=status)
+            return
+        else:
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            return
     # Handle vote button
     elif action == backend.VOTE and is_admin:
         query.edit_message_reply_markup(poll.build_option_buttons(True))
@@ -241,20 +260,55 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     inline_query.answer(results)
 
 
+def handle_reply_message(update: Update, context: CallbackContext) -> None:
+    """Handles a reply message to the bot."""
+    uid, user_profile = extract_user_data(update.effective_user)
+    comment = update.message.text
+
+    try:
+        reply, poll_details = update.message.reply_to_message.rsplit("#", 1)
+        poll_id, option_id = poll_details.split("-")
+        if not option_id.isdigit():
+            raise ValueError
+    except (AttributeError, IndexError, ValueError):
+        update.message.reply_text("Invalid reply message format!")
+        logger.warning("Invalid reply message format.")
+        return
+
+    poll = Poll.get_poll_by_id(poll_id)
+    if not poll:
+        update.message.reply_text("Sorry, the poll has been deleted.")
+        return
+
+    if int(option_id) >= len(poll.get_options()):
+        update.message.reply_text("Invalid poll option.")
+        logger.warning("Invalid poll option from reply message.")
+        return
+
+    poll.toggle(int(option_id), uid, user_profile, comment)
+    for inline_id in poll.get_inline_ids():
+        context.bot.edit_message_text(poll.render_text(), inline_message_id=inline_id, parse_mode=ParseMode.HTML,
+                                      reply_markup=poll.build_option_buttons())
+
+
 def handle_error(update: Update, context: CallbackContext) -> None:
-    """Log errors caused by Updates."""
+    """Logs errors caused by Updates."""
     logger.warning(f"Update {update} caused error {context.error}")
 
 
 def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
-    """Deliver the poll in admin mode."""
+    """Delivers the poll in admin mode."""
     if is_admin:
         update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML,
                                   reply_markup=poll.build_admin_buttons())
 
 
+def extract_user_data(user: User) -> tuple:
+    return user.id, {"first_name": user.first_name, "last_name": user.last_name, "username": user.username}
+
+
 def main():
-    """Start the bot."""
+    """Starts the bot."""
     updater = Updater(TOKEN, use_context=True)
 
     # Dispatcher to register handlers

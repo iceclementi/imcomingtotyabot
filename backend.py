@@ -5,7 +5,7 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 import util
 
 # Settings
-RANDOM_LENGTH = 4
+POLL_ID_LENGTH = 4
 EMOJI_PEOPLE = "\U0001f465"
 SESSION_EXPIRY = 1  # In hours
 POLL_EXPIRY = 720
@@ -20,6 +20,7 @@ PUBLISH = "publish"
 REFRESH = "refresh"
 CUSTOMISE = "custom"
 RESPONSE = "response"
+COMMENT = "comment"
 VOTE = "vote"
 DELETE = "delete"
 DELETE_YES = "delete-yes"
@@ -93,6 +94,7 @@ class Poll(object):
         self.title = ""
         self.options = []
         self.single_response = True
+        self.inline_ids = []
         self.created_date = datetime.now()
         self.expiry = POLL_EXPIRY
 
@@ -124,6 +126,13 @@ class Poll(object):
         status = "single response" if self.single_response else "multi-response"
         return f"Response type is changed to {status}."
 
+    def get_inline_ids(self) -> list:
+        return self.inline_ids
+
+    def add_inline_id(self, inline_id: str) -> None:
+        if inline_id not in self.inline_ids:
+            self.inline_ids.append(inline_id)
+
     def get_created_date(self) -> datetime:
         return self.created_date
 
@@ -143,9 +152,9 @@ class Poll(object):
 
     @staticmethod
     def create_new_poll(uid: int) -> str:
-        poll_id = util.create_random_string(RANDOM_LENGTH)
+        poll_id = util.create_random_string(POLL_ID_LENGTH)
         while poll_id in all_polls:
-            poll_id = util.create_random_string(RANDOM_LENGTH)
+            poll_id = util.create_random_string(POLL_ID_LENGTH)
         all_polls[poll_id] = Poll(uid, poll_id)
         return poll_id
 
@@ -159,7 +168,7 @@ class Poll(object):
                           if poll.get_creator_id() == uid and filters.lower() in poll.get_title().lower()]
         return sorted(all_user_polls, key=lambda poll: poll.get_created_date(), reverse=True)[:limit]
 
-    def toggle(self, opt_id: int, uid: int, user_profile: dict) -> str:
+    def toggle(self, opt_id: int, uid: int, user_profile: dict, comment="") -> str:
         if opt_id >= len(self.options):
             return "Sorry, invalid option."
 
@@ -167,7 +176,12 @@ class Poll(object):
             for i, option in enumerate(self.options):
                 if i != opt_id:
                     option.remove_user(uid)
-        return self.options[opt_id].toggle(uid, user_profile)
+        return self.options[opt_id].toggle(uid, user_profile, comment)
+
+    def toggle_comment_requirement(self, opt_id: int) -> str:
+        if opt_id >= len(self.options):
+            return "Sorry, invalid option."
+        return self.options[opt_id].toggle_comment_requirement(opt_id)
 
     def generate_respondents_summary(self) -> str:
         all_respondents_uid = set(uid for option in self.options for uid in option.respondents)
@@ -217,8 +231,19 @@ class Poll(object):
     def build_customise_buttons(self) -> InlineKeyboardMarkup:
         response_text = "Multi-Response" if self.single_response else "Single Response"
         toggle_response_button = util.build_button(f"Change to {response_text}", self.poll_id, RESPONSE)
+        enforce_comments_button = util.build_button("Change Comment Requirements", self.poll_id, COMMENT)
         back_button = util.build_button("Back", self.poll_id, BACK)
-        buttons = [[toggle_response_button], [back_button]]
+        buttons = [[toggle_response_button], [enforce_comments_button], [back_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_option_comment_buttons(self) -> InlineKeyboardMarkup:
+        buttons = []
+        for i, option in enumerate(self.options):
+            button_text = option.get_title() + (" (required)" if option.comment_required() else "")
+            option_button = util.build_button(button_text, self.poll_id, f"{COMMENT}-{i}")
+            buttons.append([option_button])
+        back_button = util.build_button("Back", self.poll_id, BACK)
+        buttons.append(back_button)
         return InlineKeyboardMarkup(buttons)
 
     def build_delete_confirmation_buttons(self) -> InlineKeyboardMarkup:
@@ -247,18 +272,30 @@ class Option(object):
         if uid in self.respondents:
             self.respondents.pop(uid)
 
-    def toggle(self, uid: int, user_profile: dict) -> str:
+    def toggle(self, uid: int, user_profile: dict, comment="") -> str:
         if uid in self.respondents:
             self.respondents.pop(uid, None)
             action = "removed from"
         else:
-            self.respondents[uid] = user_profile.get("first_name", ""), user_profile.get("last_name", "")
+            self.respondents[uid] = user_profile.get("first_name", ""), user_profile.get("last_name", ""), comment
             action = "added to"
         return f"You are {action} {self.title}!"
 
+    def toggle_comment_requirement(self) -> str:
+        self.comment_required = not self.comment_required
+        action = "now requires comments" if self.comment_required else "no longer requires comments"
+        return f"Option '{self.title}' {action}"
+
     def generate_namelist(self) -> str:
-        return "\n".join(f"{first_name} {last_name}" if last_name else first_name
-                         for first_name, last_name in self.respondents.values())
+        namelist = []
+        for first_name, last_name, comment in self.respondents.values():
+            name = first_name
+            if last_name:
+                name += f" {last_name}"
+            if comment:
+                name += f" ({comment})"
+            namelist.append(name)
+        return "\n".join(namelist)
 
     def render_text(self) -> str:
         title = util.make_html_bold(self.title)
