@@ -130,7 +130,7 @@ def handle_show(update: Update, context: CallbackContext) -> None:
 
     if poll:
         update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                  reply_markup=poll.build_option_buttons(), reply_to_message_id=None)
+                                  reply_markup=poll.build_option_buttons(), reply_to_message_id=-1)
 
 
 def handle_help(update: Update, context: CallbackContext) -> None:
