@@ -181,7 +181,7 @@ class Poll(object):
     def toggle_comment_requirement(self, opt_id: int) -> str:
         if opt_id >= len(self.options):
             return "Sorry, invalid option."
-        return self.options[opt_id].toggle_comment_requirement(opt_id)
+        return self.options[opt_id].toggle_comment_requirement()
 
     def generate_respondents_summary(self) -> str:
         all_respondents_uid = set(uid for option in self.options for uid in option.respondents)
