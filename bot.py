@@ -280,10 +280,10 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
     uid, user_profile = extract_user_data(update.effective_user)
     comment = update.message.text
 
-    update.message.reply_text(update.message.text)
+    update.message.reply_text(update.message.reply_to_message.text)
 
     try:
-        reply, poll_details = update.message.reply_to_message.rsplit("#", 1)
+        reply, poll_details = update.message.reply_to_message.text.rsplit("#", 1)
         poll_id, option_id = poll_details.split("_")
         if not option_id.isdigit():
             raise ValueError
