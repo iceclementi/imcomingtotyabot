@@ -42,6 +42,10 @@ REASON = "Please enter a reason/comment."
 
 def handle_start(update: Update, context: CallbackContext) -> None:
     """Informs the user about what the bot can do."""
+    # Start command only work in private chat
+    if not is_user_admin(update.message):
+        return
+
     user = update.effective_user
     Session.start_new_session(user.id)
     update.message.reply_text(NEW_POLL)
@@ -49,6 +53,10 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
 def handle_done(update: Update, context: CallbackContext) -> None:
     """Finishes building the poll."""
+    # Done command only work in private chat
+    if not is_user_admin(update.message):
+        return
+
     uid = update.effective_user.id
     session = Session.get_session_by_id(uid)
 
@@ -75,6 +83,10 @@ def handle_done(update: Update, context: CallbackContext) -> None:
 
 def handle_polls(update: Update, context: CallbackContext) -> None:
     """Displays all recent polls created by user."""
+    # Polls command only work in private chat
+    if not is_user_admin(update.message):
+        return
+
     uid = update.effective_user.id
 
     header = [util.make_html_bold("Your polls")]
@@ -90,7 +102,11 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
 
 
 def handle_poll_view(update: Update, context: CallbackContext) -> None:
-    """Displays the poll identified by its poll id"""
+    """Displays the master poll identified by its poll id"""
+    # Poll view command only work in private chat
+    if not is_user_admin(update.message):
+        return
+
     uid = update.effective_user.id
     text = update.message.text
 
@@ -102,8 +118,19 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
         update.message.reply_text(HELP)
 
 
+def handle_show(update: Update, context: CallbackContext) -> None:
+    """Displays the standard poll identified by its poll id"""
+    uid = update.effective_user.id
+    text = update.message.text
+
+    update.message.reply_text(text)
+
+
 def handle_help(update: Update, context: CallbackContext) -> None:
     """Displays a help message."""
+    # Help command only work in private chat
+    if not is_user_admin(update.message):
+        return
     update.message.reply_text(HELP)
 
 
@@ -188,7 +215,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     if message:
         poll.add_message_chat_id((message.message_id, message.chat_id))
-    is_admin = message and message.chat.type == "private"
+    is_admin = is_user_admin(message)
 
     # Handle poll option button
     if action.isdigit():
@@ -279,8 +306,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     for poll in polls:
         query_result = InlineQueryResultArticle(
             id=poll.get_poll_id(), title=poll.get_title(), description=poll.generate_options_summary(),
-            input_message_content=InputTextMessageContent(poll.render_text(), parse_mode=ParseMode.HTML),
-            reply_markup=poll.build_option_buttons()
+            input_message_content=InputTextMessageContent(f"/show {poll.get_poll_id()} @{BOT_NAME}")
         )
         results.append(query_result)
 
@@ -321,7 +347,7 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
         return
 
     poll.toggle(int(option_id), uid, user_profile, comment)
-    is_admin = update.message.chat.type == "private"
+    is_admin = is_user_admin(update.message)
 
     for message_id, chat_id in poll.get_message_chat_ids():
         context.bot.edit_message_text(
@@ -344,6 +370,10 @@ def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
     if is_admin:
         update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML,
                                   reply_markup=poll.build_admin_buttons())
+
+
+def is_user_admin(message: Message) -> bool:
+    return message and message.chat.type == "private"
 
 
 def extract_user_data(user: User) -> tuple:
