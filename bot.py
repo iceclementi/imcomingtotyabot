@@ -1,6 +1,7 @@
 """Main Interface"""
 import os
 import logging
+import re
 import backend
 from backend import Session, Poll, Option
 import util
@@ -111,7 +112,8 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
     uid = update.effective_user.id
     text = update.message.text
 
-    poll = Poll.get_poll_by_id(text[6:])
+    poll_id = re.match(r"^/poll_(\w+).*$", text).group(1)
+    poll = Poll.get_poll_by_id(poll_id)
     if poll and poll.get_creator_id() == uid:
         deliver_poll(update, poll, is_admin=True)
         return
@@ -121,21 +123,14 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
 
 def handle_show(update: Update, context: CallbackContext) -> None:
     """Displays the standard poll identified by its poll id"""
-    uid = update.effective_user.id
-    split_text = update.message.text.split(" ")
-
-    if len(split_text) < 2:
-        return
-
-    poll_id = split_text[1]
+    poll_id = re.match(r"^/show_(\w+).*$", text).group(1)
     poll = Poll.get_poll_by_id(poll_id)
 
-    if not poll:
+    if poll:
+        update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML,
+                                  reply_markup=poll.build_option_buttons(), reply_to_message_id=None)
+    else:
         update.message.reply_text(DELETED_POLL)
-        return
-
-    update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                              reply_markup=poll.build_option_buttons(), reply_to_message_id=None)
 
 
 def handle_help(update: Update, context: CallbackContext) -> None:
@@ -318,7 +313,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     for poll in polls:
         query_result = InlineQueryResultArticle(
             id=poll.get_poll_id(), title=poll.get_title(), description=poll.generate_options_summary(),
-            input_message_content=InputTextMessageContent(f"/show {poll.get_poll_id()} @{BOT_NAME}")
+            input_message_content=InputTextMessageContent(f"/show_{poll.get_poll_id()} @{BOT_NAME}")
         )
         results.append(query_result)
 
@@ -409,11 +404,11 @@ def main():
     dispatcher.add_handler(CommandHandler("start", handle_start))
     dispatcher.add_handler(CommandHandler("done", handle_done))
     dispatcher.add_handler(CommandHandler("polls", handle_polls))
-    dispatcher.add_handler(CommandHandler("show", handle_show))
     dispatcher.add_handler(CommandHandler("help", handle_help))
 
     # Message handlers
     dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/poll_\w+$"), handle_poll_view))
+    dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/show_\w+$"), handle_show))
     dispatcher.add_handler(MessageHandler(Filters.text, handle_message))
 
     # Callback query handlers
