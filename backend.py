@@ -219,6 +219,8 @@ class Poll(object):
         for i, option in enumerate(self.options):
             option_button = util.build_button(option.get_title(), self.poll_id, str(i))
             buttons.append([option_button])
+        test_button = InlineKeyboardButton("Test", switch_inline_query_current_chat ="/testing")
+        buttons.append([test_button])
         if is_admin:
             back_button = util.build_button("Back", self.poll_id, BACK)
             buttons.append([back_button])

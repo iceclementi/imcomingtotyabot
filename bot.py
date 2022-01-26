@@ -100,6 +100,9 @@ def handle_help(update: Update, context: CallbackContext) -> None:
 
 def handle_message(update: Update, context: CallbackContext) -> None:
     """Handles a message from the user."""
+    if not update.message:
+        return
+
     text = update.message.text
     if not text:
         return
@@ -178,6 +181,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     if action.isdigit():
         if poll.is_user_comment_required(int(action), uid):
             query.answer(text=REASON)
+            query.bot.send_message()
             query.message.reply_text(
                 f"@{user_profile['username']} {REASON} #{poll_id}-{action}", parse_mode=ParseMode.HTML,
                 reply_markup=ForceReply(input_field_placeholder=f"@{BOT_NAME} /comment_{poll_id}-{action}")
