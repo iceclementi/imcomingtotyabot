@@ -154,8 +154,9 @@ class Poll(object):
         return all_polls.get(poll_id, None)
 
     @staticmethod
-    def get_polls_created_by_user(uid: int, limit=50) -> list:
-        all_user_polls = [poll for poll in all_polls.values() if poll.get_creator_id() == uid]
+    def get_polls_created_by_user(uid: int, filters="", limit=50) -> list:
+        all_user_polls = [poll for poll in all_polls.values()
+                          if poll.get_creator_id() == uid and filters.lower() in poll.get_title().lower()]
         return sorted(all_user_polls, key=lambda poll: poll.get_created_date(), reverse=True)[:limit]
 
     def toggle(self, opt_id: int, uid: int, user_profile: dict) -> str:
@@ -181,7 +182,7 @@ class Poll(object):
 
     def generate_linked_summary(self) -> str:
         short_bold_title = [util.make_html_bold(self.title)[:60]]
-        respondents_summary = [self.generate_respondents_summary()]
+        respondents_summary = [f"({self.generate_respondents_summary()})"]
         link = [f"/poll_{self.poll_id}"]
         return "\n".join(short_bold_title + respondents_summary + link)
 

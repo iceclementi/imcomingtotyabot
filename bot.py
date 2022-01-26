@@ -4,7 +4,9 @@ import logging
 import backend
 from backend import Session, Poll, Option
 import util
-from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
+from telegram import (
+    Update, ParseMode, KeyboardButton, ReplyKeyboardMarkup, InlineQueryResultArticle, InputTextMessageContent
+)
 from telegram.ext import (
     Updater, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
     RegexHandler, Filters
@@ -65,11 +67,14 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
 
     header = [util.make_html_bold("Your polls")]
 
-    recent_polls = Poll.get_polls_created_by_user(uid, 20)
-    body = [f"{i + 1}. {poll.generate_linked_summary()}" for i, poll in enumerate(recent_polls)]
+    recent_polls = Poll.get_polls_created_by_user(uid, limit=20)
+    if recent_polls:
+        body = [f"{i + 1}. {poll.generate_linked_summary()}" for i, poll in enumerate(recent_polls)]
+    else:
+        body = ["You have no polls! Use /start to build a new poll."]
 
     response = "\n\n".join(header + body)
-    update.message.reply_text(response, parse_mode="HTML")
+    update.message.reply_text(response, parse_mode=ParseMode.HTML)
 
 
 def handle_poll_view(update: Update, context: CallbackContext) -> None:
@@ -117,7 +122,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
         bold_title = util.make_html_bold_first_line(text)
         response = NEW_OPTION.format(bold_title)
-        update.message.reply_text(response, parse_mode="HTML")
+        update.message.reply_text(response, parse_mode=ParseMode.HTML)
         return
     # Handle option
     elif session_progress == backend.OPTION:
@@ -169,13 +174,13 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     # Handle poll option button
     if action.isdigit():
         status = poll.toggle(int(action), uid, user_profile)
-        query.edit_message_text(poll.render_text(), parse_mode="HTML",
+        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
                                 reply_markup=poll.build_option_buttons(is_admin))
         query.answer(text=status)
         return
     # Handle refresh button
     elif action == backend.REFRESH and is_admin:
-        query.edit_message_text(poll.render_text(), parse_mode="HTML", reply_markup=poll.build_admin_buttons())
+        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons())
         query.answer(text="Results updated!")
         return
     # Handle customise button
@@ -208,6 +213,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     # Handle back button
     elif action == backend.BACK and is_admin:
         query.edit_message_reply_markup(poll.build_admin_buttons())
+        query.answer(text=None)
         return
     # Handle other cases
     else:
@@ -218,8 +224,21 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
 def handle_inline_query(update: Update, context: CallbackContext) -> None:
     """Handles an inline query."""
-    query = update.inline_query
-    text = query.query.lower()
+    uid = update.effective_user.id
+    inline_query = update.inline_query
+    text = inline_query.query.lower()
+
+    results = []
+    polls = Poll.get_polls_created_by_user(uid, filters=text, limit=10)
+    for poll in polls:
+        query_result = InlineQueryResultArticle(
+            id= poll.get_poll_id(), title=poll.get_title(), description=poll.generate_options_summary(),
+            input_message_content=InputTextMessageContent(poll.render_text(), parse_mode=ParseMode.HTML),
+            reply_markup=poll.build_option_buttons()
+        )
+        results.append(query_result)
+
+    inline_query.answer(results)
 
 
 def handle_error(update: Update, context: CallbackContext) -> None:
@@ -230,7 +249,8 @@ def handle_error(update: Update, context: CallbackContext) -> None:
 def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
     """Deliver the poll in admin mode."""
     if is_admin:
-        update.message.reply_text(poll.render_text(), parse_mode="HTML", reply_markup=poll.build_admin_buttons())
+        update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML,
+                                  reply_markup=poll.build_admin_buttons())
 
 
 def main():
