@@ -15,7 +15,7 @@ from telegram.ext import (
 
 # Environment settings
 TOKEN = os.environ["TOKEN"]
-PORT = int(os.environ.get("PORT", 5000))
+PORT = int(os.environ.get("PORT", 8443))
 BOT_NAME = "tyacountmeintbot"
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -345,8 +345,8 @@ def main():
     dispatcher.add_error_handler(handle_error)
 
     # Start the bot
-    updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN)
-    updater.bot.setWebhook("https://tya-countmein.herokuapp.com/" + TOKEN)
+    updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN,
+                          webhook_url="https://tya-countmein.herokuapp.com/" + TOKEN)
     updater.idle()
 
 
