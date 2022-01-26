@@ -6,7 +6,7 @@ from backend import Session, Poll, Option
 import util
 from telegram import (
     Update, ParseMode, User, Message, KeyboardButton, ReplyKeyboardMarkup, InlineQueryResultArticle,
-    InputTextMessageContent
+    InputTextMessageContent, ForceReply
 )
 from telegram.ext import (
     Updater, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
@@ -16,6 +16,7 @@ from telegram.ext import (
 # Environment settings
 TOKEN = os.environ["TOKEN"]
 PORT = int(os.environ.get("PORT", 5000))
+BOT_NAME = "tyacountmeintbot"
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -175,6 +176,13 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     # Handle poll option button
     if action.isdigit():
+        if poll.is_user_comment_required(poll_id, uid):
+            query.answer(text=REASON)
+            query.message.reply_text(
+                f"@{user_profile['username']} {REASON} #{poll_id}-{action}", parse_mode=ParseMode.HTML,
+                reply_markup=ForceReply(input_field_placeholder=f"@{BOT_NAME} /comment_{poll_id}-{action}")
+            )
+            return
         status = poll.toggle(int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
                                 reply_markup=poll.build_option_buttons(is_admin))

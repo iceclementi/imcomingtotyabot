@@ -183,6 +183,11 @@ class Poll(object):
             return "Sorry, invalid option."
         return self.options[opt_id].toggle_comment_requirement()
 
+    def is_user_comment_required(self, opt_id: int, uid: int) -> bool:
+        if opt_id >= len(self.options):
+            return False
+        return self.options[opt_id].is_user_comment_required(uid)
+
     def generate_respondents_summary(self) -> str:
         all_respondents_uid = set(uid for option in self.options for uid in option.respondents)
         respondents_count = len(all_respondents_uid)
@@ -265,6 +270,9 @@ class Option(object):
     def is_comment_required(self) -> bool:
         return self.comment_required
 
+    def is_user_comment_required(self, uid: int) -> bool:
+        return self.comment_required and uid not in self.respondents
+
     def has_votes(self) -> bool:
         return len(self.respondents) > 0
 
@@ -284,7 +292,7 @@ class Option(object):
     def toggle_comment_requirement(self) -> str:
         self.comment_required = not self.comment_required
         action = "now requires comments" if self.comment_required else "no longer requires comments"
-        return f"Option '{self.title}' {action}"
+        return f"Option '{self.title}' {action}."
 
     def generate_namelist(self) -> str:
         namelist = []
