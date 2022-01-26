@@ -189,7 +189,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
                 f"@{user_profile['username']} {REASON} #{poll_id}_{action}", parse_mode=ParseMode.HTML,
                 reply_markup=ForceReply()
             )
-            reply_message.delete(timeout=30)
+            reply_message.delete(timeout=10000)
             return
         status = poll.toggle(int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
