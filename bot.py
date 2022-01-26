@@ -103,7 +103,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if not update.message:
         return
 
-    if not update.message.reply_to_message:
+    if update.message.reply_to_message:
         handle_reply_message(update, context)
         return
 
