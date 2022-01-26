@@ -280,10 +280,16 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
     uid, user_profile = extract_user_data(update.effective_user)
     comment = update.message.text
 
-    update.message.reply_text(update.message.reply_to_message.text)
+    text = update.message.reply_to_message.text
 
     try:
-        reply, poll_details = update.message.reply_to_message.text.rsplit("#", 1)
+        # Check if username matches
+        username, _ = text.split(" ", 1)
+        if username.lstrip("@") != user_profile["username"]:
+            return
+
+        # Retrieve poll details
+        _, poll_details = text.rsplit("#", 1)
         poll_id, option_id = poll_details.split("_")
         if not option_id.isdigit():
             raise ValueError
@@ -302,10 +308,12 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
         logger.warning("Invalid poll option from reply message.")
         return
 
+    update.message.reply_text(str(poll.get_message_chat_ids()))
+
     poll.toggle(int(option_id), uid, user_profile, comment)
-    for inline_id in poll.get_inline_ids():
-        context.bot.edit_message_text(poll.render_text(), inline_message_id=inline_id, parse_mode=ParseMode.HTML,
-                                      reply_markup=poll.build_option_buttons())
+    for message_id, chat_id in poll.get_message_chat_ids():
+        context.bot.edit_message_text(poll.render_text(), message_id=message_id, chat_id=chat_id,
+                                      parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
 
 
 def handle_error(update: Update, context: CallbackContext) -> None:
