@@ -129,8 +129,8 @@ def handle_show(update: Update, context: CallbackContext) -> None:
     poll = Poll.get_poll_by_id(poll_id)
 
     if poll:
-        update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                  reply_markup=poll.build_option_buttons(), reply_to_message_id=-1)
+        reply = update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_to_message_id=-1)
+        reply.edit_reply_markup(poll.build_option_buttons(reply.message_id))
 
 
 def handle_help(update: Update, context: CallbackContext) -> None:
@@ -236,7 +236,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
             return
         status = poll.toggle(int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=poll.build_option_buttons(is_admin))
+                                reply_markup=poll.build_option_buttons(message.message_id, is_admin=is_admin))
         query.answer(text=status)
         return
     # Handle refresh button
@@ -274,7 +274,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
             return
     # Handle vote button
     elif action == backend.VOTE and is_admin:
-        query.edit_message_reply_markup(poll.build_option_buttons(True))
+        query.edit_message_reply_markup(poll.build_option_buttons(message.message_id, is_admin=True))
         query.answer(text="You may now vote!")
         return
     # Handle delete button
@@ -358,7 +358,7 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
     chat_id = update.message.chat_id
     context.bot.edit_message_text(
         poll.render_text(), message_id=message_id, chat_id=chat_id,
-        parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons(is_admin=is_admin)
+        parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons(message_id, is_admin=is_admin)
     )
 
     # Delete user and bot message
@@ -379,14 +379,17 @@ def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
 
 
 def is_user_admin(message: Message) -> bool:
+    """Verifies if a user is an admin"""
     return message and message.chat.type == "private"
 
 
 def extract_user_data(user: User) -> tuple:
+    """Extracts user data from User object"""
     return user.id, {"first_name": user.first_name, "last_name": user.last_name, "username": user.username}
 
 
 def delete_message(context: CallbackContext) -> None:
+    """Deletes a message from the job queue"""
     try:
         message = context.job.context
         message.delete()
