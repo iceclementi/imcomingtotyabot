@@ -36,6 +36,9 @@ all_polls = dict()
 
 
 class User(object):
+    def __init__(self) -> None:
+        pass
+
     @staticmethod
     def grant_access(uid: int) -> None:
         creators.add(uid)
