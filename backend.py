@@ -279,12 +279,27 @@ class Option(object):
     def is_user_comment_required(self, uid: int) -> bool:
         return self.comment_required and uid not in self.respondents
 
+    def is_voted_by_user(self, uid: int) -> bool:
+        return uid in self.respondents
+
     def has_votes(self) -> bool:
         return len(self.respondents) > 0
 
     def remove_user(self, uid: int) -> None:
         if uid in self.respondents:
             self.respondents.pop(uid)
+
+    def get_user_comment(self, uid: int) -> str:
+        if uid not in self.respondents:
+            return "No comment."
+        _, _, comment = self.respondents[uid]
+        return comment if comment else "No comment."
+
+    def edit_user_comment(self, uid: int, comment: str) -> None:
+        if uid not in self.respondents:
+            return
+        first_name, last_name, _ = self.respondents[uid]
+        self.respondents[uid] = first_name, last_name, comment
 
     def toggle(self, uid: int, user_profile: dict, comment="") -> str:
         if uid in self.respondents:

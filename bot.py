@@ -304,10 +304,32 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     """Handles an inline query."""
     uid = update.effective_user.id
     inline_query = update.inline_query
-    text = inline_query.query.lower()
+    text = inline_query.query
 
     results = []
-    polls = Poll.get_polls_created_by_user(uid, filters=text, limit=10)
+
+    # Handle comment query
+    match = re.match(r"^\s*/comment_([^_\W]+)_([^_\W]+)\s*(\S*)\s*$", text)
+    if match:
+        poll_id, mid_code, opt_title = match.group(1), match.group(2), match.group(3)
+        poll = Poll.get_poll_by_id(poll_id)
+
+        if not poll:
+            inline_query.answer(results)
+            return
+        
+        for i, option in enumerate(poll.get_options()):
+            if opt_title.lower() in option.get_title().lower() and option.is_voted_by_user(uid):
+                query_result = InlineQueryResultArticle(
+                    id=f"{poll_id}_{i}_{mid_code}", title=option.get_title(), description=option.get_user_comment(uid),
+                    input_message_content=InputTextMessageContent(f"/comment_{poll_id}_{i}_{mid_code} @{BOT_NAME}")
+                )
+                results.append(query_result)
+        inline_query.answer(results)
+        return
+
+    # Handle poll query
+    polls = Poll.get_polls_created_by_user(uid, filters=text.lower(), limit=10)
     for poll in polls:
         query_result = InlineQueryResultArticle(
             id=poll.get_poll_id(), title=poll.get_title(), description=poll.generate_options_summary(),
