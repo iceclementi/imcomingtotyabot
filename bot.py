@@ -80,7 +80,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
 
     session.end_session()
     update.message.reply_text(DONE)
-    deliver_poll(update, poll, True)
+    deliver_poll(update, poll, is_admin=True)
 
 
 def handle_polls(update: Update, context: CallbackContext) -> None:
@@ -129,8 +129,7 @@ def handle_show(update: Update, context: CallbackContext) -> None:
     poll = Poll.get_poll_by_id(poll_id)
 
     if poll:
-        reply = update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_to_message_id=-1)
-        reply.edit_reply_markup(poll.build_option_buttons(reply.message_id))
+        deliver_poll(update, poll)
 
 
 def handle_comment(update: Update, context: CallbackContext) -> None:
@@ -215,7 +214,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
             session.end_session()
             update.message.reply_text(DONE)
-            deliver_poll(update, poll, True)
+            deliver_poll(update, poll, is_admin=True)
             return
     # Handle other cases
     else:
@@ -339,12 +338,12 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     results = []
 
     # Handle comment query
-    match = re.match(r"^\s*/comment_([^_\W]+)_([^_\W]+)\s*(\S*)\s*$", text)
+    match = re.match(r"^\s*/comment_([^_\W]+)_([^_\W]+)\s+(\S*)\s*$", text)
     if match:
         poll_id, mid_code, opt_title = match.group(1), match.group(2), match.group(3)
         poll = Poll.get_poll_by_id(poll_id)
 
-        if not poll:
+        if not poll or not poll.has_message_id(mid_code):
             inline_query.answer(results)
             return
 
@@ -432,8 +431,12 @@ def handle_error(update: Update, context: CallbackContext) -> None:
 def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
     """Delivers the poll in admin mode."""
     if is_admin:
-        update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                  reply_markup=poll.build_admin_buttons())
+        reply = update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML,
+                                          reply_markup=poll.build_admin_buttons())
+    else:
+        reply = update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_to_message_id=-1)
+        reply.edit_reply_markup(poll.build_option_buttons(reply.message_id))
+    poll.add_message_id(reply.message_id)
 
 
 def is_user_admin(message: Message) -> bool:
