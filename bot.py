@@ -17,7 +17,7 @@ import telegram.error
 
 # Environment settings
 TOKEN = os.environ["TOKEN"]
-ACCESS_KEY = os.environ["ACCESS_KEY"].split("_")
+ACCESS_KEYS = os.environ["ACCESS_KEY"].split("_")
 PORT = int(os.environ.get("PORT", 8443))
 updater = Updater(TOKEN, use_context=True)
 
@@ -63,7 +63,7 @@ def handle_access(update: Update, context: CallbackContext) -> None:
         return
 
     access_key = match.group(1)
-    if access_key == ACCESS_KEY:
+    if access_key in ACCESS_KEY:
         Admin.grant_access(uid)
         update.message.reply_text(ACCESS_GRANTED)
         return
