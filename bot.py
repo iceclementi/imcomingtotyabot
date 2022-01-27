@@ -346,10 +346,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         if not poll or not poll.has_message_id(mid_code):
             inline_query.answer(results)
             return
-        results.append(InlineQueryResultArticle(
-                    id=f"test", title="test", description="testing",
-                    input_message_content=InputTextMessageContent(f"/test")
-                ))
+
         for i, option in enumerate(poll.get_options()):
             if opt_title.lower() in option.get_title().lower() and option.is_voted_by_user(uid):
                 query_result = InlineQueryResultArticle(
