@@ -1,6 +1,7 @@
 """Util methods"""
 import string
 import random
+from base64 import b64encode, b64decode
 from telegram import InlineKeyboardButton
 
 
@@ -8,18 +9,26 @@ def create_random_string(n: int) -> str:
     return ''.join(random.choices(string.ascii_letters + string.digits, k=n))
 
 
-def strip_html_symbols(text):
+def strip_html_symbols(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def make_html_bold(text):
+def make_html_bold(text: str) -> str:
     return f"<b>{strip_html_symbols(text)}</b>"
 
 
-def make_html_bold_first_line(text):
+def make_html_bold_first_line(text: str) -> str:
     text_split = text.split("\n", 1)
     output = make_html_bold(text_split[0])
     return output + "\n" + strip_html_symbols(text_split[1]) if len(text_split) > 1 else output
+
+
+def encode(text: str) -> str:
+    return b64encode(text.encode("ascii")).decode("ascii")
+
+
+def decode(code: str) -> str:
+    return b64decode(code.encode("ascii")).decode("ascii")
 
 
 def build_button(text: str, poll_id: str, action: str) -> InlineKeyboardButton:

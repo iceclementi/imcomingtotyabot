@@ -227,7 +227,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         if poll.is_user_comment_required(int(action), uid):
             query.answer(text=REASON)
             reply_message = query.message.reply_text(
-                f"@{user_profile['username']} {REASON} #{poll_id}_{action}_{message.message_id}",
+                f"@{user_profile['username']} {REASON} #{poll_id}_{action}_{util.encode(str(message.message_id))}",
                 parse_mode=ParseMode.HTML, reply_markup=ForceReply()
             )
 
@@ -334,6 +334,7 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
         # Retrieve poll details
         _, poll_details = text.rsplit("#", 1)
         poll_id, opt_id, message_id = poll_details.split("_")
+        message_id = util.decode(message_id)
         if not opt_id.isdigit():
             raise ValueError
     except (AttributeError, IndexError, ValueError):
