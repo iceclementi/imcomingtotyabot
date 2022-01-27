@@ -63,7 +63,7 @@ def handle_access(update: Update, context: CallbackContext) -> None:
         return
 
     access_key = match.group(1)
-    if access_key in ACCESS_KEY:
+    if access_key in ACCESS_KEYS:
         Admin.grant_access(uid)
         update.message.reply_text(ACCESS_GRANTED)
         return
