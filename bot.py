@@ -147,6 +147,9 @@ def handle_comment(update: Update, context: CallbackContext) -> None:
         parse_mode=ParseMode.HTML, reply_markup=ForceReply()
     )
 
+    # Delete user message
+    update.message.delete()
+
     # Delete reply message after 10 minutes
     updater.job_queue.run_once(delete_message, 600, context=reply_message)
     return
