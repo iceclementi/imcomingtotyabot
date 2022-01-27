@@ -19,6 +19,7 @@ OPTION = "option"
 # Button actions
 PUBLISH = "publish"
 REFRESH = "refresh"
+REFRESH_OPT = "refresh-opt"
 CUSTOMISE = "custom"
 RESPONSE = "response"
 COMMENT = "comment"
@@ -233,7 +234,8 @@ class Poll(object):
         edit_comments_button = util.build_switch_button(
             "Add/Edit Comments", f"/comment_{self.poll_id}_{util.encode(mid)} ", to_self=True
         )
-        buttons.append([edit_comments_button])
+        refresh_button = util.build_button("Refresh", self.poll_id, REFRESH_OPT)
+        buttons.append([edit_comments_button, refresh_button])
         if is_admin:
             back_button = util.build_button("Back", self.poll_id, BACK)
             buttons.append([back_button])

@@ -180,7 +180,8 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     session = Session.get_session_by_id(uid)
 
     if not session:
-        update.message.reply_text(HELP)
+        if is_user_admin(update.message):
+            update.message.reply_text(HELP)
         return
 
     session_progress = session.get_progress()
@@ -218,7 +219,8 @@ def handle_message(update: Update, context: CallbackContext) -> None:
             return
     # Handle other cases
     else:
-        update.message.reply_text(HELP)
+        if is_user_admin(update.message):
+            update.message.reply_text(HELP)
 
 
 def handle_callback_query(update: Update, context: CallbackContext) -> None:
@@ -260,6 +262,12 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
                                 reply_markup=poll.build_option_buttons(message.message_id, is_admin=is_admin))
         query.answer(text=status)
+        return
+    # Handle refresh option button
+    elif action == backend.REFRESH_OPT:
+        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
+                                reply_markup=poll.build_option_buttons(message.message_id, is_admin=is_admin))
+        query.answer(text="Results updated!")
         return
     # Handle refresh button
     elif action == backend.REFRESH and is_admin:
