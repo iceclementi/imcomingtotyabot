@@ -96,7 +96,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
     uid = update.effective_user.id
     session = Session.get_session_by_id(uid)
 
-    if not session:
+    if not session or (ACCESS_REQUIRED and not Admin.has_access(uid)):
         update.message.reply_text(HELP)
         return
 
@@ -124,6 +124,9 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
         return
 
     uid = update.effective_user.id
+    if ACCESS_REQUIRED and not Admin.has_access(uid):
+        update.message.reply_text(HELP)
+        return
 
     header = [util.make_html_bold("Your polls")]
 
@@ -145,6 +148,10 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
 
     uid = update.effective_user.id
     text = update.message.text
+    
+    if ACCESS_REQUIRED and not Admin.has_access(uid):
+        update.message.reply_text(HELP)
+        return
 
     poll_id = re.match(r"^/poll_(\w+).*$", text).group(1)
     poll = Poll.get_poll_by_id(poll_id)
