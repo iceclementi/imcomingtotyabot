@@ -436,7 +436,7 @@ def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
     else:
         reply = update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_to_message_id=-1)
         reply.edit_reply_markup(poll.build_option_buttons(reply.message_id))
-    poll.add_message_id(reply.message_id)
+    poll.add_message_id(util.encode(reply.message_id))
 
 
 def is_user_admin(message: Message) -> bool:
