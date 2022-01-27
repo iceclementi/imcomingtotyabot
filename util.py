@@ -1,8 +1,9 @@
 """Util methods"""
 import string
 import random
-from base64 import b64encode, b64decode
 from telegram import InlineKeyboardButton
+
+ENCODE_KEY = string.digits + string.ascii_letters
 
 
 def create_random_string(n: int) -> str:
@@ -23,12 +24,21 @@ def make_html_bold_first_line(text: str) -> str:
     return output + "\n" + strip_html_symbols(text_split[1]) if len(text_split) > 1 else output
 
 
-def encode(text: str) -> str:
-    return b64encode(text.encode("ascii")).decode("ascii")
+def encode(num: int, base=32) -> str:
+    if num == 0:
+        return "0"
+    code = ""
+    while num > 0:
+        num, i = divmod(num, base)
+        code += ENCODE_KEY[i]
+    return code
 
 
-def decode(code: str) -> str:
-    return b64decode(code.encode("ascii")).decode("ascii")
+def decode(code: str, base=32) -> int:
+    num = 0
+    for i, value in enumerate(code):
+        num += ENCODE_KEY.find(value) * base ** i
+    return num
 
 
 def build_button(text: str, poll_id: str, action: str) -> InlineKeyboardButton:

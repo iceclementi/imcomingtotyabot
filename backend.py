@@ -216,13 +216,13 @@ class Poll(object):
         footer = [f"{EMOJI_PEOPLE} {self.generate_respondents_summary()}"]
         return "\n\n".join(header + body + footer)
 
-    def build_option_buttons(self, mid: str, is_admin=False) -> InlineKeyboardMarkup:
+    def build_option_buttons(self, mid: int, is_admin=False) -> InlineKeyboardMarkup:
         buttons = []
         for i, option in enumerate(self.options):
             option_button = util.build_button(option.get_title(), self.poll_id, str(i))
             buttons.append([option_button])
         edit_comments_button = util.build_switch_button(
-            "Add/Edit Comments", f"@{BOT_NAME} /comment_{self.poll_id}_{util.encode(mid)} ", to_self=True
+            "Add/Edit Comments", f"/comment_{self.poll_id}_{util.encode(mid)} ", to_self=True
         )
         buttons.append([edit_comments_button])
         if is_admin:

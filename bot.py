@@ -130,7 +130,7 @@ def handle_show(update: Update, context: CallbackContext) -> None:
 
     if poll:
         reply = update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_to_message_id=-1)
-        reply.edit_reply_markup(poll.build_option_buttons(str(reply.message_id)))
+        reply.edit_reply_markup(poll.build_option_buttons(reply.message_id))
 
 
 def handle_help(update: Update, context: CallbackContext) -> None:
@@ -227,7 +227,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         if poll.is_user_comment_required(int(action), uid):
             query.answer(text=REASON)
             reply_message = query.message.reply_text(
-                f"@{user_profile['username']} {REASON} #{poll_id}_{action}_{util.encode(str(message.message_id))}",
+                f"@{user_profile['username']} {REASON} #{poll_id}_{action}_{util.encode(message.message_id)}",
                 parse_mode=ParseMode.HTML, reply_markup=ForceReply()
             )
 
@@ -236,7 +236,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
             return
         status = poll.toggle(int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=poll.build_option_buttons(str(message.message_id), is_admin=is_admin))
+                                reply_markup=poll.build_option_buttons(message.message_id, is_admin=is_admin))
         query.answer(text=status)
         return
     # Handle refresh button
@@ -274,7 +274,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
             return
     # Handle vote button
     elif action == backend.VOTE and is_admin:
-        query.edit_message_reply_markup(poll.build_option_buttons(str(message.message_id), is_admin=True))
+        query.edit_message_reply_markup(poll.build_option_buttons(message.message_id, is_admin=True))
         query.answer(text="You may now vote!")
         return
     # Handle delete button
@@ -358,7 +358,7 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
     chat_id = update.message.chat_id
     context.bot.edit_message_text(
         poll.render_text(), message_id=message_id, chat_id=chat_id,
-        parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons(str(message_id), is_admin=is_admin)
+        parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons(message_id, is_admin=is_admin)
     )
 
     # Delete user and bot message
