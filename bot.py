@@ -3,7 +3,7 @@ import os
 import logging
 import re
 import backend
-from backend import User, Session, Poll, Option
+from backend import Admin, Session, Poll, Option
 import util
 from telegram import (
     Update, ParseMode, User, Message, KeyboardButton, ReplyKeyboardMarkup, InlineQueryResultArticle,
@@ -64,7 +64,7 @@ def handle_access(update: Update, context: CallbackContext) -> None:
 
     access_key = match.group(1)
     if access_key == ACCESS_KEY:
-        User.grant_access(uid)
+        Admin.grant_access(uid)
         update.message.reply_text(ACCESS_GRANTED)
         return
     else:
@@ -79,7 +79,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
     uid = update.effective_user.id
 
-    if ACCESS_REQUIRED and not User.has_access(uid):
+    if ACCESS_REQUIRED and not Admin.has_access(uid):
         update.message.reply_text(HELP)
         return
 

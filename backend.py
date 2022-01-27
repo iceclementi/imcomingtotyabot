@@ -35,7 +35,7 @@ temp_polls = dict()
 all_polls = dict()
 
 
-class User(object):
+class Admin(object):
     def __init__(self) -> None:
         pass
 
