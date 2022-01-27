@@ -180,6 +180,15 @@ class Poll(object):
                     option.remove_user(uid)
         return self.options[opt_id].toggle(uid, user_profile, comment)
 
+    def edit_user_comment(self, opt_id: int, uid: int, comment: str) -> str:
+        if opt_id >= len(self.options):
+            return "Sorry, invalid option."
+        option = self.options[opt_id]
+        if uid not in option.respondents:
+            return "You need to vote for this option first before adding comments."
+        option.edit_user_comment(uid, comment)
+        return ""
+
     def toggle_comment_requirement(self, opt_id: int) -> str:
         if opt_id >= len(self.options):
             return "Sorry, invalid option."

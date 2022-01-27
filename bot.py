@@ -133,6 +133,25 @@ def handle_show(update: Update, context: CallbackContext) -> None:
         reply.edit_reply_markup(poll.build_option_buttons(reply.message_id))
 
 
+def handle_comment(update: Update, context: CallbackContext) -> None:
+    message = update.message
+    text = message.text
+
+    match = re.match(r"^\s*/comment_([^_\W]+)_(\d+)_([^_\W]+).*$", text)
+    if not match:
+        return
+
+    poll_id, opt_id, mid_code = match.group(1), match.group(2), match.group(3)
+    reply_message = message.reply_text(
+        f"@{update.effective_user.username} {REASON} #comment_{poll_id}_{opt_id}_{mid_code}",
+        parse_mode=ParseMode.HTML, reply_markup=ForceReply()
+    )
+
+    # Delete reply message after 10 minutes
+    updater.job_queue.run_once(delete_message, 600, context=reply_message)
+    return
+
+
 def handle_help(update: Update, context: CallbackContext) -> None:
     """Displays a help message."""
     # Help command only work in private chat
@@ -227,7 +246,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         if poll.is_user_comment_required(int(action), uid):
             query.answer(text=REASON)
             reply_message = query.message.reply_text(
-                f"@{user_profile['username']} {REASON} #{poll_id}_{action}_{util.encode(message.message_id)}",
+                f"@{user_profile['username']} {REASON} #vote_{poll_id}_{action}_{util.encode(message.message_id)}",
                 parse_mode=ParseMode.HTML, reply_markup=ForceReply()
             )
 
@@ -317,7 +336,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         if not poll:
             inline_query.answer(results)
             return
-        
+
         for i, option in enumerate(poll.get_options()):
             if opt_title.lower() in option.get_title().lower() and option.is_voted_by_user(uid):
                 query_result = InlineQueryResultArticle(
@@ -347,45 +366,51 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
 
     text = update.message.reply_to_message.text
 
-    try:
-        # Check if username matches
-        username, _ = text.split(" ", 1)
-        if username.lstrip("@") != user_profile["username"]:
-            return
+    delete_message_and_response = lambda message: (message.reply_to_message.delete(), message.delete())
 
-        # Retrieve poll details
-        _, poll_details = text.rsplit("#", 1)
-        poll_id, opt_id, message_id = poll_details.split("_")
-        message_id = util.decode(message_id)
-        if not opt_id.isdigit():
-            raise ValueError
-    except (AttributeError, IndexError, ValueError):
+    # Verify reply message format
+    match = re.match(r"^@(\w+) [^#]+#([^_\W]+)_([^_\W]+)_(\d+)_([^_\W]+)$", text)
+    if not match:
         update.message.reply_text("Invalid reply message format!")
         logger.warning("Invalid reply message format.")
+        delete_message_and_response(update.message)
+        return
+
+    username, action, poll_id, opt_id, message_id = \
+        match.group(1), match.group(2), match.group(3), int(match.group(4)), util.decode(match.group(5))
+
+    # Check if username matches
+    if username != user_profile["username"]:
         return
 
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
         update.message.reply_text(DELETED_POLL)
+        delete_message_and_response(update.message)
         return
 
-    if int(opt_id) >= len(poll.get_options()):
+    if opt_id >= len(poll.get_options()):
         update.message.reply_text("Invalid poll option.")
         logger.warning("Invalid poll option from reply message.")
+        delete_message_and_response(update.message)
         return
 
-    poll.toggle(int(opt_id), uid, user_profile, comment)
-    is_admin = is_user_admin(update.message)
+    if action == "vote":
+        poll.toggle(opt_id, uid, user_profile, comment)
+    elif action == "comment":
+        status = poll.edit_user_comment(opt_id, uid, comment)
+        if status:
+            update.message.reply_text(status)
 
+    delete_message_and_response(update.message)
+
+    # Edit the poll
+    is_admin = is_user_admin(update.message)
     chat_id = update.message.chat_id
     context.bot.edit_message_text(
         poll.render_text(), message_id=message_id, chat_id=chat_id,
         parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons(message_id, is_admin=is_admin)
     )
-
-    # Delete user and bot message
-    update.message.reply_to_message.delete()
-    update.message.delete()
 
 
 def handle_error(update: Update, context: CallbackContext) -> None:
@@ -433,6 +458,7 @@ def main():
     # Message handlers
     dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/poll_\w+.*$"), handle_poll_view))
     dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/show_\w+.*$"), handle_show))
+    dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/comment_\w+.*$"), handle_comment))
     dispatcher.add_handler(MessageHandler(Filters.text, handle_message))
 
     # Callback query handlers
