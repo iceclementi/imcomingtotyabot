@@ -232,7 +232,7 @@ class Poll(object):
             option_button = util.build_button(option.get_title(), self.poll_id, str(i))
             buttons.append([option_button])
         edit_comments_button = util.build_switch_button(
-            "Add/Edit Comments", f"/comment_{self.poll_id}_{util.encode(mid)} ", to_self=True
+            "Comment", f"/comment_{self.poll_id}_{util.encode(mid)} ", to_self=True
         )
         refresh_button = util.build_button("Refresh", self.poll_id, REFRESH_OPT)
         buttons.append([edit_comments_button, refresh_button])

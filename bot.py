@@ -265,14 +265,14 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         return
     # Handle refresh option button
     elif action == backend.REFRESH_OPT:
+        query.answer(text="Results updated!")
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
                                 reply_markup=poll.build_option_buttons(message.message_id, is_admin=is_admin))
-        query.answer(text="Results updated!")
         return
     # Handle refresh button
     elif action == backend.REFRESH and is_admin:
-        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons())
         query.answer(text="Results updated!")
+        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons())
         return
     # Handle customise button
     elif action == backend.CUSTOMISE and is_admin:
