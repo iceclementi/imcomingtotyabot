@@ -338,7 +338,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     results = []
 
     # Handle comment query
-    match = re.match(r"^\s*/comment_([^_\W]+)_([^_\W]+)\s+(\S*)\s*$", text)
+    match = re.match(r"^\s*/comment_([^_\W]+)_([^_\W]+)\s*(\S*)\s*$", text)
     if match:
         poll_id, mid_code, opt_title = match.group(1), match.group(2), match.group(3)
         poll = Poll.get_poll_by_id(poll_id)
