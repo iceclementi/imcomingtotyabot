@@ -29,9 +29,20 @@ DELETE_YES = "delete-yes"
 BACK = "back"
 
 creators = set()
+group_leaders = set()
 all_sessions = dict()
 temp_polls = dict()
 all_polls = dict()
+
+
+class User(object):
+    @staticmethod
+    def grant_access(uid: int) -> None:
+        creators.add(uid)
+
+    @staticmethod
+    def has_access(uid: int) -> bool:
+        return uid in creators
 
 
 class Session(object):

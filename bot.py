@@ -3,7 +3,7 @@ import os
 import logging
 import re
 import backend
-from backend import Session, Poll, Option
+from backend import User, Session, Poll, Option
 import util
 from telegram import (
     Update, ParseMode, User, Message, KeyboardButton, ReplyKeyboardMarkup, InlineQueryResultArticle,
@@ -17,16 +17,23 @@ import telegram.error
 
 # Environment settings
 TOKEN = os.environ["TOKEN"]
+ACCESS_KEY = os.environ["ACCESS_KEY"].split("_")
 PORT = int(os.environ.get("PORT", 8443))
-BOT_NAME = "tyacountmeintbot"
 updater = Updater(TOKEN, use_context=True)
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Bot settings
+BOT_NAME = "tyacountmeintbot"
 MAX_TITLE_LENGTH = 100
 MAX_OPTION_TITLE_LENGTH = 50
+ACCESS_REQUIRED = True  # Set to False if access is not required to build polls
+
+# Responses
+ERROR_ACCESS_FORMAT = "Invalid access request format. Please use \"/access <token>\"."
+ACCESS_DECLINED = "Sorry, wrong access token."
+ACCESS_GRANTED = "Congratulations, you now have access to build the bot! Use /start to begin building a poll."
 NEW_POLL = "Let's create a new poll! First, send me the title."
 NEW_OPTION = "New poll:\n{}\n\nNow send me the first answer option."
 NEXT_OPTION = "Nice! Now send me another answer option, or /done to finish."
@@ -42,14 +49,41 @@ REASON = "Please enter a reason/comment."
 DELETED_POLL = "Sorry, the poll has been deleted."
 
 
+def handle_access(update: Update, context: CallbackContext) -> None:
+    """Grants access to the user to build the poll."""
+    # Access command only work in private chat or when access is required
+    if not is_user_admin(update.message) or not ACCESS_REQUIRED:
+        return
+
+    uid = update.effective_user.id
+
+    match = re.match(r"/access\s+(\w+).*")
+    if not match:
+        update.message.reply_text(ERROR_ACCESS_FORMAT)
+        return
+
+    access_key = match.group(1)
+    if access_key == ACCESS_KEY:
+        User.grant_access(uid)
+        update.message.reply_text(ACCESS_GRANTED)
+        return
+    else:
+        update.message.reply_text(ACCESS_DECLINED)
+
+
 def handle_start(update: Update, context: CallbackContext) -> None:
-    """Informs the user about what the bot can do."""
-    # Start command only work in private chat
+    """Begins building the poll."""
+    # Start command only work in private chat or when access is granted
     if not is_user_admin(update.message):
         return
 
-    user = update.effective_user
-    Session.start_new_session(user.id)
+    uid = update.effective_user.id
+
+    if ACCESS_REQUIRED and not User.has_access(uid):
+        update.message.reply_text(HELP)
+        return
+
+    Session.start_new_session(uid)
     update.message.reply_text(NEW_POLL)
 
 
@@ -468,6 +502,7 @@ def main():
     dispatcher.add_handler(CommandHandler("done", handle_done))
     dispatcher.add_handler(CommandHandler("polls", handle_polls))
     dispatcher.add_handler(CommandHandler("help", handle_help))
+    dispatcher.add_handler(CommandHandler("access", handle_access))
 
     # Message handlers
     dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/poll_\w+.*$"), handle_poll_view))
