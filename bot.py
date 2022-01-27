@@ -57,7 +57,7 @@ def handle_access(update: Update, context: CallbackContext) -> None:
 
     uid = update.effective_user.id
 
-    match = re.match(r"/access\s+(\w+).*")
+    match = re.match(r"/access\s+(\w+).*", update.message.text)
     if not match:
         update.message.reply_text(ERROR_ACCESS_FORMAT)
         return
@@ -498,11 +498,11 @@ def main():
     dispatcher = updater.dispatcher
 
     # Command handlers
+    dispatcher.add_handler(CommandHandler("access", handle_access))
     dispatcher.add_handler(CommandHandler("start", handle_start))
     dispatcher.add_handler(CommandHandler("done", handle_done))
     dispatcher.add_handler(CommandHandler("polls", handle_polls))
     dispatcher.add_handler(CommandHandler("help", handle_help))
-    dispatcher.add_handler(CommandHandler("access", handle_access))
 
     # Message handlers
     dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/poll_\w+.*$"), handle_poll_view))
