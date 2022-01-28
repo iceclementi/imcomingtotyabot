@@ -129,6 +129,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
         return
 
     session.end_session()
+
     update.message.reply_html(DONE)
     deliver_poll(update, poll, is_admin=True)
 
@@ -208,6 +209,21 @@ def handle_comment(update: Update, context: CallbackContext) -> None:
 
     # Delete user message
     update.message.delete()
+
+
+def handle_group(update: Update, context: CallbackContext) -> None:
+    """Create a new group."""
+    pass
+
+
+def handle_group_view(update: Update, context: CallbackContext) -> None:
+    """Create a new group."""
+    pass
+
+
+def handle_groups(update: Update, context: CallbackContext) -> None:
+    """View all the user's groups."""
+    pass
 
 
 def handle_help(update: Update, context: CallbackContext) -> None:
@@ -502,10 +518,9 @@ def validate_and_register_user(user: TeleUser) -> bool:
     return True
 
 
-def register_user(user: TeleUser) -> None:
+def register_user(user: TeleUser) -> User:
     uid, user_profile = extract_user_data(user)
-    User.register(uid, user_profile["first_name"], user_profile["last_name"], user_profile["username"])
-    return
+    return User.register(uid, user_profile["first_name"], user_profile["last_name"], user_profile["username"])
 
 
 def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:

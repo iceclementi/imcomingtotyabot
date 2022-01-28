@@ -7,6 +7,7 @@ import util
 # Settings
 POLL_ID_LENGTH = 4
 GROUP_ID_LENGTH = 3
+MAX_GROUPS_PER_USER = 10
 MAX_GROUP_SIZE = 50
 EMOJI_PEOPLE = "\U0001f465"
 SESSION_EXPIRY = 1  # In hours
@@ -43,7 +44,7 @@ class User(object):
         self.first_name = first_name
         self.last_name = last_name
         self.username = username
-        self.is_leader = False
+        self.is_group_owner = True
         self.group_ids = set()
         self.poll_ids = set()
 
@@ -65,20 +66,59 @@ class User(object):
     def get_group_ids(self) -> set:
         return self.groups
 
+    def get_groups(self, filters="", limit=10) -> list:
+        user_groups = [Group.get_group_by_id(gid) for gid in self.group_ids]
+        filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
+        return sorted(filtered_groups, key=lambda group: group.get_name().lower(), reverse=True)[:limit]
+
+    def create_group(self, name: str) -> str:
+        if any(group.get_name() == name for group in self.get_groups(limit=MAX_GROUPS_PER_USER)):
+            return "You already have a group with the same name."
+        if len(self.group_ids) >= MAX_GROUPS_PER_USER:
+            return f"The maximum number of groups per user ({MAX_GROUPS_PER_USER}) has been reached."
+        group = Group.create_new(name, self.uid)
+        self.group_ids.add(group.get_gid())
+        return f"Group {util.make_html_bold(name)} created!"
+
+    def delete_group(self, gid: str) -> str:
+        if gid not in self.group_ids:
+            return "You do not own that group."
+        self.group_ids.remove(gid)
+        group = Group.get_group_by_id(gid)
+        group.delete()
+        return f"Group {util.make_html_bold(group.get_name())} has been deleted."
+
     def get_polls(self, filters="", limit=50) -> list:
         user_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
         filtered_polls = [poll for poll in user_polls if filters.lower() in poll.get_title.lower()]
-        return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)[:limit]
+        return sorted(filtered_polls, key=lambda poll: poll.get_title.lower(), reverse=True)[:limit]
+
+    def create_poll(self, title: str, options: list) -> str:
+        group = Group.create_new(name, self.uid)
+        self.group_ids.add(group.get_gid())
+        return f"Group {util.make_html_bold(name)} created!"
+
+    def delete_poll(self, poll_id: str) -> str:
+        if poll_id not in self.poll_ids:
+            return "No such poll exists."
+        self.poll_ids.remove(poll_id)
+        poll = Poll.get_poll_by_id(poll_id)
+        poll.delete()
+        return f"Poll {util.make_html_bold(poll.get_title())} has been deleted."
 
 
 class Group(object):
     def __init__(self, gid: str, name: str, uid: int, password: str) -> None:
         self.gid = gid
         self.name = name
-        self.leader = uid
+        self.owner = uid
         self.password = password
         self.member_ids = set()
         self.poll_ids = set()
+
+    @staticmethod
+    def get_group_by_id(gid: str):
+        return all_groups.get(gid, None)
 
     @classmethod
     def create_new(cls, name: str, uid: int, password=""):
@@ -87,43 +127,49 @@ class Group(object):
         all_groups[gid] = group
         return group
 
+    def delete(self) -> None:
+        all_groups.pop(self.gid, None)
+
+    def get_gid(self) -> str:
+        return self.gid
+
     def edit_name(self, new_name: str) -> None:
         self.name = new_name
 
     def edit_password(self, new_password: str) -> None:
         self.password = new_password
 
-    def get_all_member_ids(self) -> set:
-        return self.members
+    def get_member_ids(self) -> set:
+        return self.member_ids
 
     def add_member(self, uid: int) -> str:
         if uid in self.members:
             return "You are already in the group."
         if len(self.members) >= MAX_GROUP_SIZE:
-            return "The group size limit has been reached."
-        self.members.add(uid)
+            return f"The group size limit ({MAX_GROUP_SIZE}) has been reached."
+        self.member_ids.add(uid)
         return f"You have joined {util.make_html_bold(self.name)}."
 
     def remove_member(self, uid: int) -> str:
         if uid not in self.members:
             return "The user is not in the group."
-        self.members.remove(uid)
+        self.member_ids.remove(uid)
         name = User.get_user_by_id(uid).get_name()
         return f"{name} has been removed from the group."
 
-    def get_all_poll_ids(self) -> set:
+    def get_poll_ids(self) -> set:
         return self.polls
 
     def add_poll(self, poll_id: str, poll_title: str) -> str:
-        if poll_id in self.polls:
+        if poll_id in self.poll_ids:
             return "The poll already exists in the group."
-        self.polls.add(poll_id)
+        self.poll_ids.add(poll_id)
         return f"Poll \"{poll_title}\" added into the group."
 
     def remove_poll(self, poll_id: str) -> str:
-        if poll_id in self.polls:
+        if poll_id in self.poll_ids:
             return "The poll is not in the group."
-        self.polls.remove(poll_id)
+        self.poll_ids.remove(poll_id)
         title = Poll.get_poll_by_id(poll_id).get_title()
         return f"Poll \"{title}\" has been removed from the group."
 
@@ -195,15 +241,33 @@ class Session(object):
 
 
 class Poll(object):
-    def __init__(self, uid: int, poll_id: str) -> None:
+    def __init__(self, uid: int, poll_id: str, title: str) -> None:
         self.creator_id = uid
         self.poll_id = poll_id
-        self.title = ""
+        self.title = title
         self.options = []
         self.message_details = set()
         self.single_response = True
         self.created_date = datetime.now()
         self.expiry = POLL_EXPIRY
+
+    @staticmethod
+    def get_poll_by_id(poll_id: str):
+        return all_polls.get(poll_id, None)
+
+    @classmethod
+    def create_new(cls, uid: int, title: str, option_titles: list):
+        poll_id = util.generate_random_id(POLL_ID_LENGTH, set(all_polls.keys()))
+        poll = cls(uid, poll_id, title)
+
+        for option_title in option_titles:
+            poll.add_option(Option.create_new(option_title))
+
+        all_polls[poll_id] = poll
+        return poll
+
+    def delete(self) -> None:
+        all_polls.pop(self.poll_id, None)
 
     def get_creator_id(self) -> int:
         return self.creator_id
@@ -250,33 +314,6 @@ class Poll(object):
 
     def set_expiry(self, expiry: int) -> None:
         self.expiry = expiry
-
-    def reset_poll(self):
-        self.title = ""
-        self.options = []
-        self.created_date = datetime.now()
-
-    def delete_poll(self) -> None:
-        if self.poll_id in all_polls:
-            all_polls.pop(self.poll_id)
-        if self.poll_id in temp_polls:
-            temp_polls.pop(self.poll_id)
-
-    @staticmethod
-    def create_new_temp_poll(uid: int) -> str:
-        poll_id = util.create_random_string(POLL_ID_LENGTH)
-        while poll_id in all_polls or poll_id in temp_polls:
-            poll_id = util.create_random_string(POLL_ID_LENGTH)
-        temp_polls[poll_id] = Poll(uid, poll_id)
-        return poll_id
-
-    @staticmethod
-    def get_poll_by_id(poll_id: str):
-        return all_polls.get(poll_id, None)
-
-    @staticmethod
-    def get_temp_poll_by_id(poll_id: str):
-        return temp_polls.get(poll_id, None)
 
     def toggle(self, opt_id: int, uid: int, user_profile: dict, comment="") -> str:
         if opt_id >= len(self.options):
@@ -390,10 +427,14 @@ class Poll(object):
 
 
 class Option(object):
-    def __init__(self, title: str, is_comment_required=False) -> None:
+    def __init__(self, title: str, is_comment_required: bool) -> None:
         self.title = title
         self.comment_required = is_comment_required
         self.respondents = OrderedDict()
+
+    @classmethod
+    def create_new(cls, title: str, is_comment_required=False):
+        return cls(title, is_comment_required)
 
     def get_title(self) -> str:
         return self.title
