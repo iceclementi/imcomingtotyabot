@@ -96,7 +96,8 @@ def handle_start(update: Update, context: CallbackContext) -> None:
         return
 
     # Create chat data
-    context.chat_data = {"action": "poll", "title": "", "options": []}
+    context.chat_data.clear()
+    context.chat_data.update({"action": "poll", "title": "", "options": []})
     # Session.start_new_session(uid)
     update.message.reply_html(NEW_POLL)
 
