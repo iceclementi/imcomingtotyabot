@@ -136,11 +136,20 @@ class Group(object):
     def get_gid(self) -> str:
         return self.gid
 
+    def get_name(self) -> str:
+        return self.name
+
     def edit_name(self, new_name: str) -> None:
         self.name = new_name
 
+    def get_password(self) -> str:
+        return self.password
+
     def edit_password(self, new_password: str) -> None:
         self.password = new_password
+
+    def get_owner(self) -> int:
+        return self.owner
 
     def get_member_ids(self) -> set:
         return self.member_ids
