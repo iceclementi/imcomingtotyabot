@@ -412,7 +412,7 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
         # Create group
         group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, text)
 
-        code = f"{group.get_gid()}_{util.simple_hash(text)}"
+        code = f"{group.get_gid()}_{util.simple_hash(text, salt=group.get_gid())}"
 
         update.message.reply_html(GROUP_DONE.format(util.make_html_bold(code)))
         deliver_group(update, group)
