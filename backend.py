@@ -94,9 +94,9 @@ class User(object):
         return sorted(filtered_polls, key=lambda poll: poll.get_title.lower(), reverse=True)[:limit]
 
     def create_poll(self, title: str, options: list) -> str:
-        group = Group.create_new(name, self.uid)
-        self.group_ids.add(group.get_gid())
-        return f"Group {util.make_html_bold(name)} created!"
+        poll = Poll.create_new(self.uid, title, options)
+        self.poll_ids.add(poll.get_poll_id())
+        return f"Poll {util.make_html_bold(title)} created!"
 
     def delete_poll(self, poll_id: str) -> str:
         if poll_id not in self.poll_ids:

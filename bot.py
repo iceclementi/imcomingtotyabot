@@ -95,7 +95,9 @@ def handle_start(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    Session.start_new_session(uid)
+    # Create chat data
+    context.chat_data = {"action": "poll", "title": "", "options": []}
+    # Session.start_new_session(uid)
     update.message.reply_html(NEW_POLL)
 
 
@@ -105,33 +107,47 @@ def handle_done(update: Update, context: CallbackContext) -> None:
     if not is_user_admin(update.message):
         return
 
-    uid = update.effective_user.id
-    session = Session.get_session_by_id(uid)
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
 
+    """
+    session = Session.get_session_by_id(uid)
     if not session:
         update.message.reply_html(HELP)
         return
 
     poll = Poll.get_temp_poll_by_id(session.get_poll_id())
+    """
+
+    # Check if current action is poll
+    action = context.chat_data.get("action", "")
+    if action != "poll":
+        update.message.reply_html(ERROR_EARLY_DONE_TITLE)
+        return
+
+    title, options = context.chat_data.get("title", ""), context.chat_data.get("options", [])
 
     # Check if there is a title
-    if not poll.get_title():
+    if not title:
         update.message.reply_html(ERROR_EARLY_DONE_TITLE)
         return
 
     # Check if there are options
-    if not poll.get_options():
+    if not options:
         update.message.reply_html(ERROR_EARLY_DONE_OPTION)
         return
 
-    session.end_session()
+    # session.end_session()
+
+    # Create poll
+    User.get_user_by_id(update.effective_user.id).create_poll(title, options)
 
     update.message.reply_html(DONE)
     deliver_poll(update, poll, is_admin=True)
+
+    # Clear chat data
+    context.chat_data.clear()
 
 
 def handle_polls(update: Update, context: CallbackContext) -> None:
@@ -248,18 +264,34 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         return
 
     uid = update.effective_user.id
-    session = Session.get_session_by_id(uid)
+    # session = Session.get_session_by_id(uid)
 
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
 
+    """
     if not session:
         if is_user_admin(update.message):
             update.message.reply_html(HELP)
         return
 
     session_progress = session.get_progress()
+    """
+
+    # Check if current action is poll
+    action = context.chat_data.get("action", "")
+    if action == "poll":
+        handle_poll_conversation(update, context)
+        return
+
+    if is_user_admin(update.message):
+        update.message.reply_html(HELP)
+        return
+
+    # TO DELETE
+    if uid:
+        return
 
     # Handle title
     if session_progress == backend.TITLE:
@@ -296,6 +328,45 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     else:
         if is_user_admin(update.message):
             update.message.reply_html(HELP)
+
+
+def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
+    text = update.message.text
+    title, options = context.chat_data.get("title", ""), context.chat_data.get("options", [])
+
+    # Handle title
+    if not title:
+        if len(text) > MAX_TITLE_LENGTH:
+            update.message.reply_html(ERROR_TITLE_TOO_LONG)
+            return
+
+        bold_title = util.make_html_bold_first_line(text)
+        response = NEW_OPTION.format(bold_title)
+        update.message.reply_html(response)
+
+        context.chat_data["title"] = text
+        return
+    # Handle option
+    elif not options:
+        if len(text) > MAX_OPTION_TITLE_LENGTH:
+            update.message.reply_html(ERROR_OPTION_TITLE_TOO_LONG)
+            return
+
+        options.append(text)
+
+        if len(options) < 10:
+            update.message.reply_html(NEXT_OPTION)
+            context.chat_data["options"] = options
+            return
+
+        # Create poll
+        User.get_user_by_id(update.effective_user.id).create_poll(title, options)
+
+        update.message.reply_html(DONE)
+        deliver_poll(update, poll, is_admin=True)
+
+        # Clear chat data
+        context.chat_data.clear()
 
 
 def handle_callback_query(update: Update, context: CallbackContext) -> None:
