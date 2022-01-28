@@ -15,6 +15,8 @@ from telegram.ext import (
 )
 import telegram.error
 
+# region SETTINGS
+
 # Environment settings
 TOKEN = os.environ["TOKEN"]
 ACCESS_KEYS = os.environ["ACCESS_KEY"].split("_")
@@ -28,7 +30,7 @@ logger = logging.getLogger(__name__)
 BOT_NAME = "tyacountmeintbot"
 MAX_TITLE_LENGTH = 100
 MAX_OPTION_TITLE_LENGTH = 50
-ACCESS_REQUIRED = False  # Set to False if access is not required to build polls
+ACCESS_REQUIRED = True  # Set to False if access is not required to build polls
 
 # Responses
 ACCESS_DECLINED = "Sorry, wrong access key."
@@ -52,6 +54,8 @@ ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MA
 ERROR_EARLY_DONE_TITLE = "Sorry, please add a title to the poll."
 ERROR_EARLY_DONE_OPTION = "Sorry, please add at least one option to the poll."
 
+# endregion
+
 
 def handle_access(update: Update, context: CallbackContext) -> None:
     """Grants access to the user to build the poll."""
@@ -65,12 +69,12 @@ def handle_access(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ERROR_ACCESS_ALREADY_GRANTED)
         return
 
-    match = re.match(r"/access\s+(\w+).*", update.message.text)
-    if not match:
+    arguments = context.args
+    if not arguments:
         update.message.reply_html(ERROR_ACCESS_FORMAT)
         return
 
-    access_key = match.group(1)
+    access_key = arguments[0]
     if access_key in ACCESS_KEYS:
         User.create_new(uid, user_profile["first_name"], user_profile["last_name"], user_profile["username"])
         update.message.reply_html(ACCESS_GRANTED)
