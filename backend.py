@@ -111,7 +111,7 @@ class Poll(object):
         self.poll_id = poll_id
         self.title = ""
         self.options = []
-        self.message_ids = set()
+        self.message_details = set()
         self.single_response = True
         self.created_date = datetime.now()
         self.expiry = POLL_EXPIRY
@@ -134,11 +134,14 @@ class Poll(object):
     def add_option(self, option) -> None:
         self.options.append(option)
 
-    def add_message_id(self, mid: str) -> None:
-        self.message_ids.add(mid)
+    def get_all_message_details(self) -> set:
+        return self.message_details
 
-    def has_message_id(self, mid: str) -> bool:
-        return mid in self.message_ids
+    def add_message_details(self, mid: str, cid: str) -> None:
+        self.message_details.add((mid, cid))
+
+    def has_message_details(self, mid: str) -> bool:
+        return any(mid == message_id for message_id, _ in self.message_details)
 
     def is_single_response(self) -> bool:
         return self.single_response

@@ -364,7 +364,8 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     # Handle delete confirmation button
     elif action == backend.DELETE_YES and is_admin:
         poll.delete_poll()
-        query.edit_message_reply_markup(None)
+        for mid, cid in poll.get_all_message_details():
+            query.bot.delete_message(util.decode(cid), util.decode(mid))
         query.answer(text="Poll deleted!")
         return
     # Handle back button
@@ -393,7 +394,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         poll_id, mid_code, opt_title = match.group(1), match.group(2), match.group(3)
         poll = Poll.get_poll_by_id(poll_id)
 
-        if not poll or not poll.has_message_id(mid_code):
+        if not poll or not poll.has_message_details(mid_code):
             inline_query.answer(results)
             return
 
@@ -489,7 +490,7 @@ def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
     else:
         reply = update.message.reply_html(poll.render_text(), reply_to_message_id=-1)
         reply.edit_reply_markup(poll.build_option_buttons(reply.message_id))
-    poll.add_message_id(util.encode(reply.message_id))
+    poll.add_message_details(util.encode(reply.message_id), util.encode(reply.chat_id))
 
 
 def is_user_admin(message: Message) -> bool:
