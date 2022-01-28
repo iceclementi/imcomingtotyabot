@@ -39,12 +39,13 @@ NEXT_OPTION = "Nice! Now send me another answer option, or /done to finish."
 DONE = "\U0001f44d Poll created! You may now publish it to a group or send it to your friends."
 REASON = "Please enter a reason/comment."
 DELETED_POLL = "Sorry, the poll has been deleted."
-ACCESS_REQUEST = "In order to use this bot, you need to have access.\nEnter \"/access <key>\" to request for access."
+ACCESS_REQUEST = "In order to use this bot, you need to have access.\n" \
+                 "Enter \"/access &lt;key&gt;\" to request for access."
 HELP = "This bot will help you create polls where people can leave their names. " + \
            "Use /start to create a poll here, then publish it to groups or send it to" + \
            "individual friends.\n\nSend /polls to manage your existing polls."
 
-ERROR_ACCESS_FORMAT = "Invalid access request format. Please use \"/access <key>\"."
+ERROR_ACCESS_FORMAT = "Invalid access request format. Please use \"/access &lt;key&gt;\"."
 ERROR_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_TITLE_LENGTH} characters)."
 ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_OPTION_TITLE_LENGTH} characters)."
 ERROR_EARLY_DONE_TITLE = "Sorry, please add a title to the poll."
