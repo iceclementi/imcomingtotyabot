@@ -348,7 +348,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         context.chat_data["title"] = text
         return
     # Handle option
-    elif not options:
+    else:
         if len(text) > MAX_OPTION_TITLE_LENGTH:
             update.message.reply_html(ERROR_OPTION_TITLE_TOO_LONG)
             return
