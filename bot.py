@@ -142,7 +142,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
     # session.end_session()
 
     # Create poll
-    User.get_user_by_id(update.effective_user.id).create_poll(title, options)
+    poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, options)
 
     update.message.reply_html(DONE)
     deliver_poll(update, poll, is_admin=True)
@@ -361,7 +361,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
             return
 
         # Create poll
-        User.get_user_by_id(update.effective_user.id).create_poll(title, options)
+        poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, options)
 
         update.message.reply_html(DONE)
         deliver_poll(update, poll, is_admin=True)

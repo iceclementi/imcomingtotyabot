@@ -93,10 +93,10 @@ class User(object):
         filtered_polls = [poll for poll in user_polls if filters.lower() in poll.get_title.lower()]
         return sorted(filtered_polls, key=lambda poll: poll.get_title.lower(), reverse=True)[:limit]
 
-    def create_poll(self, title: str, options: list) -> str:
+    def create_poll(self, title: str, options: list) -> tuple:
         poll = Poll.create_new(self.uid, title, options)
         self.poll_ids.add(poll.get_poll_id())
-        return f"Poll {util.make_html_bold(title)} created!"
+        return poll, f"Poll {util.make_html_bold(title)} created!"
 
     def delete_poll(self, poll_id: str) -> str:
         if poll_id not in self.poll_ids:
