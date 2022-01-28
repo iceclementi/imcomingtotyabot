@@ -398,7 +398,7 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
             update.message.reply_html(ERROR_GROUP_NAME_EXISTS)
             return
 
-        response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
+        response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(text))
         update.message.reply_html(response)
 
         context.user_data["name"] = text
