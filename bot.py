@@ -371,6 +371,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     elif action == backend.DELETE_YES and is_admin:
         poll.delete_poll()
         for mid, cid in poll.get_all_message_details():
+            query.message.reply_html(f"mid: {util.decode(mid)}, cid: {util.decode(cid)}")
             query.bot.delete_message(util.decode(cid), util.decode(mid))
         query.answer(text="Poll deleted!")
         return
@@ -380,6 +381,9 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         query.answer(text=None)
         return
     # Handle other cases
+    elif action == "details":
+        query.answer(text=f"mid: {message.message_id}, cid: {message.chat_id}")
+        return
     else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
