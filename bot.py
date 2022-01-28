@@ -32,7 +32,7 @@ ACCESS_REQUIRED = True  # Set to False if access is not required to build polls
 
 # Responses
 ACCESS_DECLINED = "Sorry, wrong access key."
-ACCESS_GRANTED = "Congratulations, you now have access to build the bot! Use /start to begin building a poll."
+ACCESS_GRANTED = "Congratulations, you now have access to the bot! Use /start to begin building a poll."
 NEW_POLL = "Let's create a new poll! First, send me the title."
 NEW_OPTION = "New poll:\n{}\n\nNow send me the first answer option."
 NEXT_OPTION = "Nice! Now send me another answer option, or /done to finish."
@@ -46,6 +46,7 @@ HELP = "This bot will help you create polls where people can leave their names. 
            "individual friends.\n\nSend /polls to manage your existing polls."
 
 ERROR_ACCESS_FORMAT = "Invalid access request format. Please use \"/access &lt;key&gt;\"."
+ERROR_ACCESS_ALREADY_GRANTED = "You already have access to the bot! Use /start to begin building a poll."
 ERROR_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_TITLE_LENGTH} characters)."
 ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_OPTION_TITLE_LENGTH} characters)."
 ERROR_EARLY_DONE_TITLE = "Sorry, please add a title to the poll."
@@ -59,6 +60,10 @@ def handle_access(update: Update, context: CallbackContext) -> None:
         return
 
     uid = update.effective_user.id
+    
+    if Admin.has_access(uid):
+        update.message.reply_html(ERROR_ACCESS_ALREADY_GRANTED)
+        return
 
     match = re.match(r"/access\s+(\w+).*", update.message.text)
     if not match:
