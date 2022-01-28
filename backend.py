@@ -71,14 +71,17 @@ class User(object):
         filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
         return sorted(filtered_groups, key=lambda group: group.get_name().lower(), reverse=True)[:limit]
 
-    def create_group(self, name: str) -> str:
-        if any(group.get_name() == name for group in self.get_groups(limit=MAX_GROUPS_PER_USER)):
-            return "You already have a group with the same name."
+    def has_group_with_name(self, name: str) -> bool:
+        return any(group.get_name() == name for group in self.get_groups(limit=MAX_GROUPS_PER_USER))
+
+    def create_group(self, name: str, password="") -> tuple:
+        if self.has_group_with_name(name):
+            return None, "You already have a group with the same name."
         if len(self.group_ids) >= MAX_GROUPS_PER_USER:
-            return f"The maximum number of groups per user ({MAX_GROUPS_PER_USER}) has been reached."
-        group = Group.create_new(name, self.uid)
+            return None, f"The maximum number of groups per user ({MAX_GROUPS_PER_USER}) has been reached."
+        group = Group.create_new(name, self.uid, password)
         self.group_ids.add(group.get_gid())
-        return f"Group {util.make_html_bold(name)} created!"
+        return group, f"Group {util.make_html_bold(name)} created!"
 
     def delete_group(self, gid: str) -> str:
         if gid not in self.group_ids:

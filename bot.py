@@ -30,29 +30,46 @@ logger = logging.getLogger(__name__)
 BOT_NAME = "tyacountmeintbot"
 MAX_TITLE_LENGTH = 100
 MAX_OPTION_TITLE_LENGTH = 50
-ACCESS_REQUIRED = True  # Set to False if access is not required to build polls
+MAX_GROUP_NAME_LENGTH = 50
+MIN_GROUP_PASS_LENGTH = 4
+MAX_GROUP_PASS_LENGTH = 20
+ACCESS_REQUIRED = False  # Set to False if access is not required to build polls
 
 # Responses
 ACCESS_DECLINED = "Sorry, wrong access key."
 ACCESS_GRANTED = "Congratulations, you now have access to the bot! Use /start to begin building a poll."
+ACCESS_REQUEST = "In order to use this bot, you need to have access.\n" \
+                 "Enter <b>>/access &lt;key&gt;</b> to request for access."
+
 NEW_POLL = "Let's create a new poll! First, send me the title."
 NEW_OPTION = "New poll:\n{}\n\nNow send me the first answer option."
 NEXT_OPTION = "Nice! Now send me another answer option, or /done to finish."
-DONE = "\U0001f44d Poll created! You may now publish it to a group or send it to your friends."
-REASON = "Please enter a reason/comment."
+POLL_DONE = "\U0001f44d Poll created! You may now publish it to a group or send it to your friends."
 DELETED_POLL = "Sorry, the poll has been deleted."
-ACCESS_REQUEST = "In order to use this bot, you need to have access.\n" \
-                 "Enter \"/access &lt;key&gt;\" to request for access."
+
+NEW_GROUP = "Let's create a new group! To begin, send me the group name."
+GROUP_PASSWORD_REQUEST = "New group:\n{}\n\nNow enter a secret password for your group. " \
+                         "Alternatively, enter /done to skip this step."
+GROUP_DONE = "\U0001f44d Group created! You are now the owner of the group. " \
+             "Invite your friends to join through this code: {}"
+
+REASON = "Please enter a reason/comment."
 HELP = "This bot will help you create polls where people can leave their names. " + \
            "Use /start to create a poll here, then publish it to groups or send it to" + \
            "individual friends.\n\nSend /polls to manage your existing polls."
 
-ERROR_ACCESS_FORMAT = "Invalid access request format. Please use \"/access &lt;key&gt;\"."
+ERROR_ACCESS_FORMAT = "Invalid access request format. Please use <b>/access &lt;key&gt;</b>."
 ERROR_ACCESS_ALREADY_GRANTED = "You already have access to the bot! Use /start to begin building a poll."
 ERROR_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_TITLE_LENGTH} characters)."
 ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_OPTION_TITLE_LENGTH} characters)."
 ERROR_EARLY_DONE_TITLE = "Sorry, please add a title to the poll."
 ERROR_EARLY_DONE_OPTION = "Sorry, please add at least one option to the poll."
+ERROR_GROUP_NAME_EXISTS = "You already have a group with this name. Please enter another group name."
+ERROR_GROUP_NAME_TOO_LONG = f"Sorry, please enter a shorter group name (maximum {MAX_GROUP_NAME_LENGTH} characters)."
+ERROR_INVALID_GROUP_PASS_FORMAT = \
+    f"Sorry, please ensure that you group secret key is between {MIN_GROUP_PASS_LENGTH} and {MAX_GROUP_PASS_LENGTH} " \
+    f"characters long and contains only alphanumeric characters."
+ERROR_EARLY_DONE_GROUP_NAME = "Sorry, please add a group name."
 
 # endregion
 
@@ -62,6 +79,8 @@ def handle_access(update: Update, context: CallbackContext) -> None:
     # Access command only work in private chat or when access is required
     if not is_user_admin(update.message) or not ACCESS_REQUIRED:
         return
+
+    context.user_data.clear()
 
     uid, user_profile = extract_user_data(update.effective_user)
 
@@ -84,21 +103,19 @@ def handle_access(update: Update, context: CallbackContext) -> None:
 
 
 def handle_start(update: Update, context: CallbackContext) -> None:
-    """Begins building the poll."""
-    # Start command only work in private chat or when access is granted
+    """Begins building a new poll."""
+    # Start command only work in private chat and when access is granted
     if not is_user_admin(update.message):
         return
-
-    uid = update.effective_user.id
 
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    # Create chat data
-    context.chat_data.clear()
-    context.chat_data.update({"action": "poll", "title": "", "options": []})
-    # Session.start_new_session(uid)
+    # Create user data
+    context.user_data.clear()
+    context.user_data.update({"action": "poll", "title": "", "options": []})
+
     update.message.reply_html(NEW_POLL)
 
 
@@ -112,43 +129,51 @@ def handle_done(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    """
-    session = Session.get_session_by_id(uid)
-    if not session:
+    action = context.user_data.get("action", "")
+
+    # Handle poll
+    if action == "poll":
+        title, options = context.user_data.get("title", ""), context.user_data.get("options", [])
+
+        # Check if there is a title
+        if not title:
+            update.message.reply_html(ERROR_EARLY_DONE_TITLE)
+            return
+
+        # Check if there are options
+        if not options:
+            update.message.reply_html(ERROR_EARLY_DONE_OPTION)
+            return
+
+        # Create poll
+        poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, options)
+
+        update.message.reply_html(POLL_DONE)
+        deliver_poll(update, poll, is_admin=True)
+
+        # Clear user data
+        context.user_data.clear()
+        return
+    # Handle group
+    elif action == "group":
+        group_name, secret = context.user_data.get("name", ""), context.user_data.get("secret", "")
+
+        # Check if there is a group name
+        if not group_name:
+            update.message.reply_html(ERROR_EARLY_DONE_GROUP_NAME)
+
+        # Create group
+        group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, secret)
+
+        update.message.reply_html(GROUP_DONE)
+        # deliver_poll(update, poll, is_admin=True)
+
+        # Clear user data
+        context.user_data.clear()
+        return
+    else:
         update.message.reply_html(HELP)
         return
-
-    poll = Poll.get_temp_poll_by_id(session.get_poll_id())
-    """
-
-    # Check if current action is poll
-    action = context.chat_data.get("action", "")
-    if action != "poll":
-        update.message.reply_html(ERROR_EARLY_DONE_TITLE)
-        return
-
-    title, options = context.chat_data.get("title", ""), context.chat_data.get("options", [])
-
-    # Check if there is a title
-    if not title:
-        update.message.reply_html(ERROR_EARLY_DONE_TITLE)
-        return
-
-    # Check if there are options
-    if not options:
-        update.message.reply_html(ERROR_EARLY_DONE_OPTION)
-        return
-
-    # session.end_session()
-
-    # Create poll
-    poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, options)
-
-    update.message.reply_html(DONE)
-    deliver_poll(update, poll, is_admin=True)
-
-    # Clear chat data
-    context.chat_data.clear()
 
 
 def handle_polls(update: Update, context: CallbackContext) -> None:
@@ -157,10 +182,13 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
     if not is_user_admin(update.message):
         return
 
-    uid = update.effective_user.id
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
+
+    context.user_data.clear()
+
+    uid = update.effective_user.id
 
     header = [util.make_html_bold("Your polls")]
 
@@ -180,12 +208,14 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
     if not is_user_admin(update.message):
         return
 
-    uid = update.effective_user.id
-    text = update.message.text
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
+
+    context.user_data.clear()
+
+    uid = update.effective_user.id
+    text = update.message.text
 
     poll_id = re.match(r"^/poll_(\w+).*$", text).group(1)
     poll = Poll.get_poll_by_id(poll_id)
@@ -196,6 +226,52 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(HELP)
 
 
+def handle_group(update: Update, context: CallbackContext) -> None:
+    """Begins creating a new group."""
+    # Group command only work in private chat
+    if not is_user_admin(update.message):
+        return
+
+    if not validate_and_register_user(update.effective_user):
+        update.message.reply_html(ACCESS_REQUEST)
+        return
+
+    # Create user data
+    context.user_data.clear()
+    context.user_data.update({"action": "group", "name": "", "secret": ""})
+
+    match = re.match(r"^\s*/group\s+(.*)$", update.message.text)
+    if not match:
+        update.message.reply_html(NEW_GROUP)
+        return
+
+    group_name = match.group(1).strip()
+
+    if len(group_name) > MAX_GROUP_NAME_LENGTH:
+        update.message.reply_html(ERROR_GROUP_NAME_TOO_LONG)
+        return
+
+    if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
+        update.message.reply_html(ERROR_GROUP_NAME_EXISTS)
+        return
+
+    context.user_data["name"] = group_name
+    response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
+    update.message.reply_html(response)
+
+
+def handle_groups(update: Update, context: CallbackContext) -> None:
+    """View all the user's groups."""
+    # Groups command only work in private chat
+    pass
+
+
+def handle_group_view(update: Update, context: CallbackContext) -> None:
+    """Create a new group."""
+    # Group view command only work in private chat
+    pass
+
+
 def handle_show(update: Update, context: CallbackContext) -> None:
     """Displays the standard poll identified by its poll id"""
     text = update.message.text
@@ -203,7 +279,7 @@ def handle_show(update: Update, context: CallbackContext) -> None:
     poll_id = re.match(r"^/show_(\w+).*$", text).group(1)
     poll = Poll.get_poll_by_id(poll_id)
 
-    if poll:
+    if poll and poll.get_creator_id() == update.effective_user.id:
         deliver_poll(update, poll)
 
 
@@ -228,21 +304,6 @@ def handle_comment(update: Update, context: CallbackContext) -> None:
     update.message.delete()
 
 
-def handle_group(update: Update, context: CallbackContext) -> None:
-    """Create a new group."""
-    pass
-
-
-def handle_group_view(update: Update, context: CallbackContext) -> None:
-    """Create a new group."""
-    pass
-
-
-def handle_groups(update: Update, context: CallbackContext) -> None:
-    """View all the user's groups."""
-    pass
-
-
 def handle_help(update: Update, context: CallbackContext) -> None:
     """Displays a help message."""
     # Help command only work in private chat
@@ -264,76 +325,28 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if not text:
         return
 
-    uid = update.effective_user.id
-    # session = Session.get_session_by_id(uid)
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    """
-    if not session:
-        if is_user_admin(update.message):
-            update.message.reply_html(HELP)
-        return
-
-    session_progress = session.get_progress()
-    """
-
     # Check if current action is poll
-    action = context.chat_data.get("action", "")
+    action = context.user_data.get("action", "")
     if action == "poll":
         handle_poll_conversation(update, context)
+        return
+    elif action == "group":
+        handle_group_conversation(update, context)
         return
 
     if is_user_admin(update.message):
         update.message.reply_html(HELP)
         return
 
-    # TO DELETE
-    if uid:
-        return
-
-    # Handle title
-    if session_progress == backend.TITLE:
-        if len(text) > MAX_TITLE_LENGTH:
-            update.message.reply_html(ERROR_TITLE_TOO_LONG)
-            return
-
-        poll = Poll.get_temp_poll_by_id(session.get_poll_id())
-        poll.set_title(text)
-        session.set_progress(backend.OPTION)
-
-        bold_title = util.make_html_bold_first_line(text)
-        response = NEW_OPTION.format(bold_title)
-        update.message.reply_html(response)
-        return
-    # Handle option
-    elif session_progress == backend.OPTION:
-        if len(text) > MAX_OPTION_TITLE_LENGTH:
-            update.message.reply_html(ERROR_OPTION_TITLE_TOO_LONG)
-            return
-        else:
-            poll = Poll.get_temp_poll_by_id(session.get_poll_id())
-            poll.add_option(Option(text))
-
-            if len(poll.get_options()) < 10:
-                update.message.reply_html(NEXT_OPTION)
-                return
-
-            session.end_session()
-            update.message.reply_html(DONE)
-            deliver_poll(update, poll, is_admin=True)
-            return
-    # Handle other cases
-    else:
-        if is_user_admin(update.message):
-            update.message.reply_html(HELP)
-
 
 def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
-    text = update.message.text
-    title, options = context.chat_data.get("title", ""), context.chat_data.get("options", [])
+    """Handles the conversation between the bot and the user to build a poll."""
+    text = update.message.text.strip()
+    title, options = context.user_data.get("title", ""), context.user_data.get("options", [])
 
     # Handle title
     if not title:
@@ -345,7 +358,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         response = NEW_OPTION.format(bold_title)
         update.message.reply_html(response)
 
-        context.chat_data["title"] = text
+        context.user_data["title"] = text
         return
     # Handle option
     else:
@@ -357,17 +370,53 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
 
         if len(options) < 10:
             update.message.reply_html(NEXT_OPTION)
-            context.chat_data["options"] = options
+            context.user_data["options"] = options
             return
 
         # Create poll
         poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, options)
 
-        update.message.reply_html(DONE)
+        update.message.reply_html(POLL_DONE)
         deliver_poll(update, poll, is_admin=True)
 
-        # Clear chat data
-        context.chat_data.clear()
+        # Clear user data
+        context.user_data.clear()
+
+
+def handle_group_conversation(update: Update, context: CallbackContext) -> None:
+    """Handles the conversation between the bot and the user to create a group."""
+    text = update.message.text.strip()
+    group_name, secret = context.user_data.get("name", ""), context.user_data.get("secret", "")
+
+    # Handle group name
+    if not group_name:
+        if len(text) > MAX_GROUP_NAME_LENGTH:
+            update.message.reply_html(ERROR_GROUP_NAME_TOO_LONG)
+            return
+
+        if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
+            update.message.reply_html(ERROR_GROUP_NAME_EXISTS)
+            return
+
+        response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
+        update.message.reply_html(response)
+
+        context.user_data["name"] = text
+        return
+    # Handle secret
+    else:
+        if not re.match(r"^[A-Za-z0-9]{4,20}$", text):
+            update.message.reply_html(ERROR_INVALID_GROUP_PASS_FORMAT)
+            return
+
+        # Create group
+        group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, text)
+
+        update.message.reply_html(GROUP_DONE)
+        # deliver_poll(update, poll, is_admin=True)
+
+        # Clear user data
+        context.user_data.clear()
 
 
 def handle_callback_query(update: Update, context: CallbackContext) -> None:
@@ -461,7 +510,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         return
     # Handle delete confirmation button
     elif action == backend.DELETE_YES and is_admin:
-        poll.delete_poll()
+        User.get_user_by_id(uid).delete_poll(poll_id)
         for mid, cid in poll.get_all_message_details():
             query.bot.delete_message(util.decode(cid), util.decode(mid))
         query.answer(text="Poll deleted!")
@@ -632,6 +681,7 @@ def main():
     # Command handlers
     dispatcher.add_handler(CommandHandler("access", handle_access))
     dispatcher.add_handler(CommandHandler("start", handle_start))
+    dispatcher.add_handler(CommandHandler("group", handle_group))
     dispatcher.add_handler(CommandHandler("done", handle_done))
     dispatcher.add_handler(CommandHandler("polls", handle_polls))
     dispatcher.add_handler(CommandHandler("help", handle_help))
