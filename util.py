@@ -4,6 +4,7 @@ import random
 from telegram import InlineKeyboardButton
 
 ENCODE_KEY = string.digits + string.ascii_letters
+NEGATIVE_SYMBOL = "Z"
 
 
 def create_random_string(n: int) -> str:
@@ -27,7 +28,7 @@ def make_html_bold_first_line(text: str) -> str:
 def encode(num: int, base=32) -> str:
     if num == 0:
         return "0"
-    code = ""
+    code = "" if num > 0 else NEGATIVE_SYMBOL
     while num > 0:
         num, i = divmod(num, base)
         code += ENCODE_KEY[i]
@@ -35,10 +36,14 @@ def encode(num: int, base=32) -> str:
 
 
 def decode(code: str, base=32) -> int:
+    if code.startswith(NEGATIVE_SYMBOL):
+        code, factor = code[1:], -1
+    else:
+        factor = 1
     num = 0
     for i, value in enumerate(code):
         num += ENCODE_KEY.find(value) * base ** i
-    return num
+    return num * factor
 
 
 def build_button(text: str, poll_id: str, action: str) -> InlineKeyboardButton:
