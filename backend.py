@@ -44,13 +44,15 @@ class User(object):
         self.last_name = last_name
         self.username = username
         self.is_leader = False
+        self.group_ids = set()
+        self.poll_ids = set()
 
     @staticmethod
     def get_user_by_id(uid: int):
         return all_users.get(uid, None)
 
     @classmethod
-    def create_new(cls, uid: int, first_name: str, last_name="", username=""):
+    def register(cls, uid: int, first_name: str, last_name="", username=""):
         user = cls(uid, first_name, last_name, username)
         all_users[uid] = user
         return user
@@ -60,6 +62,14 @@ class User(object):
             return f"{self.first_name} {self.last_name}"
         return self.first_name
 
+    def get_group_ids(self) -> set:
+        return self.groups
+
+    def get_polls(self, filters="", limit=50) -> list:
+        user_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
+        filtered_polls = [poll for poll in user_polls if filters.lower() in poll.get_title.lower()]
+        return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)[:limit]
+
 
 class Group(object):
     def __init__(self, gid: str, name: str, uid: int, password: str) -> None:
@@ -67,8 +77,8 @@ class Group(object):
         self.name = name
         self.leader = uid
         self.password = password
-        self.members = set()
-        self.polls = set()
+        self.member_ids = set()
+        self.poll_ids = set()
 
     @classmethod
     def create_new(cls, name: str, uid: int, password=""):
@@ -83,7 +93,7 @@ class Group(object):
     def edit_password(self, new_password: str) -> None:
         self.password = new_password
 
-    def get_all_members(self) -> set:
+    def get_all_member_ids(self) -> set:
         return self.members
 
     def add_member(self, uid: int) -> str:
@@ -101,7 +111,7 @@ class Group(object):
         name = User.get_user_by_id(uid).get_name()
         return f"{name} has been removed from the group."
 
-    def get_all_polls(self) -> set:
+    def get_all_poll_ids(self) -> set:
         return self.polls
 
     def add_poll(self, poll_id: str, poll_title: str) -> str:
@@ -267,12 +277,6 @@ class Poll(object):
     @staticmethod
     def get_temp_poll_by_id(poll_id: str):
         return temp_polls.get(poll_id, None)
-
-    @staticmethod
-    def get_polls_created_by_user(uid: int, filters="", limit=50) -> list:
-        all_user_polls = [poll for poll in all_polls.values()
-                          if poll.get_creator_id() == uid and filters.lower() in poll.get_title().lower()]
-        return sorted(all_user_polls, key=lambda poll: poll.get_created_date(), reverse=True)[:limit]
 
     def toggle(self, opt_id: int, uid: int, user_profile: dict, comment="") -> str:
         if opt_id >= len(self.options):

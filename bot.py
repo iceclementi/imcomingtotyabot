@@ -76,7 +76,7 @@ def handle_access(update: Update, context: CallbackContext) -> None:
 
     access_key = arguments[0]
     if access_key in ACCESS_KEYS:
-        User.create_new(uid, user_profile["first_name"], user_profile["last_name"], user_profile["username"])
+        User.register(uid, user_profile["first_name"], user_profile["last_name"], user_profile["username"])
         update.message.reply_html(ACCESS_GRANTED)
         return
     else:
@@ -91,7 +91,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
     uid = update.effective_user.id
 
-    if access_denied(uid):
+    if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
 
@@ -108,7 +108,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
     uid = update.effective_user.id
     session = Session.get_session_by_id(uid)
 
-    if access_denied(uid):
+    if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
 
@@ -140,13 +140,13 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
         return
 
     uid = update.effective_user.id
-    if access_denied(uid):
+    if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
 
     header = [util.make_html_bold("Your polls")]
 
-    recent_polls = Poll.get_polls_created_by_user(uid, limit=20)
+    recent_polls = User.get_user_by_id(uid).get_polls(limit=20)
     if recent_polls:
         body = [f"{i + 1}. {poll.generate_linked_summary()}" for i, poll in enumerate(recent_polls)]
     else:
@@ -165,7 +165,7 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
     uid = update.effective_user.id
     text = update.message.text
 
-    if access_denied(uid):
+    if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
 
@@ -234,7 +234,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     uid = update.effective_user.id
     session = Session.get_session_by_id(uid)
 
-    if access_denied(uid):
+    if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
 
@@ -493,8 +493,19 @@ def handle_error(update: Update, context: CallbackContext) -> None:
     logger.warning(f"Update {update} caused error {context.error}")
 
 
-def access_denied(uid: int):
-    return ACCESS_REQUIRED and not User.get_user_by_id(uid)
+def validate_and_register_user(user: TeleUser) -> bool:
+    if User.get_user_by_id(user.id):
+        return True
+    if ACCESS_REQUIRED:
+        return False
+    register_user(user)
+    return True
+
+
+def register_user(user: TeleUser) -> None:
+    uid, user_profile = extract_user_data(user)
+    User.register(uid, user_profile["first_name"], user_profile["last_name"], user_profile["username"])
+    return
 
 
 def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
