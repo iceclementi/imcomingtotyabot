@@ -28,7 +28,7 @@ def make_html_bold_first_line(text: str) -> str:
 def encode(num: int, base=32) -> str:
     if num == 0:
         return "0"
-    code = "" if num > 0 else NEGATIVE_SYMBOL
+    num, code = (num, "") if num > 0 else (-num, NEGATIVE_SYMBOL)
     while num > 0:
         num, i = divmod(num, base)
         code += ENCODE_KEY[i]
