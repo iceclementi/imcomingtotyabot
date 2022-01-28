@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 BOT_NAME = "tyacountmeintbot"
 MAX_TITLE_LENGTH = 100
 MAX_OPTION_TITLE_LENGTH = 50
-ACCESS_REQUIRED = True  # Set to False if access is not required to build polls
+ACCESS_REQUIRED = False  # Set to False if access is not required to build polls
 
 # Responses
 ACCESS_DECLINED = "Sorry, wrong access key."

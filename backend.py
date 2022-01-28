@@ -265,7 +265,8 @@ class Poll(object):
         )
         refresh_button = util.build_button("Refresh", self.poll_id, REFRESH_OPT)
         details_button = util.build_button("Message Details", self.poll_id, "details")
-        buttons.append([edit_comments_button, refresh_button], [details_button])
+        buttons.append([edit_comments_button, refresh_button])
+        buttons.append([details_button])
         if is_admin:
             back_button = util.build_button("Back", self.poll_id, BACK)
             buttons.append([back_button])
