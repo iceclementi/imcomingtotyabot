@@ -31,22 +31,24 @@ MAX_OPTION_TITLE_LENGTH = 50
 ACCESS_REQUIRED = True  # Set to False if access is not required to build polls
 
 # Responses
-ERROR_ACCESS_FORMAT = "Invalid access request format. Please use \"/access <token>\"."
-ACCESS_DECLINED = "Sorry, wrong access token."
+ACCESS_DECLINED = "Sorry, wrong access key."
 ACCESS_GRANTED = "Congratulations, you now have access to build the bot! Use /start to begin building a poll."
 NEW_POLL = "Let's create a new poll! First, send me the title."
 NEW_OPTION = "New poll:\n{}\n\nNow send me the first answer option."
 NEXT_OPTION = "Nice! Now send me another answer option, or /done to finish."
 DONE = "\U0001f44d Poll created! You may now publish it to a group or send it to your friends."
+REASON = "Please enter a reason/comment."
+DELETED_POLL = "Sorry, the poll has been deleted."
+ACCESS_REQUEST = "In order to use this bot, you need to have access.\nEnter \"/access <key>\" to request for access."
 HELP = "This bot will help you create polls where people can leave their names. " + \
            "Use /start to create a poll here, then publish it to groups or send it to" + \
            "individual friends.\n\nSend /polls to manage your existing polls."
+
+ERROR_ACCESS_FORMAT = "Invalid access request format. Please use \"/access <key>\"."
 ERROR_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_TITLE_LENGTH} characters)."
 ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_OPTION_TITLE_LENGTH} characters)."
 ERROR_EARLY_DONE_TITLE = "Sorry, please add a title to the poll."
 ERROR_EARLY_DONE_OPTION = "Sorry, please add at least one option to the poll."
-REASON = "Please enter a reason/comment."
-DELETED_POLL = "Sorry, the poll has been deleted."
 
 
 def handle_access(update: Update, context: CallbackContext) -> None:
@@ -59,16 +61,16 @@ def handle_access(update: Update, context: CallbackContext) -> None:
 
     match = re.match(r"/access\s+(\w+).*", update.message.text)
     if not match:
-        update.message.reply_text(ERROR_ACCESS_FORMAT)
+        update.message.reply_html(ERROR_ACCESS_FORMAT)
         return
 
     access_key = match.group(1)
     if access_key in ACCESS_KEYS:
         Admin.grant_access(uid)
-        update.message.reply_text(ACCESS_GRANTED)
+        update.message.reply_html(ACCESS_GRANTED)
         return
     else:
-        update.message.reply_text(ACCESS_DECLINED)
+        update.message.reply_html(ACCESS_DECLINED)
 
 
 def handle_start(update: Update, context: CallbackContext) -> None:
@@ -79,12 +81,12 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
     uid = update.effective_user.id
 
-    if ACCESS_REQUIRED and not Admin.has_access(uid):
-        update.message.reply_text(HELP)
+    if access_denied(uid):
+        update.message.reply_html(ACCESS_REQUEST)
         return
 
     Session.start_new_session(uid)
-    update.message.reply_text(NEW_POLL)
+    update.message.reply_html(NEW_POLL)
 
 
 def handle_done(update: Update, context: CallbackContext) -> None:
@@ -96,24 +98,28 @@ def handle_done(update: Update, context: CallbackContext) -> None:
     uid = update.effective_user.id
     session = Session.get_session_by_id(uid)
 
-    if not session or (ACCESS_REQUIRED and not Admin.has_access(uid)):
-        update.message.reply_text(HELP)
+    if access_denied(uid):
+        update.message.reply_html(ACCESS_REQUEST)
+        return
+
+    if not session:
+        update.message.reply_html(HELP)
         return
 
     poll = Poll.get_temp_poll_by_id(session.get_poll_id())
 
     # Check if there is a title
     if not poll.get_title():
-        update.message.reply_text(ERROR_EARLY_DONE_TITLE)
+        update.message.reply_html(ERROR_EARLY_DONE_TITLE)
         return
 
     # Check if there are options
     if not poll.get_options():
-        update.message.reply_text(ERROR_EARLY_DONE_OPTION)
+        update.message.reply_html(ERROR_EARLY_DONE_OPTION)
         return
 
     session.end_session()
-    update.message.reply_text(DONE)
+    update.message.reply_html(DONE)
     deliver_poll(update, poll, is_admin=True)
 
 
@@ -124,8 +130,8 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
         return
 
     uid = update.effective_user.id
-    if ACCESS_REQUIRED and not Admin.has_access(uid):
-        update.message.reply_text(HELP)
+    if access_denied(uid):
+        update.message.reply_html(ACCESS_REQUEST)
         return
 
     header = [util.make_html_bold("Your polls")]
@@ -137,7 +143,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
         body = ["You have no polls! Use /start to build a new poll."]
 
     response = "\n\n".join(header + body)
-    update.message.reply_text(response, parse_mode=ParseMode.HTML)
+    update.message.reply_html(response)
 
 
 def handle_poll_view(update: Update, context: CallbackContext) -> None:
@@ -148,9 +154,9 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
 
     uid = update.effective_user.id
     text = update.message.text
-    
-    if ACCESS_REQUIRED and not Admin.has_access(uid):
-        update.message.reply_text(HELP)
+
+    if access_denied(uid):
+        update.message.reply_html(ACCESS_REQUEST)
         return
 
     poll_id = re.match(r"^/poll_(\w+).*$", text).group(1)
@@ -159,7 +165,7 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
         deliver_poll(update, poll, is_admin=True)
         return
     else:
-        update.message.reply_text(HELP)
+        update.message.reply_html(HELP)
 
 
 def handle_show(update: Update, context: CallbackContext) -> None:
@@ -182,17 +188,16 @@ def handle_comment(update: Update, context: CallbackContext) -> None:
         return
 
     poll_id, opt_id, mid_code = match.group(1), match.group(2), match.group(3)
-    reply_message = message.reply_text(
+    reply_message = message.reply_html(
         f"@{update.effective_user.username} {REASON} #comment_{poll_id}_{opt_id}_{mid_code}",
-        parse_mode=ParseMode.HTML, reply_markup=ForceReply()
+        reply_markup=ForceReply(), disable_notification=True
     )
-
-    # Delete user message
-    update.message.delete()
 
     # Delete reply message after 10 minutes
     updater.job_queue.run_once(delete_message, 600, context=reply_message)
-    return
+
+    # Delete user message
+    update.message.delete()
 
 
 def handle_help(update: Update, context: CallbackContext) -> None:
@@ -200,7 +205,7 @@ def handle_help(update: Update, context: CallbackContext) -> None:
     # Help command only work in private chat
     if not is_user_admin(update.message):
         return
-    update.message.reply_text(HELP)
+    update.message.reply_html(HELP)
 
 
 def handle_message(update: Update, context: CallbackContext) -> None:
@@ -219,9 +224,13 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     uid = update.effective_user.id
     session = Session.get_session_by_id(uid)
 
+    if access_denied(uid):
+        update.message.reply_html(ACCESS_REQUEST)
+        return
+
     if not session:
         if is_user_admin(update.message):
-            update.message.reply_text(HELP)
+            update.message.reply_html(HELP)
         return
 
     session_progress = session.get_progress()
@@ -229,7 +238,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     # Handle title
     if session_progress == backend.TITLE:
         if len(text) > MAX_TITLE_LENGTH:
-            update.message.reply_text(ERROR_TITLE_TOO_LONG)
+            update.message.reply_html(ERROR_TITLE_TOO_LONG)
             return
 
         poll = Poll.get_temp_poll_by_id(session.get_poll_id())
@@ -238,29 +247,29 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
         bold_title = util.make_html_bold_first_line(text)
         response = NEW_OPTION.format(bold_title)
-        update.message.reply_text(response, parse_mode=ParseMode.HTML)
+        update.message.reply_html(response)
         return
     # Handle option
     elif session_progress == backend.OPTION:
         if len(text) > MAX_OPTION_TITLE_LENGTH:
-            update.message.reply_text(ERROR_OPTION_TITLE_TOO_LONG)
+            update.message.reply_html(ERROR_OPTION_TITLE_TOO_LONG)
             return
         else:
             poll = Poll.get_temp_poll_by_id(session.get_poll_id())
             poll.add_option(Option(text))
 
             if len(poll.get_options()) < 10:
-                update.message.reply_text(NEXT_OPTION)
+                update.message.reply_html(NEXT_OPTION)
                 return
 
             session.end_session()
-            update.message.reply_text(DONE)
+            update.message.reply_html(DONE)
             deliver_poll(update, poll, is_admin=True)
             return
     # Handle other cases
     else:
         if is_user_admin(update.message):
-            update.message.reply_text(HELP)
+            update.message.reply_html(HELP)
 
 
 def handle_callback_query(update: Update, context: CallbackContext) -> None:
@@ -290,9 +299,9 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     if action.isdigit():
         if poll.is_user_comment_required(int(action), uid):
             query.answer(text=REASON)
-            reply_message = query.message.reply_text(
+            reply_message = query.message.reply_html(
                 f"@{user_profile['username']} {REASON} #vote_{poll_id}_{action}_{util.encode(message.message_id)}",
-                parse_mode=ParseMode.HTML, reply_markup=ForceReply()
+                reply_markup=ForceReply(), disable_notification=True
             )
 
             # Delete reply message after 10 minutes
@@ -422,7 +431,7 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
     # Verify reply message format
     match = re.match(r"^@(\w+) [^#]+#([^_\W]+)_([^_\W]+)_(\d+)_([^_\W]+)$", text)
     if not match:
-        update.message.reply_text("Invalid reply message format!")
+        update.message.reply_html("Invalid reply message format!", disable_notification=True)
         logger.warning("Invalid reply message format.")
         delete_message_and_response(update.message)
         return
@@ -436,12 +445,12 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
 
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
-        update.message.reply_text(DELETED_POLL)
+        update.message.reply_html(DELETED_POLL, disable_notification=True)
         delete_message_and_response(update.message)
         return
 
     if opt_id >= len(poll.get_options()):
-        update.message.reply_text("Invalid poll option.")
+        update.message.reply_html("Invalid poll option.", disable_notification=True)
         logger.warning("Invalid poll option from reply message.")
         delete_message_and_response(update.message)
         return
@@ -451,7 +460,7 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
     elif action == "comment":
         status = poll.edit_user_comment(opt_id, uid, comment)
         if status:
-            update.message.reply_text(status)
+            update.message.reply_html(status, disable_notification=True)
 
     delete_message_and_response(update.message)
 
@@ -469,13 +478,16 @@ def handle_error(update: Update, context: CallbackContext) -> None:
     logger.warning(f"Update {update} caused error {context.error}")
 
 
+def access_denied(uid: int):
+    return ACCESS_REQUIRED and not Admin.has_access(uid)
+
+
 def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
     """Delivers the poll in admin mode."""
     if is_admin:
-        reply = update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                          reply_markup=poll.build_admin_buttons())
+        reply = update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
     else:
-        reply = update.message.reply_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_to_message_id=-1)
+        reply = update.message.reply_html(poll.render_text(), reply_to_message_id=-1)
         reply.edit_reply_markup(poll.build_option_buttons(reply.message_id))
     poll.add_message_id(util.encode(reply.message_id))
 
