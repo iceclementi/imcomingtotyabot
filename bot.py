@@ -156,17 +156,17 @@ def handle_done(update: Update, context: CallbackContext) -> None:
         return
     # Handle group
     elif action == "group":
-        group_name, secret = context.user_data.get("name", ""), context.user_data.get("secret", "")
+        group_name = context.user_data.get("name", "")
 
         # Check if there is a group name
         if not group_name:
             update.message.reply_html(ERROR_EARLY_DONE_GROUP_NAME)
 
         # Create group
-        group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, secret)
+        group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, "")
 
-        update.message.reply_html(GROUP_DONE)
-        # deliver_poll(update, poll, is_admin=True)
+        update.message.reply_html(GROUP_DONE.format(util.make_html_bold(group.get_gid())))
+        deliver_group(update, group)
 
         # Clear user data
         context.user_data.clear()
@@ -412,8 +412,10 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
         # Create group
         group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, text)
 
-        update.message.reply_html(GROUP_DONE)
-        # deliver_poll(update, poll, is_admin=True)
+        code = f"{group.get_gid()}_{util.simple_hash(text)}"
+
+        update.message.reply_html(GROUP_DONE.format(util.make_html_bold(code)))
+        deliver_group(update, group)
 
         # Clear user data
         context.user_data.clear()
@@ -631,6 +633,7 @@ def handle_error(update: Update, context: CallbackContext) -> None:
 
 
 def validate_and_register_user(user: TeleUser) -> bool:
+    """Validates if user has access to the bot and registers user if required."""
     if User.get_user_by_id(user.id):
         return True
     if ACCESS_REQUIRED:
@@ -640,18 +643,9 @@ def validate_and_register_user(user: TeleUser) -> bool:
 
 
 def register_user(user: TeleUser) -> User:
+    """Registers the user to have access to use the bot."""
     uid, user_profile = extract_user_data(user)
     return User.register(uid, user_profile["first_name"], user_profile["last_name"], user_profile["username"])
-
-
-def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
-    """Delivers the poll in admin mode."""
-    if is_admin:
-        reply = update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
-    else:
-        reply = update.message.reply_html(poll.render_text(), reply_to_message_id=-1)
-        reply.edit_reply_markup(poll.build_option_buttons(reply.message_id))
-    poll.add_message_details(util.encode(reply.message_id), util.encode(update.message.chat_id))
 
 
 def is_user_admin(message: Message) -> bool:
@@ -671,6 +665,20 @@ def delete_message(context: CallbackContext) -> None:
         message.delete()
     except telegram.error.TelegramError:
         logger.info("Message has been deleted.")
+
+
+def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
+    """Delivers the poll in admin mode."""
+    if is_admin:
+        reply = update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
+    else:
+        reply = update.message.reply_html(poll.render_text(), reply_to_message_id=-1)
+        reply.edit_reply_markup(poll.build_option_buttons(reply.message_id))
+    poll.add_message_details(util.encode(reply.message_id), util.encode(update.message.chat_id))
+
+
+def deliver_group(update: Update, group: Group) -> None:
+    pass
 
 
 def main():

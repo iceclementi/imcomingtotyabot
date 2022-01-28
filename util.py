@@ -53,6 +53,11 @@ def decode(code: str, base=32) -> int:
     return num * factor
 
 
+def simple_hash(text: str) -> str:
+    n = len(text)
+    return "".join(encode(ord(c), n) for c in text)
+
+
 def build_button(text: str, poll_id: str, action: str) -> InlineKeyboardButton:
     data = f"{poll_id} {action}"
     return InlineKeyboardButton(text, callback_data=data)
