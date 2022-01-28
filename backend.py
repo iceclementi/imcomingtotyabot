@@ -264,9 +264,9 @@ class Poll(object):
             "Comment", f"/comment_{self.poll_id}_{util.encode(mid)} ", to_self=True
         )
         refresh_button = util.build_button("Refresh", self.poll_id, REFRESH_OPT)
-        details_button = util.build_button("Message Details", self.poll_id, "details")
         buttons.append([edit_comments_button, refresh_button])
-        buttons.append([details_button])
+        test_button = util.build_button("Test", self.poll_id, "test")  # TESTING ONLY!!!
+        buttons.append([test_button])  # TESTING ONLY!!!
         if is_admin:
             back_button = util.build_button("Back", self.poll_id, BACK)
             buttons.append([back_button])
