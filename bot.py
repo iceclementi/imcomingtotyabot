@@ -60,7 +60,7 @@ def handle_access(update: Update, context: CallbackContext) -> None:
         return
 
     uid = update.effective_user.id
-    
+
     if Admin.has_access(uid):
         update.message.reply_html(ERROR_ACCESS_ALREADY_GRANTED)
         return
@@ -496,7 +496,7 @@ def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
     else:
         reply = update.message.reply_html(poll.render_text(), reply_to_message_id=-1)
         reply.edit_reply_markup(poll.build_option_buttons(reply.message_id))
-    poll.add_message_details(util.encode(reply.message_id), util.encode(reply.chat_id))
+    poll.add_message_details(util.encode(reply.message_id), util.encode(update.message.chat_id))
 
 
 def is_user_admin(message: Message) -> bool:
