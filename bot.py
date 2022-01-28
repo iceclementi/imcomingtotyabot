@@ -3,10 +3,10 @@ import os
 import logging
 import re
 import backend
-from backend import Admin, Session, Poll, Option
+from backend import User, Group, Session, Poll, Option
 import util
 from telegram import (
-    Update, ParseMode, User, Message, KeyboardButton, ReplyKeyboardMarkup, InlineQueryResultArticle,
+    Update, ParseMode, User as TeleUser, Message, KeyboardButton, ReplyKeyboardMarkup, InlineQueryResultArticle,
     InputTextMessageContent, ForceReply
 )
 from telegram.ext import (
@@ -59,9 +59,9 @@ def handle_access(update: Update, context: CallbackContext) -> None:
     if not is_user_admin(update.message) or not ACCESS_REQUIRED:
         return
 
-    uid = update.effective_user.id
+    uid, user_profile = extract_user_data(update.effective_user)
 
-    if Admin.has_access(uid):
+    if User.get_user_by_id(uid):
         update.message.reply_html(ERROR_ACCESS_ALREADY_GRANTED)
         return
 
@@ -72,7 +72,7 @@ def handle_access(update: Update, context: CallbackContext) -> None:
 
     access_key = match.group(1)
     if access_key in ACCESS_KEYS:
-        Admin.grant_access(uid)
+        User.create_new(uid, user_profile["first_name"], user_profile["last_name"], user_profile["username"])
         update.message.reply_html(ACCESS_GRANTED)
         return
     else:
@@ -490,7 +490,7 @@ def handle_error(update: Update, context: CallbackContext) -> None:
 
 
 def access_denied(uid: int):
-    return ACCESS_REQUIRED and not Admin.has_access(uid)
+    return ACCESS_REQUIRED and not User.get_user_by_id(uid)
 
 
 def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
@@ -508,9 +508,9 @@ def is_user_admin(message: Message) -> bool:
     return message and message.chat.type == "private"
 
 
-def extract_user_data(user: User) -> tuple:
+def extract_user_data(user: TeleUser) -> tuple:
     """Extracts user data from User object"""
-    return user.id, {"first_name": user.first_name, "last_name": user.last_name, "username": user.username}
+    return user.id, {"first_name": user.first_name, "last_name": user.last_name or "", "username": user.username or ""}
 
 
 def delete_message(context: CallbackContext) -> None:

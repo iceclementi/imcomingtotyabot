@@ -11,6 +11,13 @@ def create_random_string(n: int) -> str:
     return ''.join(random.choices(string.ascii_letters + string.digits, k=n))
 
 
+def generate_random_id(n: int, preclusion: set) -> str:
+    random_id = create_random_string(n)
+    while random_id in preclusion:
+        random_id = create_random_string(n)
+    return random_id
+
+
 def strip_html_symbols(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 

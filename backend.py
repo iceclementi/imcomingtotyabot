@@ -6,6 +6,8 @@ import util
 
 # Settings
 POLL_ID_LENGTH = 4
+GROUP_ID_LENGTH = 3
+MAX_GROUP_SIZE = 50
 EMOJI_PEOPLE = "\U0001f465"
 SESSION_EXPIRY = 1  # In hours
 POLL_EXPIRY = 720
@@ -28,24 +30,101 @@ DELETE = "delete"
 DELETE_YES = "delete-yes"
 BACK = "back"
 
-creators = set()
-group_leaders = set()
+all_users = dict()
+all_groups = dict()
 all_sessions = dict()
 temp_polls = dict()
 all_polls = dict()
 
 
-class Admin(object):
-    def __init__(self) -> None:
+class User(object):
+    def __init__(self, uid: int, first_name: str, last_name: str, username: str) -> None:
+        self.uid = uid
+        self.first_name = first_name
+        self.last_name = last_name
+        self.username = username
+        self.is_leader = False
+
+    @staticmethod
+    def get_user_by_id(uid: int):
+        return all_users.get(uid, None)
+
+    @classmethod
+    def create_new(cls, uid: int, first_name: str, last_name="", username=""):
+        user = cls(uid, first_name, last_name, username)
+        all_users[uid] = user
+        return user
+
+    def get_name(self):
+        if self.last_name:
+            return f"{self.first_name} {self.last_name}"
+        return self.first_name
+
+
+class Group(object):
+    def __init__(self, gid: str, name: str, uid: int, password: str) -> None:
+        self.gid = gid
+        self.name = name
+        self.leader = uid
+        self.password = password
+        self.members = set()
+        self.polls = set()
+
+    @classmethod
+    def create_new(cls, name: str, uid: int, password=""):
+        gid = util.generate_random_id(GROUP_ID_LENGTH, set(all_groups.keys()))
+        group = cls(gid, name, uid, password)
+        all_groups[gid] = group
+        return group
+
+    def edit_name(self, new_name: str) -> None:
+        self.name = new_name
+
+    def edit_password(self, new_password: str) -> None:
+        self.password = new_password
+
+    def get_all_members(self) -> set:
+        return self.members
+
+    def add_member(self, uid: int) -> str:
+        if uid in self.members:
+            return "You are already in the group."
+        if len(self.members) >= MAX_GROUP_SIZE:
+            return "The group size limit has been reached."
+        self.members.add(uid)
+        return f"You have joined {util.make_html_bold(self.name)}."
+
+    def remove_member(self, uid: int) -> str:
+        if uid not in self.members:
+            return "The user is not in the group."
+        self.members.remove(uid)
+        name = User.get_user_by_id(uid).get_name()
+        return f"{name} has been removed from the group."
+
+    def get_all_polls(self) -> set:
+        return self.polls
+
+    def add_poll(self, poll_id: str, poll_title: str) -> str:
+        if poll_id in self.polls:
+            return "The poll already exists in the group."
+        self.polls.add(poll_id)
+        return f"Poll \"{poll_title}\" added into the group."
+
+    def remove_poll(self, poll_id: str) -> str:
+        if poll_id in self.polls:
+            return "The poll is not in the group."
+        self.polls.remove(poll_id)
+        title = Poll.get_poll_by_id(poll_id).get_title()
+        return f"Poll \"{title}\" has been removed from the group."
+
+    def generate_group_summary(self):
         pass
 
-    @staticmethod
-    def grant_access(uid: int) -> None:
-        creators.add(uid)
+    def generate_group_members_summary(self):
+        pass
 
-    @staticmethod
-    def has_access(uid: int) -> bool:
-        return uid in creators
+    def generate_group_polls_summary(self):
+        pass
 
 
 class Session(object):
