@@ -10,6 +10,7 @@ GROUP_ID_LENGTH = 3
 MAX_GROUPS_PER_USER = 10
 MAX_GROUP_SIZE = 50
 EMOJI_PEOPLE = "\U0001f465"
+EMOJI_POLL = "\U0001f4ca"
 SESSION_EXPIRY = 1  # In hours
 POLL_EXPIRY = 720
 BOT_NAME = "tyacountmeintbot"
@@ -118,6 +119,7 @@ class Group(object):
         self.password = password
         self.member_ids = set()
         self.poll_ids = set()
+        self.created_date = datetime.now()
 
     @staticmethod
     def get_group_by_id(gid: str):
@@ -185,6 +187,18 @@ class Group(object):
         title = Poll.get_poll_by_id(poll_id).get_title()
         return f"Poll \"{title}\" has been removed from the group."
 
+    def render_group_details_text(self) -> str:
+        header = [util.make_html_bold(self.name)]
+        body = [f"{len(self.member_ids)} {EMOJI_PEOPLE}\t{len(self.poll_ids)} {self.poll_ids}"]
+        footer = [util.make_html_italic(f"Created on: {util.format_date(self.created_date)}")]
+        return "\n\n".join(header + body + footer)
+
+    def render_group_members_details_text(self):
+        pass
+
+    def render_group_polls_details_text(self):
+        pass
+
     def generate_group_summary(self):
         pass
 
@@ -192,6 +206,9 @@ class Group(object):
         pass
 
     def generate_group_polls_summary(self):
+        pass
+
+    def build_group_details_button(self):
         pass
 
 

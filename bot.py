@@ -261,13 +261,13 @@ def handle_group(update: Update, context: CallbackContext) -> None:
 
 
 def handle_groups(update: Update, context: CallbackContext) -> None:
-    """View all the user's groups."""
+    """Views all the user's groups."""
     # Groups command only work in private chat
     pass
 
 
 def handle_group_view(update: Update, context: CallbackContext) -> None:
-    """Create a new group."""
+    """Views details of a group."""
     # Group view command only work in private chat
     pass
 
@@ -668,7 +668,7 @@ def delete_message(context: CallbackContext) -> None:
 
 
 def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
-    """Delivers the poll in admin mode."""
+    """Delivers the poll."""
     if is_admin:
         reply = update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
     else:
@@ -678,7 +678,8 @@ def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
 
 
 def deliver_group(update: Update, group: Group) -> None:
-    pass
+    """Delivers the group details."""
+    update.message.reply_html(group.render_group_details_text())
 
 
 def main():
