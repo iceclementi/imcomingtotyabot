@@ -1,6 +1,7 @@
 """Util methods"""
 import string
 import random
+from datetime import datetime
 from telegram import InlineKeyboardButton
 
 ENCODE_KEY = string.digits + string.ascii_letters
@@ -24,6 +25,10 @@ def strip_html_symbols(text: str) -> str:
 
 def make_html_bold(text: str) -> str:
     return f"<b>{strip_html_symbols(text)}</b>"
+
+
+def make_html_italic(text: str) -> str:
+    return f"<i>{strip_html_symbols(text)}</i>"
 
 
 def make_html_bold_first_line(text: str) -> str:
@@ -68,3 +73,6 @@ def build_switch_button(text: str, placeholder: str, to_self=False) -> InlineKey
     return InlineKeyboardButton(text, switch_inline_query_current_chat=placeholder) if to_self \
         else InlineKeyboardButton(text, switch_inline_query=placeholder)
 
+
+def format_date(date: datetime, date_format="%B %d, %Y") -> str:
+    return date.strftime(date_format)
