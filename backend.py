@@ -189,7 +189,7 @@ class Group(object):
 
     def render_group_details_text(self) -> str:
         header = [util.make_html_bold(self.name)]
-        body = [f"{len(self.member_ids)} {EMOJI_PEOPLE}\t{len(self.poll_ids)} {self.poll_ids}"]
+        body = [f"{len(self.member_ids)} {EMOJI_PEOPLE}\t\t{len(self.poll_ids)} {EMOJI_POLL}"]
         footer = [util.make_html_italic(f"Created on: {util.format_date(self.created_date)}")]
         return "\n\n".join(header + body + footer)
 
