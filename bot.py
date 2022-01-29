@@ -679,7 +679,7 @@ def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
 
 def deliver_group(update: Update, group: Group) -> None:
     """Delivers the group details."""
-    update.message.reply_html(group.render_group_details_text())
+    update.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_button())
 
 
 def main():

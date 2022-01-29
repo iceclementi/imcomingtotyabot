@@ -11,26 +11,33 @@ MAX_GROUPS_PER_USER = 10
 MAX_GROUP_SIZE = 50
 EMOJI_PEOPLE = "\U0001f465"
 EMOJI_POLL = "\U0001f4ca"
+EMOJI_CROWN = "\U0001f451"
 SESSION_EXPIRY = 1  # In hours
 POLL_EXPIRY = 720
 BOT_NAME = "tyacountmeintbot"
 
-# Session Progress types
-NONE = "none"
-TITLE = "title"
-OPTION = "option"
+# Poll actions
+PUBLISH = "p-publish"
+REFRESH = "p-refresh"
+REFRESH_OPT = "p-refresh-opt"
+CUSTOMISE = "p-custom"
+RESPONSE = "p-response"
+COMMENT = "p-comment"
+VOTE = "p-vote"
+DELETE = "p-delete"
+DELETE_YES = "p-delete-yes"
+BACK = "p-back"
 
-# Button actions
-PUBLISH = "publish"
-REFRESH = "refresh"
-REFRESH_OPT = "refresh-opt"
-CUSTOMISE = "custom"
-RESPONSE = "response"
-COMMENT = "comment"
-VOTE = "vote"
-DELETE = "delete"
-DELETE_YES = "delete-yes"
-BACK = "back"
+# Group actions
+VIEW_MEMBERS = "g-member"
+VIEW_GROUP_POLLS = "g-poll"
+GROUP_SETTINGS = "g-set"
+CHANGE_SECRET = "g-pass"
+GROUP_CODE = "g-code"
+GROUP_DELETE = "g-delete"
+GROUP_DELETE_YES = "g-delete-yes"
+GROUP_BACK = "g-back"
+
 
 all_users = dict()
 all_groups = dict()
@@ -188,8 +195,14 @@ class Group(object):
         return f"Poll \"{title}\" has been removed from the group."
 
     def render_group_details_text(self) -> str:
-        header = [util.make_html_bold(self.name)]
-        body = [f"{len(self.member_ids)} {EMOJI_PEOPLE}\t\t{len(self.poll_ids)} {EMOJI_POLL}"]
+        title = util.make_html_bold(self.name)
+        owner = f"{EMOJI_CROWN} {User.get_user_by_id(self.owner).get_name()}"
+        header = [f"{title}\n{owner}"]
+
+        member_count = f"{EMOJI_PEOPLE} {len(self.member_ids)}"
+        poll_count = f"{EMOJI_POLL} {len(self.poll_ids)}"
+        body = [f"{member_count: <8}{poll_count}"]
+
         footer = [util.make_html_italic(f"Created on: {util.format_date(self.created_date)}")]
         return "\n\n".join(header + body + footer)
 
@@ -208,8 +221,12 @@ class Group(object):
     def generate_group_polls_summary(self):
         pass
 
-    def build_group_details_button(self):
-        pass
+    def build_group_details_button(self) -> InlineKeyboardMarkup:
+        view_members_button = util.build_button("View Members", self.gid, VIEW_MEMBERS)
+        view_polls_button = util.build_button("View Polls", self.gid, VIEW_GROUP_POLLS)
+        settings_button = util.build_button("Settings", self.gid, GROUP_SETTINGS)
+        buttons = [[view_members_button], [view_polls_button], [settings_button]]
+        return InlineKeyboardMarkup(buttons)
 
 
 class Session(object):
