@@ -16,27 +16,24 @@ SESSION_EXPIRY = 1  # In hours
 POLL_EXPIRY = 720
 BOT_NAME = "tyacountmeintbot"
 
-# Poll actions
-PUBLISH = "p-publish"
-REFRESH = "p-refresh"
-REFRESH_OPT = "p-refresh-opt"
-CUSTOMISE = "p-custom"
-RESPONSE = "p-response"
-COMMENT = "p-comment"
-VOTE = "p-vote"
-DELETE = "p-delete"
-DELETE_YES = "p-delete-yes"
-BACK = "p-back"
-
-# Group actions
-VIEW_MEMBERS = "g-member"
-VIEW_GROUP_POLLS = "g-poll"
-GROUP_SETTINGS = "g-set"
-CHANGE_SECRET = "g-pass"
-GROUP_CODE = "g-code"
-GROUP_DELETE = "g-delete"
-GROUP_DELETE_YES = "g-delete-yes"
-GROUP_BACK = "g-back"
+# Button Actions
+POLL_SUBJECT = "p"
+GROUP_SUBJECT = "g"
+PUBLISH = "publish"
+REFRESH = "refresh"
+REFRESH_OPT = "refresh_opt"
+CUSTOMISE = "custom"
+RESPONSE = "response"
+COMMENT = "comment"
+VOTE = "vote"
+DELETE = "delete"
+DELETE_YES = "delete_yes"
+BACK = "back"
+VIEW_MEMBERS = "member"
+VIEW_GROUP_POLLS = "poll"
+GROUP_SETTINGS = "set"
+CHANGE_SECRET = "pass"
+GROUP_CODE = "code"
 
 
 all_users = dict()
@@ -222,9 +219,9 @@ class Group(object):
         pass
 
     def build_group_details_button(self) -> InlineKeyboardMarkup:
-        view_members_button = util.build_button("View Members", self.gid, VIEW_MEMBERS)
-        view_polls_button = util.build_button("View Polls", self.gid, VIEW_GROUP_POLLS)
-        settings_button = util.build_button("Settings", self.gid, GROUP_SETTINGS)
+        view_members_button = util.build_button("View Members", GROUP_SUBJECT, VIEW_MEMBERS, self.gid)
+        view_polls_button = util.build_button("View Polls", GROUP_SUBJECT, VIEW_GROUP_POLLS, self.gid)
+        settings_button = util.build_button("Settings", GROUP_SUBJECT, GROUP_SETTINGS, self.gid)
         buttons = [[view_members_button], [view_polls_button], [settings_button]]
         return InlineKeyboardMarkup(buttons)
 
@@ -424,34 +421,34 @@ class Poll(object):
     def build_option_buttons(self, mid: int, is_admin=False) -> InlineKeyboardMarkup:
         buttons = []
         for i, option in enumerate(self.options):
-            option_button = util.build_button(option.get_title(), self.poll_id, str(i))
+            option_button = util.build_button(option.get_title(), POLL_SUBJECT, str(i), self.poll_id)
             buttons.append([option_button])
         edit_comments_button = util.build_switch_button(
             "Comment", f"/comment_{self.poll_id}_{util.encode(mid)} ", to_self=True
         )
-        refresh_button = util.build_button("Refresh", self.poll_id, REFRESH_OPT)
+        refresh_button = util.build_button("Refresh", POLL_SUBJECT, REFRESH_OPT, self.poll_id)
         buttons.append([edit_comments_button, refresh_button])
-        test_button = util.build_button("Test", self.poll_id, "test")  # TESTING ONLY!!!
+        test_button = util.build_button("Test", POLL_SUBJECT, "test", self.poll_id)  # TESTING ONLY!!!
         buttons.append([test_button])  # TESTING ONLY!!!
         if is_admin:
-            back_button = util.build_button("Back", self.poll_id, BACK)
+            back_button = util.build_button("Back", POLL_SUBJECT, BACK, self.poll_id)
             buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_admin_buttons(self) -> InlineKeyboardMarkup:
         publish_button = util.build_switch_button("Publish", self.title)
-        refresh_button = util.build_button("Refresh", self.poll_id, REFRESH)
-        customise_button = util.build_button("Customise", self.poll_id, CUSTOMISE)
-        vote_button = util.build_button("Vote", self.poll_id, VOTE)
-        delete_button = util.build_button("Delete", self.poll_id, DELETE)
+        refresh_button = util.build_button("Refresh", POLL_SUBJECT, REFRESH, self.poll_id)
+        customise_button = util.build_button("Customise", POLL_SUBJECT, CUSTOMISE, self.poll_id)
+        vote_button = util.build_button("Vote", POLL_SUBJECT, VOTE, self.poll_id)
+        delete_button = util.build_button("Delete", POLL_SUBJECT, DELETE, self.poll_id)
         buttons = [[publish_button], [refresh_button], [customise_button], [vote_button, delete_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_customise_buttons(self) -> InlineKeyboardMarkup:
         response_text = "Multi-Response" if self.single_response else "Single Response"
-        toggle_response_button = util.build_button(f"Change to {response_text}", self.poll_id, RESPONSE)
-        enforce_comments_button = util.build_button("Change Comment Requirements", self.poll_id, COMMENT)
-        back_button = util.build_button("Back", self.poll_id, BACK)
+        toggle_response_button = util.build_button(f"Change to {response_text}", POLL_SUBJECT, RESPONSE, self.poll_id)
+        enforce_comments_button = util.build_button("Change Comment Requirements", POLL_SUBJECT, COMMENT, self.poll_id)
+        back_button = util.build_button("Back", POLL_SUBJECT, BACK, self.poll_id)
         buttons = [[toggle_response_button], [enforce_comments_button], [back_button]]
         return InlineKeyboardMarkup(buttons)
 
@@ -459,15 +456,15 @@ class Poll(object):
         buttons = []
         for i, option in enumerate(self.options):
             button_text = option.get_title() + (" (required)" if option.is_comment_required() else "")
-            option_button = util.build_button(button_text, self.poll_id, f"{COMMENT}-{i}")
+            option_button = util.build_button(button_text, POLL_SUBJECT, f"{COMMENT}_{i}", self.poll_id)
             buttons.append([option_button])
-        back_button = util.build_button("Back", self.poll_id, BACK)
+        back_button = util.build_button("Back", POLL_SUBJECT, BACK, self.poll_id)
         buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_delete_confirmation_buttons(self) -> InlineKeyboardMarkup:
-        yes_button = util.build_button("Delete", self.poll_id, DELETE_YES)
-        no_button = util.build_button("No", self.poll_id, BACK)
+        yes_button = util.build_button("Delete", POLL_SUBJECT, DELETE_YES, self.poll_id)
+        no_button = util.build_button("No", POLL_SUBJECT, BACK, self.poll_id)
         buttons = [[yes_button, no_button]]
         return InlineKeyboardMarkup(buttons)
 

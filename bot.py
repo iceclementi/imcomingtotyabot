@@ -426,17 +426,17 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     """Handles a callback query."""
     query = update.callback_query
 
-    match = re.match(r"^(\w+)\s+(\w+)$", query.data)
+    match = re.match(r"^(\w+)\s+(\w+)\s+(\w+)$", query.data)
     if not match:
         query.answer(text="Invalid callback query data!")
         logger.warning("Invalid callback query data.")
         return
 
-    action, identifier = match.group(1), match.group(2)
+    subject, action, identifier = match.group(1), match.group(2), match.group(3)
 
-    if action.startswith("p-"):
+    if subject == backend.POLL_SUBJECT:
         handle_poll_callback_query(query, action, identifier)
-    elif action.startswith("g-"):
+    elif subject == backend.GROUP_SUBJECT:
         handle_group_callback_query(query, action, identifier)
     else:
         logger.warning("Invalid callback query data.")
@@ -502,8 +502,8 @@ def handle_poll_callback_query(query: CallbackQuery, action: str, poll_id: str) 
         query.answer(text=None)
         return
     # Handle toggle comments required button
-    elif action.startswith(f"{backend.COMMENT}-") and is_admin:
-        _, opt_id = action.rsplit("-", 1)
+    elif action.startswith(f"{backend.COMMENT}_") and is_admin:
+        _, opt_id = action.rsplit("_", 1)
         if opt_id.isdigit():
             status = poll.toggle_comment_requirement(int(opt_id))
             query.edit_message_reply_markup(poll.build_option_comment_buttons())
