@@ -30,10 +30,11 @@ DELETE = "delete"
 DELETE_YES = "delete_yes"
 BACK = "back"
 VIEW_MEMBERS = "member"
+REMOVE_MEMBER = "del_member"
 VIEW_GROUP_POLLS = "poll"
 GROUP_SETTINGS = "set"
 CHANGE_SECRET = "pass"
-GROUP_CODE = "code"
+GROUP_INVITE = "invite"
 
 
 all_users = dict()
@@ -151,8 +152,8 @@ class Group(object):
     def edit_name(self, new_name: str) -> None:
         self.name = new_name
 
-    def get_password(self) -> str:
-        return self.password
+    def get_password_hash(self) -> str:
+        return util.simple_hash(self.password, self.gid)
 
     def edit_password(self, new_password: str) -> None:
         self.password = new_password
@@ -214,6 +215,9 @@ class Group(object):
         return "\n".join(members_list)
 
     def generate_group_polls_list(self, limit=50) -> str:
+        if not self.poll_ids:
+            return "You have no group polls. Go ahead and add a poll into the group!"
+
         return "\n\n".join(poll.generate_linked_summary() for poll in self.get_polls(limit=limit))
 
     def render_group_details_text(self) -> str:
@@ -229,16 +233,18 @@ class Group(object):
         return "\n\n".join(header + body + footer)
 
     def render_group_members_text(self) -> str:
-        title = [f"{util.make_html_bold(self.name)} Members ({len(self.member_ids)} {EMOJI_PEOPLE})"]
+        title = util.make_html_bold(f"{self.name} Members")
+        header = [f"{title} ({len(self.member_ids)} {EMOJI_PEOPLE})"]
 
         body = [self.generate_group_members_list()]
-        return "\n\n".join(title + body)
+        return "\n\n".join(header + body)
 
     def render_group_polls_text(self) -> str:
-        title = [f"{util.make_html_bold(self.name)} Polls ({len(self.member_ids)} {EMOJI_PEOPLE})"]
+        title = util.make_html_bold(f"{self.name} Polls")
+        header = [f"{title} ({len(self.poll_ids)} {EMOJI_POLL})"]
 
         body = [self.generate_group_polls_list()]
-        return "\n\n".join(title + body)
+        return "\n\n".join(header + body)
 
     def build_group_details_buttons(self) -> InlineKeyboardMarkup:
         view_members_button = util.build_button("View Members", GROUP_SUBJECT, VIEW_MEMBERS, self.gid)
@@ -247,14 +253,39 @@ class Group(object):
         buttons = [[view_members_button], [view_polls_button], [settings_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_members_view_buttons(self) -> InlineKeyboardMarkup:
-        back_button = util.build_button("Back", GROUP_SUBJECT, BACK, self.gid)
-        buttons = [[back_button]]
+    def build_members_view_buttons(self, back_action="") -> InlineKeyboardMarkup:
+        group_invite_button = util.build_button("Get Group Invite", GROUP_SUBJECT, GROUP_INVITE, self.gid)
+        remove_member_button = util.build_button("Remove Member", GROUP_SUBJECT, REMOVE_MEMBER, self.gid)
+        buttons = [[group_invite_button], [remove_member_button]]
+        if back_action:
+            back_button = util.build_button("Back", GROUP_SUBJECT, back_action, self.gid)
+            buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_polls_view_buttons(self) -> InlineKeyboardMarkup:
-        back_button = util.build_button("Back", GROUP_SUBJECT, BACK, self.gid)
-        buttons = [[back_button]]
+    def build_members_buttons(self, back_action="") -> InlineKeyboardMarkup:
+        buttons = []
+        for member in self.get_members():
+            if member.get_uid() != self.owner:
+                member_button = util.build_button(
+                    member.get_name(), GROUP_SUBJECT, f"{REMOVE_MEMBER}_{member.get_uid()}", self.gid
+                )
+                buttons.append([member_button])
+        if back_action:
+            back_button = util.build_button("Back", GROUP_SUBJECT, back_action, self.gid)
+            buttons.append([back_button])
+        return InlineKeyboardMarkup(buttons)
+
+    def build_polls_view_buttons(self, back_action="") -> InlineKeyboardMarkup:
+        buttons = []
+        if back_action:
+            back_button = util.build_button("Back", GROUP_SUBJECT, back_action, self.gid)
+            buttons.append([back_button])
+        return InlineKeyboardMarkup(buttons)
+
+    def build_delete_confirmation_buttons(self, back_action="") -> InlineKeyboardMarkup:
+        yes_button = util.build_button("Delete", GROUP_SUBJECT, DELETE_YES, self.poll_id)
+        no_button = util.build_button("No", GROUP_SUBJECT, back_action, self.poll_id)
+        buttons = [[yes_button, no_button]]
         return InlineKeyboardMarkup(buttons)
 
 

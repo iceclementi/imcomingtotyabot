@@ -53,6 +53,7 @@ GROUP_PASSWORD_REQUEST = "New group:\n{}\n\nNow enter a secret password for your
 GROUP_DONE = "\U0001f44d Group created! You are now the owner of the group. " \
              "Invite your friends to join through this code: {}"
 DELETED_GROUP = "Sorry, the group has been deleted."
+GROUP_INVITATION = "Come join my TYA CountMeIn group! The code is: {}"
 
 REASON = "Please enter a reason/comment."
 HELP = "This bot will help you create polls where people can leave their names. " + \
@@ -563,8 +564,18 @@ def handle_group_callback_query(query: CallbackQuery, action: str, gid: str) -> 
     # Handle view members button
     if action == backend.VIEW_MEMBERS and is_admin:
         query.edit_message_text(group.render_group_members_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=group.build_members_view_buttons())
+                                reply_markup=group.build_members_view_buttons(back_action=backend.BACK))
         query.answer(text=None)
+        return
+    # Handle group invite button
+    elif action == backend.GROUP_INVITE and is_admin:
+        query.message.reply_html(GROUP_INVITATION.format(util.make_html_bold(group.get_password_hash())))
+        query.answer(text="Group invite code sent!")
+        return
+    # Handle remove member button
+    elif action == backend.REMOVE_MEMBER and is_admin:
+        query.edit_message_reply_markup(group.build_members_buttons(back_action=f"{backend.BACK}_1"))
+        query.answer(text="Confirm delete?")
         return
     # Handle view group polls button
     elif action == backend.VIEW_GROUP_POLLS and is_admin:
@@ -577,6 +588,7 @@ def handle_group_callback_query(query: CallbackQuery, action: str, gid: str) -> 
         query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML)
         query.answer(text=None)
         return
+    # Handle back button
     elif action == backend.BACK and is_admin:
         query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
                                 reply_markup=group.build_group_details_buttons())
