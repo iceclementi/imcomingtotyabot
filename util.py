@@ -60,8 +60,9 @@ def decode(code: str, base=32) -> int:
 
 def simple_hash(text: str, salt="", limit=16) -> str:
     variance = sum(map(ord, salt)) % 32
+    base = sum(map(ord, text))
     n = len(text) + 10 + variance
-    return "".join(encode(ord(c), n) for c in text)[:limit]
+    return "".join(encode(base + ord(c) * i, n) for i, c in enumerate(text))[:limit]
 
 
 def build_button(text: str, poll_id: str, action: str) -> InlineKeyboardButton:
