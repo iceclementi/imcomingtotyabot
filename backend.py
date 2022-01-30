@@ -102,7 +102,7 @@ class User(object):
     def get_polls(self, filters="", limit=50) -> list:
         user_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
         filtered_polls = [poll for poll in user_polls if filters.lower() in poll.get_title().lower()]
-        return sorted(filtered_polls, key=lambda poll: poll.get_title.lower(), reverse=True)[:limit]
+        return sorted(filtered_polls, key=lambda poll: poll.get_title().lower(), reverse=True)[:limit]
 
     def create_poll(self, title: str, options: list) -> tuple:
         poll = Poll.create_new(self.uid, title, options)
