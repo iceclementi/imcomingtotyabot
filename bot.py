@@ -609,7 +609,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         return
 
     # Handle poll query
-    polls = Poll.get_polls_created_by_user(uid, filters=text.lower(), limit=10)
+    polls = User.get_user_by_id(uid).get_polls(text.lower(), limit=10)
     for poll in polls:
         query_result = InlineQueryResultArticle(
             id=poll.get_poll_id(), title=poll.get_title(), description=poll.generate_options_summary(),
