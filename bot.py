@@ -246,7 +246,7 @@ def handle_group(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(NEW_GROUP)
         return
 
-    group_name = match.group(1).strip()
+    group_name = match.group(1).strip().replace("\n", " ")
 
     if len(group_name) > MAX_GROUP_NAME_LENGTH:
         update.message.reply_html(ERROR_GROUP_NAME_TOO_LONG)
@@ -391,7 +391,8 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
 
     # Handle group name
     if not group_name:
-        if len(text) > MAX_GROUP_NAME_LENGTH:
+        group_name = text.replace("\n", " ")
+        if len(group_name) > MAX_GROUP_NAME_LENGTH:
             update.message.reply_html(ERROR_GROUP_NAME_TOO_LONG)
             return
 
@@ -399,10 +400,10 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
             update.message.reply_html(ERROR_GROUP_NAME_EXISTS)
             return
 
-        response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(text))
+        response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
         update.message.reply_html(response)
 
-        context.user_data["name"] = text
+        context.user_data["name"] = group_name
         return
     # Handle secret
     else:
@@ -549,7 +550,7 @@ def handle_poll_callback_query(query: CallbackQuery, action: str, poll_id: str) 
 def handle_group_callback_query(query: CallbackQuery, action: str, gid: str) -> None:
     group = Group.get_group_by_id(gid)
 
-    # Poll is deleted or has error
+    # Group is deleted or has error
     if not group:
         query.edit_message_reply_markup(None)
         query.answer(text=DELETED_GROUP)
@@ -561,17 +562,24 @@ def handle_group_callback_query(query: CallbackQuery, action: str, gid: str) -> 
 
     # Handle view members button
     if action == backend.VIEW_MEMBERS and is_admin:
-        query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML)
+        query.edit_message_text(group.render_group_members_text(), parse_mode=ParseMode.HTML,
+                                reply_markup=group.build_members_view_buttons())
         query.answer(text=None)
         return
     # Handle view group polls button
     elif action == backend.VIEW_GROUP_POLLS and is_admin:
-        query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML)
+        query.edit_message_text(group.render_group_polls_text(), parse_mode=ParseMode.HTML,
+                                reply_markup=group.build_polls_view_buttons())
         query.answer(text=None)
         return
     # Handle settings button
     elif action == backend.GROUP_SETTINGS and is_admin:
         query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML)
+        query.answer(text=None)
+        return
+    elif action == backend.BACK and is_admin:
+        query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
+                                reply_markup=group.build_group_details_buttons())
         query.answer(text=None)
         return
     else:
@@ -726,7 +734,7 @@ def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
 
 def deliver_group(update: Update, group: Group) -> None:
     """Delivers the group details."""
-    update.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_button())
+    update.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_buttons())
 
 
 def main():

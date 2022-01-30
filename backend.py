@@ -63,7 +63,10 @@ class User(object):
         all_users[uid] = user
         return user
 
-    def get_name(self):
+    def get_uid(self) -> int:
+        return self.uid
+
+    def get_name(self) -> str:
         if self.last_name:
             return f"{self.first_name} {self.last_name}"
         return self.first_name
@@ -99,7 +102,7 @@ class User(object):
     def get_polls(self, filters="", limit=50) -> list:
         user_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
         filtered_polls = [poll for poll in user_polls if filters.lower() in poll.get_title().lower()]
-        return sorted(filtered_polls, key=lambda poll: poll.get_title().lower(), reverse=True)[:limit]
+        return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)[:limit]
 
     def create_poll(self, title: str, options: list) -> tuple:
         poll = Poll.create_new(self.uid, title, options)
@@ -121,7 +124,7 @@ class Group(object):
         self.name = name
         self.owner = uid
         self.password = password
-        self.member_ids = set()
+        self.member_ids = {uid}
         self.poll_ids = set()
         self.created_date = datetime.now()
 
@@ -160,6 +163,10 @@ class Group(object):
     def get_member_ids(self) -> set:
         return self.member_ids
 
+    def get_members(self) -> list:
+        members = [User.get_user_by_id(uid) for uid in self.member_ids]
+        return sorted(members, key=lambda member: member.get_name().lower())
+
     def add_member(self, uid: int) -> str:
         if uid in self.members:
             return "You are already in the group."
@@ -178,6 +185,11 @@ class Group(object):
     def get_poll_ids(self) -> set:
         return self.polls
 
+    def get_polls(self, filters="", limit=50) -> list:
+        group_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
+        filtered_polls = [poll for poll in group_polls if filters.lower() in poll.get_title().lower()]
+        return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)[:limit]
+
     def add_poll(self, poll_id: str, poll_title: str) -> str:
         if poll_id in self.poll_ids:
             return "The poll already exists in the group."
@@ -191,6 +203,19 @@ class Group(object):
         title = Poll.get_poll_by_id(poll_id).get_title()
         return f"Poll \"{title}\" has been removed from the group."
 
+    def generate_group_members_list(self) -> str:
+        members_list = []
+        for member in self.get_members():
+            if member.get_uid() == self.owner:
+                member_name = f"{util.make_html_bold(member.get_name())} {EMOJI_CROWN}"
+            else:
+                member_name = member.get_name()
+            members_list.append(member_name)
+        return "\n".join(members_list)
+
+    def generate_group_polls_list(self, limit=50) -> str:
+        return "\n\n".join(poll.generate_linked_summary() for poll in self.get_polls(limit=limit))
+
     def render_group_details_text(self) -> str:
         title = util.make_html_bold(self.name)
         owner = f"{EMOJI_CROWN} {User.get_user_by_id(self.owner).get_name()}"
@@ -203,26 +228,33 @@ class Group(object):
         footer = [util.make_html_italic(f"Created on: {util.format_date(self.created_date)}")]
         return "\n\n".join(header + body + footer)
 
-    def render_group_members_details_text(self):
-        pass
+    def render_group_members_text(self) -> str:
+        title = [f"{util.make_html_bold(self.name)} Members ({len(self.member_ids)} {EMOJI_PEOPLE})"]
 
-    def render_group_polls_details_text(self):
-        pass
+        body = [self.generate_group_members_list()]
+        return "\n\n".join(title + body)
 
-    def generate_group_summary(self):
-        pass
+    def render_group_polls_text(self) -> str:
+        title = [f"{util.make_html_bold(self.name)} Polls ({len(self.member_ids)} {EMOJI_PEOPLE})"]
 
-    def generate_group_members_summary(self):
-        pass
+        body = [self.generate_group_polls_list()]
+        return "\n\n".join(title + body)
 
-    def generate_group_polls_summary(self):
-        pass
-
-    def build_group_details_button(self) -> InlineKeyboardMarkup:
+    def build_group_details_buttons(self) -> InlineKeyboardMarkup:
         view_members_button = util.build_button("View Members", GROUP_SUBJECT, VIEW_MEMBERS, self.gid)
         view_polls_button = util.build_button("View Polls", GROUP_SUBJECT, VIEW_GROUP_POLLS, self.gid)
         settings_button = util.build_button("Settings", GROUP_SUBJECT, GROUP_SETTINGS, self.gid)
         buttons = [[view_members_button], [view_polls_button], [settings_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_members_view_buttons(self) -> InlineKeyboardMarkup:
+        back_button = util.build_button("Back", GROUP_SUBJECT, BACK, self.gid)
+        buttons = [[back_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_polls_view_buttons(self) -> InlineKeyboardMarkup:
+        back_button = util.build_button("Back", GROUP_SUBJECT, BACK, self.gid)
+        buttons = [[back_button]]
         return InlineKeyboardMarkup(buttons)
 
 
