@@ -7,7 +7,7 @@ from backend import User, Group, Session, Poll, Option
 import util
 from telegram import (
     Update, ParseMode, User as TeleUser, Message, KeyboardButton, ReplyKeyboardMarkup, InlineQueryResultArticle,
-    InputTextMessageContent, ForceReply
+    InputTextMessageContent, ForceReply, CallbackQuery
 )
 from telegram.ext import (
     CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
@@ -52,6 +52,7 @@ GROUP_PASSWORD_REQUEST = "New group:\n{}\n\nNow enter a secret password for your
                          "Alternatively, enter /done to skip this step."
 GROUP_DONE = "\U0001f44d Group created! You are now the owner of the group. " \
              "Invite your friends to join through this code: {}"
+DELETED_GROUP = "Sorry, the group has been deleted."
 
 REASON = "Please enter a reason/comment."
 HELP = "This bot will help you create polls where people can leave their names. " + \
@@ -424,16 +425,26 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
 def handle_callback_query(update: Update, context: CallbackContext) -> None:
     """Handles a callback query."""
     query = update.callback_query
-    uid, user_profile = extract_user_data(query.from_user)
-    message = query.message
 
-    try:
-        poll_id, action = query.data.split()
-    except (AttributeError, IndexError, ValueError):
+    match = re.match(r"^(\w+)\s+(\w+)$", query.data)
+    if not match:
+        query.answer(text="Invalid callback query data!")
+        logger.warning("Invalid callback query data.")
+        return
+
+    action, identifier = match.group(1), match.group(2)
+
+    if action.startswith("p-"):
+        handle_poll_callback_query(query, action, identifier)
+    elif action.startswith("g-"):
+        handle_group_callback_query(query, action, identifier)
+    else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
         return
 
+
+def handle_poll_callback_query(query: CallbackQuery, action: str, poll_id: str) -> None:
     poll = Poll.get_poll_by_id(poll_id)
 
     # Poll is deleted or has error
@@ -442,6 +453,8 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         query.answer(text=DELETED_POLL)
         return
 
+    uid, user_profile = extract_user_data(query.from_user)
+    message = query.message
     is_admin = is_user_admin(message)
 
     # Handle poll option button
@@ -527,6 +540,40 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         query.answer(text="")
         return
     # Handle other cases
+    else:
+        logger.warning("Invalid callback query data.")
+        query.answer(text="Invalid callback query data!")
+        return
+
+
+def handle_group_callback_query(query: CallbackQuery, action: str, gid: str) -> None:
+    group = Group.get_group_by_id(gid)
+
+    # Poll is deleted or has error
+    if not group:
+        query.edit_message_reply_markup(None)
+        query.answer(text=DELETED_GROUP)
+        return
+
+    uid, user_profile = extract_user_data(query.from_user)
+    message = query.message
+    is_admin = is_user_admin(message)
+
+    # Handle view members button
+    if action == backend.VIEW_MEMBERS and is_admin:
+        query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML)
+        query.answer(text=None)
+        return
+    # Handle view group polls button
+    elif action == backend.VIEW_GROUP_POLLS and is_admin:
+        query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML)
+        query.answer(text=None)
+        return
+    # Handle settings button
+    elif action == backend.GROUP_SETTINGS and is_admin:
+        query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML)
+        query.answer(text=None)
+        return
     else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")

@@ -65,8 +65,8 @@ def simple_hash(text: str, salt="", limit=16) -> str:
     return "".join(encode(base + ord(c) * i, n) for i, c in enumerate(text))[:limit]
 
 
-def build_button(text: str, poll_id: str, action: str) -> InlineKeyboardButton:
-    data = f"{poll_id} {action}"
+def build_button(text: str, identifier: str, action: str) -> InlineKeyboardButton:
+    data = f"{action} {identifier}"
     return InlineKeyboardButton(text, callback_data=data)
 
 
