@@ -437,16 +437,16 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     subject, action, identifier = match.group(1), match.group(2), match.group(3)
 
     if subject == backend.POLL_SUBJECT:
-        handle_poll_callback_query(query, action, identifier)
+        handle_poll_callback_query(query, context, action, identifier)
     elif subject == backend.GROUP_SUBJECT:
-        handle_group_callback_query(query, action, identifier)
+        handle_group_callback_query(query, context, action, identifier)
     else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
         return
 
 
-def handle_poll_callback_query(query: CallbackQuery, action: str, poll_id: str) -> None:
+def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, action: str, poll_id: str) -> None:
     poll = Poll.get_poll_by_id(poll_id)
 
     # Poll is deleted or has error
@@ -548,7 +548,7 @@ def handle_poll_callback_query(query: CallbackQuery, action: str, poll_id: str) 
         return
 
 
-def handle_group_callback_query(query: CallbackQuery, action: str, gid: str) -> None:
+def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, action: str, gid: str) -> None:
     group = Group.get_group_by_id(gid)
 
     # Group is deleted or has error
@@ -561,35 +561,66 @@ def handle_group_callback_query(query: CallbackQuery, action: str, gid: str) -> 
     message = query.message
     is_admin = is_user_admin(message)
 
+    if not is_admin:
+        return
+
     # Handle view members button
-    if action == backend.VIEW_MEMBERS and is_admin:
+    if action == backend.VIEW_MEMBERS:
         query.edit_message_text(group.render_group_members_text(), parse_mode=ParseMode.HTML,
                                 reply_markup=group.build_members_view_buttons(back_action=backend.BACK))
         query.answer(text=None)
         return
     # Handle group invite button
-    elif action == backend.GROUP_INVITE and is_admin:
+    elif action == backend.GROUP_INVITE:
         query.message.reply_html(GROUP_INVITATION.format(util.make_html_bold(group.get_password_hash())))
         query.answer(text="Group invite code sent!")
         return
     # Handle remove member button
-    elif action == backend.REMOVE_MEMBER and is_admin:
-        query.edit_message_reply_markup(group.build_members_buttons(back_action=f"{backend.BACK}_1"))
-        query.answer(text="Confirm delete?")
+    elif action == backend.REMOVE_MEMBER:
+        query.edit_message_reply_markup(
+            group.build_members_buttons(backend.REMOVE_MEMBER, back_action=backend.VIEW_MEMBERS)
+        )
+        query.answer(text="Select a member to remove.")
         return
+    # Handle remove member choice button
+    elif action.startswith(f"{backend.REMOVE_MEMBER}_"):
+        _, uid = action.rsplit("_", 1)
+        member_name = User.get_user_by_id(uid).get_name()
+        query.edit_message_reply_markup(
+            group.build_delete_confirmation_buttons(
+                delete_text="Remove", delete_action=action, back_action=backend.REMOVE_MEMBER
+            )
+        )
+        query.answer(text=f"Confirm remove {member_name} from the group?")
+        return
+    # Handle delete confirmation button
+    elif action.startswith(f"{backend.DELETE_YES}_"):
+        _, sub_action, uid = action.rsplit("_", 2)
+        member = User.get_user_by_id(uid)
+        if sub_action == backend.REMOVE_MEMBER:
+            status = group.remove_member(uid)
+            query.answer(text=status)
+            query.edit_message_text(group.render_group_members_text(), parse_mode=ParseMode.HTML,
+                                    reply_markup=group.build_members_view_buttons(back_action=backend.BACK))
+        else:
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
+                                    reply_markup=group.build_group_details_buttons())
+            return
     # Handle view group polls button
-    elif action == backend.VIEW_GROUP_POLLS and is_admin:
+    elif action == backend.VIEW_GROUP_POLLS:
         query.edit_message_text(group.render_group_polls_text(), parse_mode=ParseMode.HTML,
                                 reply_markup=group.build_polls_view_buttons())
         query.answer(text=None)
         return
     # Handle settings button
-    elif action == backend.GROUP_SETTINGS and is_admin:
+    elif action == backend.GROUP_SETTINGS:
         query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML)
         query.answer(text=None)
         return
     # Handle back button
-    elif action == backend.BACK and is_admin:
+    elif action == backend.BACK:
         query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
                                 reply_markup=group.build_group_details_buttons())
         query.answer(text=None)

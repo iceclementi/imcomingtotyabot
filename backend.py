@@ -21,16 +21,16 @@ POLL_SUBJECT = "p"
 GROUP_SUBJECT = "g"
 PUBLISH = "publish"
 REFRESH = "refresh"
-REFRESH_OPT = "refresh_opt"
+REFRESH_OPT = "refreshOpt"
 CUSTOMISE = "custom"
 RESPONSE = "response"
 COMMENT = "comment"
 VOTE = "vote"
 DELETE = "delete"
-DELETE_YES = "delete_yes"
+DELETE_YES = "deleteYes"
 BACK = "back"
 VIEW_MEMBERS = "member"
-REMOVE_MEMBER = "del_member"
+REMOVE_MEMBER = "delMember"
 VIEW_GROUP_POLLS = "poll"
 GROUP_SETTINGS = "set"
 CHANGE_SECRET = "pass"
@@ -52,6 +52,7 @@ class User(object):
         self.username = username
         self.is_group_owner = True
         self.group_ids = set()
+        self.joined_group_ids = set()
         self.poll_ids = set()
 
     @staticmethod
@@ -90,6 +91,7 @@ class User(object):
             return None, f"The maximum number of groups per user ({MAX_GROUPS_PER_USER}) has been reached."
         group = Group.create_new(name, self.uid, password)
         self.group_ids.add(group.get_gid())
+        self.join_group(group.get_gid())
         return group, f"Group {util.make_html_bold(name)} created!"
 
     def delete_group(self, gid: str) -> str:
@@ -99,6 +101,13 @@ class User(object):
         group = Group.get_group_by_id(gid)
         group.delete()
         return f"Group {util.make_html_bold(group.get_name())} has been deleted."
+
+    def join_group(self, gid: str) -> None:
+        self.joined_group_ids.add(gid)
+
+    def leave_group(self, gid: str) -> None:
+        if gid in self.joined_group_ids:
+            self.joined_group_ids.remove(gid)
 
     def get_polls(self, filters="", limit=50) -> list:
         user_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
@@ -174,14 +183,16 @@ class Group(object):
         if len(self.members) >= MAX_GROUP_SIZE:
             return f"The group size limit ({MAX_GROUP_SIZE}) has been reached."
         self.member_ids.add(uid)
+        User.get_user_by_id(uid).join_group(self.gid)
         return f"You have joined {util.make_html_bold(self.name)}."
 
     def remove_member(self, uid: int) -> str:
         if uid not in self.members:
             return "The user is not in the group."
         self.member_ids.remove(uid)
-        name = User.get_user_by_id(uid).get_name()
-        return f"{name} has been removed from the group."
+        user = User.get_user_by_id(uid)
+        user.leave_group(self.gid)
+        return f"{user.get_name()} has been removed from the group."
 
     def get_poll_ids(self) -> set:
         return self.polls
@@ -212,6 +223,10 @@ class Group(object):
             else:
                 member_name = member.get_name()
             members_list.append(member_name)
+
+        if len(self.get_members()) == 1:
+            members_list.append("\nYou're the only member in the group. Go ahead and add some more members!")
+
         return "\n".join(members_list)
 
     def generate_group_polls_list(self, limit=50) -> str:
@@ -262,12 +277,12 @@ class Group(object):
             buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_members_buttons(self, back_action="") -> InlineKeyboardMarkup:
+    def build_members_buttons(self, member_action: str, back_action="") -> InlineKeyboardMarkup:
         buttons = []
         for member in self.get_members():
             if member.get_uid() != self.owner:
                 member_button = util.build_button(
-                    member.get_name(), GROUP_SUBJECT, f"{REMOVE_MEMBER}_{member.get_uid()}", self.gid
+                    member.get_name(), GROUP_SUBJECT, f"{member_action}_{member.get_uid()}", self.gid
                 )
                 buttons.append([member_button])
         if back_action:
@@ -282,9 +297,10 @@ class Group(object):
             buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_delete_confirmation_buttons(self, back_action="") -> InlineKeyboardMarkup:
-        yes_button = util.build_button("Delete", GROUP_SUBJECT, DELETE_YES, self.poll_id)
-        no_button = util.build_button("No", GROUP_SUBJECT, back_action, self.poll_id)
+    def build_delete_confirmation_buttons(self, delete_text="Delete", delete_action="", back_action="") \
+            -> InlineKeyboardMarkup:
+        yes_button = util.build_button(delete_text, GROUP_SUBJECT, f"{DELETE_YES}_{delete_action}", self.gid)
+        no_button = util.build_button("No", GROUP_SUBJECT, back_action, self.gid)
         buttons = [[yes_button, no_button]]
         return InlineKeyboardMarkup(buttons)
 
