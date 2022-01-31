@@ -8,6 +8,7 @@ import util
 POLL_ID_LENGTH = 4
 GROUP_ID_LENGTH = 3
 MAX_GROUPS_PER_USER = 10
+MAX_JOINED_GROUPS_PER_USER = 30
 MAX_GROUP_SIZE = 50
 EMOJI_PEOPLE = "\U0001f465"
 EMOJI_POLL = "\U0001f4ca"
@@ -76,7 +77,7 @@ class User(object):
     def get_group_ids(self) -> set:
         return self.groups
 
-    def get_groups(self, filters="", limit=10) -> list:
+    def get_groups(self, filters="", limit=MAX_GROUPS_PER_USER) -> list:
         user_groups = [Group.get_group_by_id(gid) for gid in self.group_ids]
         filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
         return sorted(filtered_groups, key=lambda group: group.get_name().lower(), reverse=True)[:limit]
@@ -88,7 +89,7 @@ class User(object):
         if self.has_group_with_name(name):
             return None, "You already have a group with the same name."
         if len(self.group_ids) >= MAX_GROUPS_PER_USER:
-            return None, f"The maximum number of groups per user ({MAX_GROUPS_PER_USER}) has been reached."
+            return None, f"The maximum number of groups you can own ({MAX_GROUPS_PER_USER}) has been reached."
         group = Group.create_new(name, self.uid, password)
         self.group_ids.add(group.get_gid())
         self.join_group(group.get_gid())
@@ -102,8 +103,20 @@ class User(object):
         group.delete()
         return f"Group {util.make_html_bold(group.get_name())} has been deleted."
 
-    def join_group(self, gid: str) -> None:
+    def get_joined_group_ids(self) -> set:
+        return self.joined_group_ids
+
+    def get_joined_groups(self, filters="", limit=MAX_JOINED_GROUPS_PER_USER) -> list:
+        user_groups = [Group.get_group_by_id(gid) for gid in self.joined_group_ids]
+        filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
+        return sorted(filtered_groups, key=lambda group: group.get_name().lower(), reverse=True)[:limit]
+
+    def join_group(self, gid: str) -> str:
+        if len(self.joined_group_ids) >= MAX_JOINED_GROUPS_PER_USER:
+            return f"The maximum number of groups you can join ({MAX_JOINED_GROUPS_PER_USER}) has been reached."
         self.joined_group_ids.add(gid)
+        group = Group.get_group_by_id(gid)
+        return f"Group {util.make_html_bold(group.get_name())} joined!"
 
     def leave_group(self, gid: str) -> None:
         if gid in self.joined_group_ids:
@@ -162,7 +175,7 @@ class Group(object):
         self.name = new_name
 
     def get_password_hash(self) -> str:
-        return util.simple_hash(self.password, self.gid)
+        return f"{self.gid}_{util.simple_hash(self.password, self.gid)}" if self.password else self.gid
 
     def edit_password(self, new_password: str) -> None:
         self.password = new_password
@@ -214,6 +227,11 @@ class Group(object):
         self.poll_ids.remove(poll_id)
         title = Poll.get_poll_by_id(poll_id).get_title()
         return f"Poll \"{title}\" has been removed from the group."
+
+    def generate_linked_summary(self) -> str:
+        short_bold_title = util.make_html_bold(self.name)[:60]
+        link = f"/group_{self.gid}"
+        return f"{short_bold_title} ({len(self.member_ids)} {EMOJI_PEOPLE})\n{link}"
 
     def generate_group_members_list(self) -> str:
         members_list = []

@@ -53,7 +53,7 @@ GROUP_PASSWORD_REQUEST = "New group:\n{}\n\nNow enter a secret password for your
 GROUP_DONE = "\U0001f44d Group created! You are now the owner of the group. " \
              "Invite your friends to join through this code: {}"
 DELETED_GROUP = "Sorry, the group has been deleted."
-GROUP_INVITATION = "Come join my TYA CountMeIn group! The code is: {}"
+GROUP_INVITATION = "Come join my <b>TYA CountMeIn</b> group!\nThe code is: {}"
 
 REASON = "Please enter a reason/comment."
 HELP = "This bot will help you create polls where people can leave their names. " + \
@@ -131,11 +131,11 @@ def handle_done(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    action = context.user_data.get("action", "")
+    action = context.user_data.setdefault("action", "")
 
     # Handle poll
     if action == "poll":
-        title, options = context.user_data.get("title", ""), context.user_data.get("options", [])
+        title, options = context.user_data.setdefault("title", ""), context.user_data.setdefault("options", [])
 
         # Check if there is a title
         if not title:
@@ -158,7 +158,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
         return
     # Handle group
     elif action == "group":
-        group_name = context.user_data.get("name", "")
+        group_name = context.user_data.setdefault("name", "")
 
         # Check if there is a group name
         if not group_name:
@@ -192,7 +192,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
 
     uid = update.effective_user.id
 
-    header = [util.make_html_bold("Your polls")]
+    header = [util.make_html_bold("Your Polls")]
 
     recent_polls = User.get_user_by_id(uid).get_polls(limit=20)
     if recent_polls:
@@ -265,13 +265,69 @@ def handle_group(update: Update, context: CallbackContext) -> None:
 def handle_groups(update: Update, context: CallbackContext) -> None:
     """Views all the user's groups."""
     # Groups command only work in private chat
-    pass
+    if not is_user_admin(update.message):
+        return
+
+    if not validate_and_register_user(update.effective_user):
+        update.message.reply_html(ACCESS_REQUEST)
+        return
+
+    context.user_data.clear()
+
+    uid = update.effective_user.id
+
+    header = [util.make_html_bold("Your Groups")]
+
+    user_groups = User.get_user_by_id(uid).get_joined_groups()
+
+    owned_groups_title = util.make_html_bold(f"Owned Groups {backend.EMOJI_CROWN}")
+    owned_groups = [group for group in user_groups if group.get_owner() == uid]
+    if owned_groups:
+        owned_groups_list = "\n\n".join(
+            f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(owned_groups, 1)
+        )
+    else:
+        owned_groups_list = "You do not own any group!"
+    owned_groups_summary = f"{owned_groups_title}\n{owned_groups_list}"
+
+    joined_groups_title = util.make_html_bold(f"Joined Groups")
+    joined_groups = [group for group in user_groups if group.get_owner() != uid]
+    if joined_groups:
+        joined_groups_list = "\n\n".join(
+            f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(joined_groups, 1)
+        )
+    else:
+        joined_groups_list = "You have not joined any group!"
+    joined_groups_summary = f"{joined_groups_title}\n{joined_groups_list}"
+
+    body = [owned_groups_summary] + [joined_groups_summary]
+
+    response = "\n\n".join(header + body)
+    update.message.reply_html(response)
 
 
 def handle_group_view(update: Update, context: CallbackContext) -> None:
     """Views details of a group."""
     # Group view command only work in private chat
-    pass
+    if not is_user_admin(update.message):
+        return
+
+    if not validate_and_register_user(update.effective_user):
+        update.message.reply_html(ACCESS_REQUEST)
+        return
+
+    context.user_data.clear()
+
+    uid = update.effective_user.id
+    text = update.message.text
+
+    gid = re.match(r"^/group_(\w+).*$", text).group(1)
+    group = Group.get_group_by_id(gid)
+    if group and group.get_owner() == uid:
+        deliver_group(update, group)
+        return
+    else:
+        update.message.reply_html(HELP)
 
 
 def handle_show(update: Update, context: CallbackContext) -> None:
@@ -611,7 +667,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     # Handle view group polls button
     elif action == backend.VIEW_GROUP_POLLS:
         query.edit_message_text(group.render_group_polls_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=group.build_polls_view_buttons())
+                                reply_markup=group.build_polls_view_buttons(back_action=backend.BACK))
         query.answer(text=None)
         return
     # Handle settings button
@@ -797,6 +853,7 @@ def main():
     dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/poll_\w+.*$"), handle_poll_view))
     dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/show_\w+.*$"), handle_show))
     dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/comment_\w+.*$"), handle_comment))
+    dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/group_\w+.*$"), handle_group_view))
     dispatcher.add_handler(MessageHandler(Filters.text, handle_message))
 
     # Callback query handlers
