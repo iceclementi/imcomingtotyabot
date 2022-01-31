@@ -80,7 +80,7 @@ class User(object):
     def get_groups(self, filters="", limit=MAX_GROUPS_PER_USER) -> list:
         user_groups = [Group.get_group_by_id(gid) for gid in self.group_ids]
         filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
-        return sorted(filtered_groups, key=lambda group: group.get_name().lower(), reverse=True)[:limit]
+        return sorted(filtered_groups, key=lambda group: group.get_name().lower())[:limit]
 
     def has_group_with_name(self, name: str) -> bool:
         return any(group.get_name() == name for group in self.get_groups(limit=MAX_GROUPS_PER_USER))
@@ -109,7 +109,7 @@ class User(object):
     def get_joined_groups(self, filters="", limit=MAX_JOINED_GROUPS_PER_USER) -> list:
         user_groups = [Group.get_group_by_id(gid) for gid in self.joined_group_ids]
         filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
-        return sorted(filtered_groups, key=lambda group: group.get_name().lower(), reverse=True)[:limit]
+        return sorted(filtered_groups, key=lambda group: group.get_name().lower())[:limit]
 
     def join_group(self, gid: str) -> str:
         if len(self.joined_group_ids) >= MAX_JOINED_GROUPS_PER_USER:
@@ -243,13 +243,14 @@ class Group(object):
             members_list.append(member_name)
 
         if len(self.get_members()) == 1:
-            members_list.append("\nYou're the only member in the group. Go ahead and add some more members!")
+            response = util.make_html_italic("You're the only member in the group. Go ahead and add some more members!")
+            members_list.append(f"\n{util.make_html_italic(response)}")
 
         return "\n".join(members_list)
 
     def generate_group_polls_list(self, limit=50) -> str:
         if not self.poll_ids:
-            return "You have no group polls. Go ahead and add a poll into the group!"
+            return util.make_html_italic("You have no group polls. Go ahead and add a poll into the group!")
 
         return "\n\n".join(poll.generate_linked_summary() for poll in self.get_polls(limit=limit))
 

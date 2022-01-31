@@ -198,7 +198,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
     if recent_polls:
         body = [f"{i + 1}. {poll.generate_linked_summary()}" for i, poll in enumerate(recent_polls)]
     else:
-        body = ["You have no polls! Use /start to build a new poll."]
+        body = [util.make_html_italic("You have no polls! Use /start to build a new poll.")]
 
     response = "\n\n".join(header + body)
     update.message.reply_html(response)
@@ -287,7 +287,7 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
             f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(owned_groups, 1)
         )
     else:
-        owned_groups_list = "You do not own any group!"
+        owned_groups_list = util.make_html_italic("You do not own any group!")
     owned_groups_summary = f"{owned_groups_title}\n{owned_groups_list}"
 
     joined_groups_title = util.make_html_bold(f"Joined Groups")
@@ -297,7 +297,7 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
             f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(joined_groups, 1)
         )
     else:
-        joined_groups_list = "You have not joined any group!"
+        joined_groups_list = util.make_html_italic("You have not joined any group!")
     joined_groups_summary = f"{joined_groups_title}\n{joined_groups_list}"
 
     body = [owned_groups_summary] + [joined_groups_summary]
