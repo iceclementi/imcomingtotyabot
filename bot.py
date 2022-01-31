@@ -847,6 +847,7 @@ def main():
     dispatcher.add_handler(CommandHandler("group", handle_group))
     dispatcher.add_handler(CommandHandler("done", handle_done))
     dispatcher.add_handler(CommandHandler("polls", handle_polls))
+    dispatcher.add_handler(CommandHandler("groups", handle_groups))
     dispatcher.add_handler(CommandHandler("help", handle_help))
 
     # Message handlers
