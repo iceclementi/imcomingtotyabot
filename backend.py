@@ -251,7 +251,7 @@ class Group(object):
 
         if len(self.get_members()) == 1:
             response = util.make_html_italic("You're the only member in the group. Go ahead and add some more members!")
-            members_list.append(f"\n{util.make_html_italic(response)}")
+            members_list.append(f"\n{response}")
 
         return "\n".join(members_list)
 
@@ -288,9 +288,9 @@ class Group(object):
         return "\n\n".join(header + body)
 
     def build_invite_text_and_button(self, owner_username: str) -> tuple:
-        invitation = f"You are invited to join @{owner_username} {util.make_html_bold(self.name)} group!"
+        invitation = f"You are invited to join @{owner_username} **{self.name}** group!"
         join_button = util.build_switch_button("Join Group", f"/join {self.get_password_hash()}", to_self=True)
-        return invitation, join_button
+        return invitation, InlineKeyboardMarkup([[join_button]])
 
     def build_group_details_buttons(self) -> InlineKeyboardMarkup:
         view_members_button = util.build_button("View Members", GROUP_SUBJECT, VIEW_MEMBERS, self.gid)
