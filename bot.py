@@ -57,11 +57,11 @@ GROUP_INVITATION = "Which group's invite code do you want to send?"
 
 REASON = "Please enter a reason/comment."
 HELP = "This bot will help you create polls where people can leave their names. " + \
-           "Use /start to create a poll here, then publish it to groups or send it to" + \
+           "Use /poll to create a poll here, then publish it to groups or send it to " + \
            "individual friends.\n\nSend /polls to manage your existing polls."
 
 ERROR_ACCESS_FORMAT = "Invalid access request format. Please use <b>/access &lt;key&gt;</b>."
-ERROR_ACCESS_ALREADY_GRANTED = "You already have access to the bot! Use /start to begin building a poll."
+ERROR_ACCESS_ALREADY_GRANTED = "You already have access to the bot! Use /poll to begin building a poll."
 ERROR_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_TITLE_LENGTH} characters)."
 ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_OPTION_TITLE_LENGTH} characters)."
 ERROR_EARLY_DONE_TITLE = "Sorry, please add a title to the poll."
@@ -84,16 +84,47 @@ def handle_start(update: Update, context: CallbackContext) -> None:
     if not is_user_admin(update.message):
         return
 
+    if not validate_and_register_user(update.effective_user):
+        update.message.reply_html(ACCESS_REQUEST)
+        return
+
     arguments = context.args
     if not arguments:
-        if not validate_and_register_user(update.effective_user):
-            update.message.reply_html(ACCESS_REQUEST)
-            return
-        else:
-            update.message.reply_html(HELP)
+        update.message.reply_html(HELP)
+        return
+
+    match = re.match(r"^(\w+)-(\w+)$", arguments[0])
+    if not match:
+        update.message.reply_html(HELP)
+        return
+
+    action = match.group(1)
+    # Handle join
+    if action == "join":
+        invitation_code = match.group(2)
+        match = re.match(r"^([^_\W])+(_[^_\W]+)?$", invitation_code)
+        if not match:
+            update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
             return
 
-    update.message.reply_html(args[0])
+        gid = match.group(1)
+        group = Group.get_group_by_id(gid)
+
+        if group and group.get_password_hash() == invitation_code:
+            user = User.get_user_by_id(update.effective_user.id)
+
+            if gid in user.get_all_group_ids():
+                update.message.reply_html(ERROR_ALREADY_IN_GROUP)
+                return
+            response = user.join_group(gid)
+            update.message.reply_html(response)
+            return
+        else:
+            update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
+            return
+    else:
+        update.message.reply_html(HELP)
+        return
 
 
 def handle_access(update: Update, context: CallbackContext) -> None:
@@ -218,7 +249,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
     if recent_polls:
         body = [f"{i + 1}. {poll.generate_linked_summary()}" for i, poll in enumerate(recent_polls)]
     else:
-        body = [util.make_html_italic("You have no polls! Use /start to build a new poll.")]
+        body = [util.make_html_italic("You have no polls! Use /poll to build a new poll.")]
 
     response = "\n\n".join(header + body)
     update.message.reply_html(response)
@@ -826,7 +857,9 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     match = re.match(r"^\s*/join\s+(\w+)\s*$", text)
     if match:
         invite_code = match.group(1)
-        inline_query.answer(results, switch_pm_text="Click here to join group", switch_pm_parameter=invite_code)
+        inline_query.answer(
+            results, switch_pm_text="Click here to join group", switch_pm_parameter=f"join-{invite_code}"
+        )
         return
 
     # Handle poll query
