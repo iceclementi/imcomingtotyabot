@@ -727,7 +727,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         inline_query.answer(results)
         return
 
-    match = re.match(r"^\s*/invite\s*(.*)$")
+    match = re.match(r"^\s*/invite\s*(.*)$", text)
     if match:
         group_name = match.group(1).strip()
         for group in user.get_owned_groups(group_name, limit=10):
