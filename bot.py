@@ -72,8 +72,28 @@ ERROR_INVALID_GROUP_PASS_FORMAT = \
     f"Sorry, please ensure that you group secret key is between {MIN_GROUP_PASS_LENGTH} and {MAX_GROUP_PASS_LENGTH} " \
     f"characters long and contains only alphanumeric characters."
 ERROR_EARLY_DONE_GROUP_NAME = "Sorry, please add a group name."
+ERROR_INVALID_GROUP_INVITE = "Sorry, invalid or expired group invitation code."
+ERROR_ALREADY_IN_GROUP = "You're already in the group! Use /groups to view all your groups."
 
 # endregion
+
+
+def handle_start(update: Update, context: CallbackContext) -> None:
+    """Manages implicit references to the bot."""
+    # Start command only work in private chat
+    if not is_user_admin(update.message):
+        return
+
+    arguments = context.args
+    if not arguments:
+        if not validate_and_register_user(update.effective_user):
+            update.message.reply_html(ACCESS_REQUEST)
+            return
+        else:
+            update.message.reply_html(HELP)
+            return
+
+    update.message.reply_html(args[0])
 
 
 def handle_access(update: Update, context: CallbackContext) -> None:
@@ -104,9 +124,9 @@ def handle_access(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_DECLINED)
 
 
-def handle_start(update: Update, context: CallbackContext) -> None:
+def handle_poll(update: Update, context: CallbackContext) -> None:
     """Begins building a new poll."""
-    # Start command only work in private chat and when access is granted
+    # Poll command only work in private chat and when access is granted
     if not is_user_admin(update.message):
         return
 
@@ -348,6 +368,47 @@ def handle_invite(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(response, reply_markup=buttons)
     else:
         update.message.reply_html(response)
+
+
+def handle_join(update: Update, context: CallbackContext) -> None:
+    """Joins a group from a group invite code."""
+    # Join command only work in private chat
+    if not is_user_admin(update.message):
+        return
+
+    if not validate_and_register_user(update.effective_user):
+        update.message.reply_html(ACCESS_REQUEST)
+        return
+
+    context.user_data.clear()
+
+    arguments = context.args
+    if not arguments:
+        context.user_data.update({"action": "join"})
+        update.message.reply_html("Enter the group invitation code.")
+        return
+
+    invitation_code = arguments[0]
+    match = re.match(r"^([^_\W])+(_[^_\W]+)?$", invitation_code)
+    if match:
+        gid = match.group(1)
+        group = Group.get_group_by_id(gid)
+
+        if group and group.get_password_hash() == invitation_code:
+            user = User.get_user_by_id(update.effective_user.id)
+
+            if gid in user.get_all_group_ids():
+                update.message.reply_html(ERROR_ALREADY_IN_GROUP)
+                return
+            response = user.join_group(gid)
+            update.message.reply_html(response)
+            return
+        else:
+            update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
+        return
+
+    update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
+    return
 
 
 def handle_show(update: Update, context: CallbackContext) -> None:
@@ -747,6 +808,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         inline_query.answer(results)
         return
 
+    # Handle invite query
     match = re.match(r"^\s*/invite\s*(.*)$", text)
     if match:
         group_name = match.group(1).strip()
@@ -760,10 +822,11 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         inline_query.answer(results)
         return
 
+    # Handle join query
     match = re.match(r"^\s*/join\s+(\w+)\s*$", text)
     if match:
         invite_code = match.group(1)
-
+        inline_query.answer(results, switch_pm_text="Click here to join group", switch_pm_parameter=invite_code)
         return
 
     # Handle poll query
@@ -896,11 +959,13 @@ def main():
     # Command handlers
     dispatcher.add_handler(CommandHandler("access", handle_access))
     dispatcher.add_handler(CommandHandler("start", handle_start))
+    dispatcher.add_handler(CommandHandler("poll", handle_poll))
     dispatcher.add_handler(CommandHandler("group", handle_group))
     dispatcher.add_handler(CommandHandler("done", handle_done))
     dispatcher.add_handler(CommandHandler("polls", handle_polls))
     dispatcher.add_handler(CommandHandler("groups", handle_groups))
     dispatcher.add_handler(CommandHandler("invite", handle_invite))
+    dispatcher.add_handler(CommandHandler("join", handle_join))
     dispatcher.add_handler(CommandHandler("help", handle_help))
 
     # Message handlers

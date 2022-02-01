@@ -124,8 +124,11 @@ class User(object):
         if gid in self.joined_group_ids:
             self.joined_group_ids.remove(gid)
 
+    def get_all_group_ids(self) -> set:
+        return set.union(self.owned_group_ids, self.joined_group_ids)
+
     def get_all_groups(self, filters="", limit=50) -> list:
-        user_groups = [Group.get_group_by_id(gid) for gid in set.union(self.owned_group_ids, self.joined_group_ids)]
+        user_groups = [Group.get_group_by_id(gid) for gid in self.get_all_group_ids()]
         filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
         return sorted(filtered_groups, key=lambda group: group.get_name().lower())[:limit]
 
@@ -297,7 +300,7 @@ class Group(object):
         return "\n\n".join(header + body)
 
     def build_invite_text_and_button(self, owner_username: str) -> tuple:
-        invitation = f"You are invited to join {User.get_user_by_id(self.owner).get_name()}'s \"{self.name}\" group!"
+        invitation = f"You are invited to join {owner_username}'s \"{self.name}\" group!"
         join_button = util.build_switch_button("Join Group", f"/join {self.get_password_hash()}", to_self=True)
         return invitation, InlineKeyboardMarkup([[join_button]])
 
