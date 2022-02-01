@@ -51,7 +51,7 @@ NEW_GROUP = "Let's create a new group! To begin, send me the group name."
 GROUP_PASSWORD_REQUEST = "New group:\n{}\n\nNow enter a secret password for your group. " \
                          "Alternatively, enter /done to skip this step."
 GROUP_DONE = "\U0001f44d Group created! You are now the owner of the group. " \
-             "Invite your friends to join through this code: {}"
+             "Use /invite to invite your friends to join the group."
 DELETED_GROUP = "Sorry, the group has been deleted."
 GROUP_INVITATION = "Come join my <b>TYA CountMeIn</b> group!\nThe code is: {}"
 
@@ -278,10 +278,10 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
 
     header = [util.make_html_bold("Your Groups")]
 
-    user_groups = User.get_user_by_id(uid).get_joined_groups()
+    user = User.get_user_by_id(uid)
 
     owned_groups_title = util.make_html_bold(f"Owned Groups {backend.EMOJI_CROWN}")
-    owned_groups = [group for group in user_groups if group.get_owner() == uid]
+    owned_groups = user.get_owned_groups()
     if owned_groups:
         owned_groups_list = "\n\n".join(
             f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(owned_groups, 1)
@@ -291,7 +291,7 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
     owned_groups_summary = f"{owned_groups_title}\n{owned_groups_list}"
 
     joined_groups_title = util.make_html_bold(f"Joined Groups")
-    joined_groups = [group for group in user_groups if group.get_owner() != uid]
+    joined_groups = user.get_joined_groups()
     if joined_groups:
         joined_groups_list = "\n\n".join(
             f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(joined_groups, 1)
@@ -601,6 +601,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
+        query.edit_message_reply_markup(None)
         return
 
 
@@ -616,30 +617,40 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     uid, user_profile = extract_user_data(query.from_user)
     message = query.message
     is_admin = is_user_admin(message)
+    is_owner = group.get_owner() == uid
 
     if not is_admin:
         return
 
+    # User is no longer in the group
+    if uid not in group.get_member_ids():
+        query.edit_message_reply_markup(None)
+        query.answer(text="You are not a member of this group.")
+        return
+
     # Handle view members button
     if action == backend.VIEW_MEMBERS:
-        query.edit_message_text(group.render_group_members_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=group.build_members_view_buttons(back_action=backend.BACK))
+        query.edit_message_text(
+            group.render_group_members_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_members_view_buttons(back_action=backend.BACK, is_owner=is_owner)
+        )
         query.answer(text=None)
         return
     # Handle group invite button
-    elif action == backend.GROUP_INVITE:
-        query.message.reply_html(GROUP_INVITATION.format(util.make_html_bold(group.get_password_hash())))
-        query.answer(text="Group invite code sent!")
-        return
+    # elif action == backend.GROUP_INVITE and is_owner:
+    #     invitation, button = group.build_invite_text_and_button(user_profile["username"])
+    #     query.message.reply_html(invitation)
+    #     query.answer(text="Group invite code sent!")
+    #     return
     # Handle remove member button
-    elif action == backend.REMOVE_MEMBER:
+    elif action == backend.REMOVE_MEMBER and is_owner:
         query.edit_message_reply_markup(
             group.build_members_buttons(backend.REMOVE_MEMBER, back_action=backend.VIEW_MEMBERS)
         )
         query.answer(text="Select a member to remove.")
         return
     # Handle remove member choice button
-    elif action.startswith(f"{backend.REMOVE_MEMBER}_"):
+    elif action.startswith(f"{backend.REMOVE_MEMBER}_") and is_owner:
         _, uid = action.rsplit("_", 1)
         member_name = User.get_user_by_id(uid).get_name()
         query.edit_message_reply_markup(
@@ -650,9 +661,8 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         query.answer(text=f"Confirm remove {member_name} from the group?")
         return
     # Handle delete confirmation button
-    elif action.startswith(f"{backend.DELETE_YES}_"):
+    elif action.startswith(f"{backend.DELETE_YES}_") and is_owner:
         _, sub_action, uid = action.rsplit("_", 2)
-        member = User.get_user_by_id(uid)
         if sub_action == backend.REMOVE_MEMBER:
             status = group.remove_member(uid)
             query.answer(text=status)
@@ -684,14 +694,16 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
+        query.edit_message_reply_markup(None)
         return
 
 
 def handle_inline_query(update: Update, context: CallbackContext) -> None:
     """Handles an inline query."""
-    uid = update.effective_user.id
     inline_query = update.inline_query
     text = inline_query.query
+    uid = update.effective_user.id
+    user = User.get_user_by_id(uid)
 
     results = []
 
@@ -715,8 +727,21 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         inline_query.answer(results)
         return
 
+    match = re.match(r"^\s*/invite\s*(.*)$")
+    if match:
+        group_name = match.group(1).strip()
+        for group in user.get_owned_groups(group_name, limit=10):
+            invitation, join_button = group.build_invite_text_and_button(update.effective_user.username)
+            query_result = InlineQueryResultArticle(
+                id=group.get_gid(), title=group.get_name(), description="Send group invitation",
+                input_message_content=InputTextMessageContent(invitation), reply_markup=join_button
+            )
+            results.append(query_result)
+        inline_query.answer(results)
+        return
+
     # Handle poll query
-    polls = User.get_user_by_id(uid).get_polls(text.lower(), limit=10)
+    polls = user.get_polls(text, limit=10)
     for poll in polls:
         query_result = InlineQueryResultArticle(
             id=poll.get_poll_id(), title=poll.get_title(), description=poll.generate_options_summary(),
@@ -725,6 +750,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         results.append(query_result)
 
     inline_query.answer(results)
+    return
 
 
 def handle_reply_message(update: Update, context: CallbackContext) -> None:

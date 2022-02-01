@@ -52,7 +52,7 @@ class User(object):
         self.last_name = last_name
         self.username = username
         self.is_group_owner = True
-        self.group_ids = set()
+        self.owned_group_ids = set()
         self.joined_group_ids = set()
         self.poll_ids = set()
 
@@ -74,31 +74,33 @@ class User(object):
             return f"{self.first_name} {self.last_name}"
         return self.first_name
 
-    def get_group_ids(self) -> set:
+    def get_username(self) -> str:
+        return self.username
+
+    def get_owned_group_ids(self) -> set:
         return self.groups
 
-    def get_groups(self, filters="", limit=MAX_GROUPS_PER_USER) -> list:
-        user_groups = [Group.get_group_by_id(gid) for gid in self.group_ids]
+    def get_owned_groups(self, filters="", limit=MAX_GROUPS_PER_USER) -> list:
+        user_groups = [Group.get_group_by_id(gid) for gid in self.owned_group_ids]
         filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
         return sorted(filtered_groups, key=lambda group: group.get_name().lower())[:limit]
 
     def has_group_with_name(self, name: str) -> bool:
-        return any(group.get_name() == name for group in self.get_groups(limit=MAX_GROUPS_PER_USER))
+        return any(group.get_name() == name for group in self.get_owned_groups(limit=MAX_GROUPS_PER_USER))
 
     def create_group(self, name: str, password="") -> tuple:
         if self.has_group_with_name(name):
             return None, "You already have a group with the same name."
-        if len(self.group_ids) >= MAX_GROUPS_PER_USER:
+        if len(self.owned_group_ids) >= MAX_GROUPS_PER_USER:
             return None, f"The maximum number of groups you can own ({MAX_GROUPS_PER_USER}) has been reached."
         group = Group.create_new(name, self.uid, password)
-        self.group_ids.add(group.get_gid())
-        self.join_group(group.get_gid())
+        self.owned_group_ids.add(group.get_gid())
         return group, f"Group {util.make_html_bold(name)} created!"
 
     def delete_group(self, gid: str) -> str:
-        if gid not in self.group_ids:
+        if gid not in self.owned_group_ids:
             return "You do not own that group."
-        self.group_ids.remove(gid)
+        self.owned_group_ids.remove(gid)
         group = Group.get_group_by_id(gid)
         group.delete()
         return f"Group {util.make_html_bold(group.get_name())} has been deleted."
@@ -121,6 +123,11 @@ class User(object):
     def leave_group(self, gid: str) -> None:
         if gid in self.joined_group_ids:
             self.joined_group_ids.remove(gid)
+
+    def get_all_groups(self, filters="", limit=50) -> list:
+        user_groups = [Group.get_group_by_id(gid) for gid in set.union(self.owned_group_ids, self.joined_group_ids)]
+        filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
+        return sorted(filtered_groups, key=lambda group: group.get_name().lower())[:limit]
 
     def get_polls(self, filters="", limit=50) -> list:
         user_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
@@ -280,6 +287,11 @@ class Group(object):
         body = [self.generate_group_polls_list()]
         return "\n\n".join(header + body)
 
+    def build_invite_text_and_button(self, owner_username: str) -> tuple:
+        invitation = f"You are invited to join @{owner_username} {util.make_html_bold(self.name)} group!"
+        join_button = util.build_switch_button("Join Group", f"/join {self.get_password_hash()}", to_self=True)
+        return invitation, join_button
+
     def build_group_details_buttons(self) -> InlineKeyboardMarkup:
         view_members_button = util.build_button("View Members", GROUP_SUBJECT, VIEW_MEMBERS, self.gid)
         view_polls_button = util.build_button("View Polls", GROUP_SUBJECT, VIEW_GROUP_POLLS, self.gid)
@@ -287,10 +299,13 @@ class Group(object):
         buttons = [[view_members_button], [view_polls_button], [settings_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_members_view_buttons(self, back_action="") -> InlineKeyboardMarkup:
-        group_invite_button = util.build_button("Get Group Invite", GROUP_SUBJECT, GROUP_INVITE, self.gid)
-        remove_member_button = util.build_button("Remove Member", GROUP_SUBJECT, REMOVE_MEMBER, self.gid)
-        buttons = [[group_invite_button], [remove_member_button]]
+    def build_members_view_buttons(self, back_action="", is_owner=False) -> InlineKeyboardMarkup:
+        buttons = []
+        if is_owner:
+            group_invite_button = util.build_switch_button("Send Group Invite", f"/invite {self.name}")
+            remove_member_button = util.build_button("Remove Member", GROUP_SUBJECT, REMOVE_MEMBER, self.gid)
+            buttons.append([group_invite_button])
+            buttons.append([remove_member_button])
         if back_action:
             back_button = util.build_button("Back", GROUP_SUBJECT, back_action, self.gid)
             buttons.append([back_button])
