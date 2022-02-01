@@ -53,7 +53,7 @@ GROUP_PASSWORD_REQUEST = "New group:\n{}\n\nNow enter a secret password for your
 GROUP_DONE = "\U0001f44d Group created! You are now the owner of the group. " \
              "Use /invite to invite your friends to join the group."
 DELETED_GROUP = "Sorry, the group has been deleted."
-GROUP_INVITATION = "Come join my <b>TYA CountMeIn</b> group!\nThe code is: {}"
+GROUP_INVITATION = "Which group's invite code do you want to send?"
 
 REASON = "Please enter a reason/comment."
 HELP = "This bot will help you create polls where people can leave their names. " + \
@@ -328,6 +328,26 @@ def handle_group_view(update: Update, context: CallbackContext) -> None:
         return
     else:
         update.message.reply_html(HELP)
+
+
+def handle_invite(update: Update, context: CallbackContext) -> None:
+    """Sends group invitation code."""
+    # Invite command only work in private chat
+    if not is_user_admin(update.message):
+        return
+
+    if not validate_and_register_user(update.effective_user):
+        update.message.reply_html(ACCESS_REQUEST)
+        return
+
+    context.user_data.clear()
+    uid = update.effective_user.id
+
+    response, buttons = User.get_user_by_id(uid).build_invite_text_and_buttons()
+    if buttons:
+        update.message.reply_html(response, reply_markup=buttons)
+    else:
+        update.message.reply_html(response)
 
 
 def handle_show(update: Update, context: CallbackContext) -> None:
@@ -740,6 +760,12 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         inline_query.answer(results)
         return
 
+    match = re.match(r"^\s*/join\s+(\w+)\s*$", text)
+    if match:
+        invite_code = match.group(1)
+
+        return
+
     # Handle poll query
     polls = user.get_polls(text, limit=10)
     for poll in polls:
@@ -874,6 +900,7 @@ def main():
     dispatcher.add_handler(CommandHandler("done", handle_done))
     dispatcher.add_handler(CommandHandler("polls", handle_polls))
     dispatcher.add_handler(CommandHandler("groups", handle_groups))
+    dispatcher.add_handler(CommandHandler("invite", handle_invite))
     dispatcher.add_handler(CommandHandler("help", handle_help))
 
     # Message handlers

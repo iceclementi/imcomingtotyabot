@@ -147,6 +147,15 @@ class User(object):
         poll.delete()
         return f"Poll {util.make_html_bold(poll.get_title())} has been deleted."
 
+    def build_invite_text_and_buttons(self) -> tuple:
+        if not self.owned_group_ids:
+            return util.make_html_italic("You do not own any groups!"), None
+        buttons = []
+        for group in self.get_owned_groups():
+            invite_button = util.build_switch_button(group.get_name(), f"/invite {group.get_name}")
+            buttons.append([invite_button])
+        return "Which group's invite code do you want to send?", InlineKeyboardMarkup(buttons)
+
 
 class Group(object):
     def __init__(self, gid: str, name: str, uid: int, password: str) -> None:
@@ -288,7 +297,7 @@ class Group(object):
         return "\n\n".join(header + body)
 
     def build_invite_text_and_button(self, owner_username: str) -> tuple:
-        invitation = f"You are invited to join @{owner_username} **{self.name}** group!"
+        invitation = f"You are invited to join @{owner_username} \"{self.name}\" group!"
         join_button = util.build_switch_button("Join Group", f"/join {self.get_password_hash()}", to_self=True)
         return invitation, InlineKeyboardMarkup([[join_button]])
 
