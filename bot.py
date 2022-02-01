@@ -102,7 +102,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
     # Handle join
     if action == "join":
         invitation_code = match.group(2)
-        match = re.match(r"^([^_\W])+(_[^_\W]+)?$", invitation_code)
+        match = re.match(r"^([^_\W]+)(_[^_\W]+)?$", invitation_code)
         if not match:
             update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
             return
@@ -420,7 +420,7 @@ def handle_join(update: Update, context: CallbackContext) -> None:
         return
 
     invitation_code = arguments[0]
-    match = re.match(r"^([^_\W])+(_[^_\W]+)?$", invitation_code)
+    match = re.match(r"^([^_\W]+)(_[^_\W]+)?$", invitation_code)
     if match:
         gid = match.group(1)
         group = Group.get_group_by_id(gid)
