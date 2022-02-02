@@ -780,7 +780,8 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         )
 
         if not buttons:
-            update.message.reply_html(response)
+            query.message.edit_message_text(response, parse_mode=ParseMode.HTML)
+            query.answer(text=None)
             return
 
         header = [util.make_html_bold("Select the poll you wish to add")]
@@ -788,6 +789,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         response = "\n\n".join(header + body)
 
         query.message.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
+        query.answer(text="Select a poll you wish to add.")
         return
     # Handle remove poll button
     elif action == backend.REMOVE_POLL:

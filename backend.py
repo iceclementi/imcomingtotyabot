@@ -173,22 +173,25 @@ class User(object):
             buttons.append([invite_button])
         return "Which group's invite code do you want to send?", InlineKeyboardMarkup(buttons)
 
-    def build_polls_text_and_buttons(self, filters=None, is_filter_away=False,
-                                     subject="", action="", identifier="", limit=20) -> tuple:
+    def build_polls_text_and_buttons(self, filters=None, is_filter_away=False, limit=20,
+                                     subject="", action="", identifier="", back_action="") -> tuple:
         if filters:
             polls = [poll for poll in self.get_polls() if poll.get_poll_id() not in filters][:limit] if is_filter_away \
                 else [poll for poll in self.get_polls() if poll.get_poll_id() in filters][:limit]
         else:
             polls = self.get_polls()[:limit]
 
+        back_button = util.build_button("Back", subject, back_action, identifier)
+
         if not polls:
             return util.make_html_italic(
                 "You do not have any more polls to add to this group. You can use /poll to create new polls."
-            ), None
+            ), InlineKeyboardMarkup([[back_button]])
 
         response = "\n\n".join(f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(polls, 1))
         buttons = [[util.build_button(poll.get_title(), subject,
                                       f"{action}_{poll.get_poll_id()}", identifier)] for poll in polls]
+        buttons.append([back_button])
 
         return response, InlineKeyboardMarkup(buttons)
 
