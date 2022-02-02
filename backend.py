@@ -28,11 +28,13 @@ RESPONSE = "response"
 COMMENT = "comment"
 VOTE = "vote"
 DELETE = "delete"
-DELETE_YES = "deleteYes"
+DELETE_YES = "delYes"
 BACK = "back"
-VIEW_MEMBERS = "member"
+VIEW_MEMBERS = "members"
 REMOVE_MEMBER = "delMember"
-VIEW_GROUP_POLLS = "poll"
+VIEW_GROUP_POLLS = "polls"
+ADD_POLL = "poll"
+REMOVE_POLL = "delPoll"
 GROUP_SETTINGS = "set"
 CHANGE_SECRET = "pass"
 GROUP_INVITE = "invite"
@@ -132,6 +134,9 @@ class User(object):
         filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
         return sorted(filtered_groups, key=lambda group: group.get_name().lower())[:limit]
 
+    def get_poll_ids(self) -> set:
+        return self.poll_ids
+
     def get_polls(self, filters="", limit=50) -> list:
         user_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
         filtered_polls = [poll for poll in user_polls if filters.lower() in poll.get_title().lower()]
@@ -148,7 +153,16 @@ class User(object):
         self.poll_ids.remove(poll_id)
         poll = Poll.get_poll_by_id(poll_id)
         poll.delete()
+
+        # Delete poll from all user groups
+        for group in self.get_all_groups():
+            if poll_id in group.get_poll_ids():
+                group.remove_poll(poll_id)
+
         return f"Poll {util.make_html_bold(poll.get_title())} has been deleted."
+
+    def has_group_poll(self, poll_id: str) -> bool:
+        return any(poll_id in group.get_poll_ids() for group in self.get_all_groups())
 
     def build_invite_text_and_buttons(self) -> tuple:
         if not self.owned_group_ids:
@@ -158,6 +172,25 @@ class User(object):
             invite_button = util.build_switch_button(group.get_name(), f"/invite {group.get_name()}")
             buttons.append([invite_button])
         return "Which group's invite code do you want to send?", InlineKeyboardMarkup(buttons)
+
+    def build_polls_text_and_buttons(self, filters=None, is_filter_away=False,
+                                     subject="", action="", identifier="", limit=20) -> tuple:
+        if filters:
+            polls = [poll for poll in self.get_polls() if poll.get_poll_id() not in filters][:limit] if is_filter_away \
+                else [poll for poll in self.get_polls() if poll.get_poll_id() in filters][:limit]
+        else:
+            polls = self.get_polls()[:limit]
+
+        if not polls:
+            return util.make_html_italic(
+                "You do not have any more polls to add to this group. You can use /poll to create new polls."
+            ), None
+
+        response = "\n\n".join(f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(polls, 1))
+        buttons = [[util.build_button(poll.get_title(), subject,
+                                      f"{action}_{poll.get_poll_id()}", identifier)] for poll in polls]
+
+        return response, InlineKeyboardMarkup(buttons)
 
 
 class Group(object):
@@ -241,7 +274,7 @@ class Group(object):
         return f"Poll \"{poll_title}\" added into the group."
 
     def remove_poll(self, poll_id: str) -> str:
-        if poll_id in self.poll_ids:
+        if poll_id not in self.poll_ids:
             return "The poll is not in the group."
         self.poll_ids.remove(poll_id)
         title = Poll.get_poll_by_id(poll_id).get_title()
@@ -337,7 +370,9 @@ class Group(object):
         return InlineKeyboardMarkup(buttons)
 
     def build_polls_view_buttons(self, back_action="") -> InlineKeyboardMarkup:
-        buttons = []
+        add_group_poll_button = util.build_button("Add Group Poll", GROUP_SUBJECT, ADD_POLL, self.gid)
+        remove_group_poll_button = util.build_button("Remove Group Poll", GROUP_SUBJECT, REMOVE_POLL, self.gid)
+        buttons = [[add_group_poll_button], [remove_group_poll_button]]
         if back_action:
             back_button = util.build_button("Back", GROUP_SUBJECT, back_action, self.gid)
             buttons.append([back_button])
@@ -349,63 +384,6 @@ class Group(object):
         no_button = util.build_button("No", GROUP_SUBJECT, back_action, self.gid)
         buttons = [[yes_button, no_button]]
         return InlineKeyboardMarkup(buttons)
-
-
-class Session(object):
-    def __init__(self, uid: int) -> None:
-        self.uid = uid
-        self.progress = TITLE
-        self.poll_id = ""
-        self.start_date = datetime.now()
-        self.expiry = SESSION_EXPIRY
-
-    def get_progress(self) -> str:
-        return self.progress
-
-    def set_progress(self, state: str) -> None:
-        self.progress = state
-
-    def get_poll_id(self) -> str:
-        return self.poll_id
-
-    def set_poll_id(self, poll_id: str) -> None:
-        self.poll_id = poll_id
-
-    def get_start_date(self) -> datetime:
-        return self.start_date
-
-    def get_expiry(self) -> int:
-        return self.expiry
-
-    def set_expiry(self, expiry: int) -> None:
-        self.expiry = expiry
-
-    def end_session(self) -> None:
-        all_sessions.pop(self.uid)
-        all_polls[self.poll_id] = temp_polls.pop(self.poll_id)
-
-    def reset_session(self):
-        self.progress = TITLE
-        self.start_date = datetime.now()
-        poll = Poll.get_temp_poll_by_id(self.poll_id)
-        if poll:
-            poll.reset_poll()
-        else:
-            self.poll_id = Poll.create_new_temp_poll(self.uid)
-
-    @staticmethod
-    def start_new_session(uid: int) -> None:
-        session = Session.get_session_by_id(uid)
-        if not session:
-            session = Session(uid)
-            session.set_poll_id(Poll.create_new_temp_poll(uid))
-            all_sessions[uid] = session
-        else:
-            session.reset_session()
-
-    @staticmethod
-    def get_session_by_id(uid: int):
-        return all_sessions.get(uid, None)
 
 
 class Poll(object):

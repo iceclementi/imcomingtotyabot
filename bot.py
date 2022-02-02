@@ -102,26 +102,8 @@ def handle_start(update: Update, context: CallbackContext) -> None:
     # Handle join
     if action == "join":
         invitation_code = match.group(2)
-        match = re.match(r"^([^_\W]+)(_[^_\W]+)?$", invitation_code)
-        if not match:
-            update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
-            return
-
-        gid = match.group(1)
-        group = Group.get_group_by_id(gid)
-
-        if group and group.get_password_hash() == invitation_code:
-            user = User.get_user_by_id(update.effective_user.id)
-
-            if gid in user.get_all_group_ids():
-                update.message.reply_html(ERROR_ALREADY_IN_GROUP)
-                return
-            response = user.join_group(gid)
-            update.message.reply_html(response)
-            return
-        else:
-            update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
-            return
+        try_join_group_through_invitation(update, invitation_code)
+        return
     else:
         update.message.reply_html(HELP)
         return
@@ -272,11 +254,19 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
 
     poll_id = re.match(r"^/poll_(\w+).*$", text).group(1)
     poll = Poll.get_poll_by_id(poll_id)
-    if poll and poll.get_creator_id() == uid:
+    if not poll:
+        update.message.reply_html(HELP)
+        return
+
+    if poll.get_creator_id() == uid:
         deliver_poll(update, poll, is_admin=True)
+        return
+    elif User.get_user_by_id(uid).has_group_poll(poll_id):
+        deliver_poll(update, poll, is_admin=False)
         return
     else:
         update.message.reply_html(HELP)
+        return
 
 
 def handle_group(update: Update, context: CallbackContext) -> None:
@@ -374,7 +364,7 @@ def handle_group_view(update: Update, context: CallbackContext) -> None:
 
     gid = re.match(r"^/group_(\w+).*$", text).group(1)
     group = Group.get_group_by_id(gid)
-    if group and group.get_owner() == uid:
+    if group and uid in group.get_memebr_ids():
         deliver_group(update, group)
         return
     else:
@@ -420,25 +410,7 @@ def handle_join(update: Update, context: CallbackContext) -> None:
         return
 
     invitation_code = arguments[0]
-    match = re.match(r"^([^_\W]+)(_[^_\W]+)?$", invitation_code)
-    if match:
-        gid = match.group(1)
-        group = Group.get_group_by_id(gid)
-
-        if group and group.get_password_hash() == invitation_code:
-            user = User.get_user_by_id(update.effective_user.id)
-
-            if gid in user.get_all_group_ids():
-                update.message.reply_html(ERROR_ALREADY_IN_GROUP)
-                return
-            response = user.join_group(gid)
-            update.message.reply_html(response)
-            return
-        else:
-            update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
-        return
-
-    update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
+    try_join_group_through_invitation(update, invitation_code)
     return
 
 
@@ -506,6 +478,9 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         return
     elif action == "group":
         handle_group_conversation(update, context)
+        return
+    elif action == "join":
+        handle_join_conversation(update, context)
         return
 
     if is_user_admin(update.message):
@@ -590,6 +565,13 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
 
         # Clear user data
         context.user_data.clear()
+
+
+def handle_join_conversation(update: Update, context: CallbackContext) -> None:
+    """Handles the conversation between the bot and the user to join a group."""
+    invitation_code = update.message.text.strip()
+    try_join_group_through_invitation(update, invitation_code)
+    return
 
 
 def handle_callback_query(update: Update, context: CallbackContext) -> None:
@@ -697,7 +679,10 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     elif action == backend.DELETE_YES and is_admin:
         User.get_user_by_id(uid).delete_poll(poll_id)
         for mid, cid in poll.get_all_message_details():
-            query.bot.delete_message(util.decode(cid), util.decode(mid))
+            try:
+                query.bot.delete_message(util.decode(cid), util.decode(mid))
+            except telegram.error.TelegramError:
+                pass
         query.answer(text="Poll deleted!")
         return
     # Handle back button
@@ -748,12 +733,6 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         )
         query.answer(text=None)
         return
-    # Handle group invite button
-    # elif action == backend.GROUP_INVITE and is_owner:
-    #     invitation, button = group.build_invite_text_and_button(user_profile["username"])
-    #     query.message.reply_html(invitation)
-    #     query.answer(text="Group invite code sent!")
-    #     return
     # Handle remove member button
     elif action == backend.REMOVE_MEMBER and is_owner:
         query.edit_message_reply_markup(
@@ -791,6 +770,27 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         query.edit_message_text(group.render_group_polls_text(), parse_mode=ParseMode.HTML,
                                 reply_markup=group.build_polls_view_buttons(back_action=backend.BACK))
         query.answer(text=None)
+        return
+    # Handle add poll button
+    elif action == backend.ADD_POLL:
+        user = User.get_user_by_id(uid)
+        response, buttons = user.build_polls_text_and_buttons(
+            filters=group.get_poll_ids(), is_filter_away=True, subject=backend.GROUP_SUBJECT,
+            action=backend.ADD_POLL, identifier=gid, limit=20
+        )
+
+        if not buttons:
+            update.message.reply_html(response)
+            return
+
+        header = [util.make_html_bold("Select the poll you wish to add")]
+        body = [response]
+        response = "\n\n".join(header + body)
+
+        update.message.reply_html(response, reply_markup=buttons)
+        return
+    # Handle remove poll button
+    elif action == backend.REMOVE_POLL:
         return
     # Handle settings button
     elif action == backend.GROUP_SETTINGS:
@@ -982,6 +982,29 @@ def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
 def deliver_group(update: Update, group: Group) -> None:
     """Delivers the group details."""
     update.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_buttons())
+
+
+def try_join_group_through_invitation(update: Update, invitation_code: str):
+    match = re.match(r"^([^_\W]+)(_[^_\W]+)?$", invitation_code)
+    if match:
+        gid = match.group(1)
+        group = Group.get_group_by_id(gid)
+
+        if group and group.get_password_hash() == invitation_code:
+            user = User.get_user_by_id(update.effective_user.id)
+
+            if gid in user.get_all_group_ids():
+                update.message.reply_html(ERROR_ALREADY_IN_GROUP)
+                return
+            response = user.join_group(gid)
+            update.message.reply_html(response)
+            return
+        else:
+            update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
+        return
+
+    update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
+    return
 
 
 def main():
