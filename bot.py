@@ -787,7 +787,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         body = [response]
         response = "\n\n".join(header + body)
 
-        update.message.reply_html(response, reply_markup=buttons)
+        query.message.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
         return
     # Handle remove poll button
     elif action == backend.REMOVE_POLL:
