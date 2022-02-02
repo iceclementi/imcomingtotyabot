@@ -3,7 +3,7 @@ import os
 import logging
 import re
 import backend
-from backend import User, Group, Session, Poll, Option
+from backend import User, Group, Poll, Option
 import util
 from telegram import (
     Update, ParseMode, User as TeleUser, Message, KeyboardButton, ReplyKeyboardMarkup, InlineQueryResultArticle,
