@@ -2,6 +2,8 @@
 from datetime import datetime
 from collections import OrderedDict
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+
+import backend
 import util
 
 # Settings
@@ -173,28 +175,6 @@ class User(object):
             buttons.append([invite_button])
         return "Which group's invite code do you want to send?", InlineKeyboardMarkup(buttons)
 
-    def build_polls_text_and_buttons(self, filters=None, is_filter_away=False, limit=20,
-                                     subject="", action="", identifier="", back_action="") -> tuple:
-        if filters:
-            polls = [poll for poll in self.get_polls() if poll.get_poll_id() not in filters][:limit] if is_filter_away \
-                else [poll for poll in self.get_polls() if poll.get_poll_id() in filters][:limit]
-        else:
-            polls = self.get_polls()[:limit]
-
-        back_button = util.build_button("Back", subject, back_action, identifier)
-
-        if not polls:
-            return util.make_html_italic(
-                "You do not have any more polls to add to this group. You can use /poll to create new polls."
-            ), InlineKeyboardMarkup([[back_button]]), False
-
-        response = "\n\n".join(f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(polls, 1))
-        buttons = [[util.build_button(poll.get_title(), subject,
-                                      f"{action}_{poll.get_poll_id()}", identifier)] for poll in polls]
-        buttons.append([back_button])
-
-        return response, InlineKeyboardMarkup(buttons), True
-
 
 class Group(object):
     def __init__(self, gid: str, name: str, uid: int, password: str) -> None:
@@ -270,11 +250,11 @@ class Group(object):
         filtered_polls = [poll for poll in group_polls if filters.lower() in poll.get_title().lower()]
         return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)[:limit]
 
-    def add_poll(self, poll_id: str, poll_title: str) -> str:
+    def add_poll(self, poll_id: str) -> str:
         if poll_id in self.poll_ids:
             return "The poll already exists in the group."
         self.poll_ids.add(poll_id)
-        return f"Poll \"{poll_title}\" added into the group."
+        return f"Poll \"{Poll.get_poll_by_id(poll_id).get_title()}\" added into the group."
 
     def remove_poll(self, poll_id: str) -> str:
         if poll_id not in self.poll_ids:
@@ -335,8 +315,8 @@ class Group(object):
         body = [self.generate_group_polls_list()]
         return "\n\n".join(header + body)
 
-    def build_invite_text_and_button(self, owner_username: str) -> tuple:
-        invitation = f"You are invited to join {owner_username}'s \"{self.name}\" group!"
+    def build_invite_text_and_button(self, owner_name: str) -> tuple:
+        invitation = f"You are invited to join {owner_name}'s \"{self.name}\" group!"
         join_button = util.build_switch_button("Join Group", f"/join {self.get_password_hash()}", to_self=True)
         return invitation, InlineKeyboardMarkup([[join_button]])
 
@@ -380,6 +360,25 @@ class Group(object):
             back_button = util.build_button("Back", GROUP_SUBJECT, back_action, self.gid)
             buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
+
+    def build_polls_text_and_buttons(self, filters: list, filter_out=False, limit=30,
+                                     action="", back_action="") -> tuple:
+        if filter_out:
+            polls = [poll for poll in filters if poll.get_poll_id() not in self.get_poll_ids()][:limit]
+        else:
+            polls = [poll for poll in filters if poll.get_poll_id() in self.get_poll_ids()][:limit]
+
+        back_button = util.build_button("Back", backend.GROUP_SUBJECT, back_action, self.gid)
+
+        if not polls:
+            return "", InlineKeyboardMarkup([[back_button]])
+
+        response = "\n\n".join(f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(polls, 1))
+        buttons = [[util.build_button(poll.get_title(), GROUP_SUBJECT,
+                                      f"{action}_{poll.get_poll_id()}", self.gid)] for poll in polls]
+        buttons.append([back_button])
+
+        return response, InlineKeyboardMarkup(buttons)
 
     def build_delete_confirmation_buttons(self, delete_text="Delete", delete_action="", back_action="") \
             -> InlineKeyboardMarkup:
@@ -501,19 +500,14 @@ class Poll(object):
     def generate_respondents_summary(self) -> str:
         all_respondents_uid = set(uid for option in self.options for uid in option.respondents)
         respondents_count = len(all_respondents_uid)
-        if respondents_count == 0:
-            summary = "Nobody responded"
-        elif respondents_count == 1:
-            summary = "1 person responded"
-        else:
-            summary = f"{respondents_count} people responded"
+        summary = f"{respondents_count} {EMOJI_PEOPLE}"
         return summary
 
     def generate_linked_summary(self) -> str:
-        short_bold_title = [util.make_html_bold(self.title)[:60]]
-        respondents_summary = [f"({self.generate_respondents_summary()})"]
+        short_bold_title = util.make_html_bold(self.title)[:60]
+        header = [f"{short_bold_title} ({self.generate_respondents_summary()})"]
         link = [f"/poll_{self.poll_id}"]
-        return "\n".join(short_bold_title + respondents_summary + link)
+        return "\n".join(header + link)
 
     def generate_options_summary(self) -> str:
         return " / ".join(option.title for option in self.options)

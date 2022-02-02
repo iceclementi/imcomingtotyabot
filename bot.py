@@ -771,31 +771,39 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
                                 reply_markup=group.build_polls_view_buttons(back_action=backend.BACK))
         query.answer(text=None)
         return
-    # Handle add poll button
-    elif action == backend.ADD_POLL:
+    # Handle add poll button and add poll choice button
+    elif action.startswith(f"{backend.ADD_POLL}"):
+        answered = False
+        if "_" in action:
+            _, poll_id = action.rsplit("_", 1)
+            poll = Poll.get_poll_by_id(poll_id)
+            if not poll:
+                query.answer(text="Poll does not exists.")
+            else:
+                result = group.add_poll(poll_id)
+                query.answer(text=result)
+            answered = True
+
         user = User.get_user_by_id(uid)
+        response, buttons = group.build_polls_text_and_buttons(
+            user.get_polls(), filter_out=False, limit=30, action=backend.ADD_POLL, back_action=backend.VIEW_GROUP_POLLS
+        )
 
-        polls = [poll for poll in user.get_polls() if poll.get_poll_id() not in group.get_poll_ids()][:30]
-        back_button = util.build_button("Back", backend.GROUP_SUBJECT, backend.VIEW_GROUP_POLLS, gid)
-
-        if not polls:
+        if not response:
             response = util.make_html_italic(
                 "You do not have any more polls to add to this group. You can use /poll to create new polls."
             )
-            query.edit_message_text(response, parse_mode=ParseMode.HTML,
-                                    reply_markup=InlineKeyboardMarkup([[back_button]]))
-            query.answer(text="Sorry, no available polls to add.")
+            query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
+            if not answered:
+                query.answer(text="Sorry, no available polls to add.")
             return
 
-        header = [util.make_html_bold("Select the poll you wish to add")]
-        body = [f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(polls, 1)]
-        buttons = [[util.build_button(poll.get_title(), backend.GROUP_SUBJECT,
-                                      f"{backend.ADD_POLL}_{poll.get_poll_id()}", gid)] for poll in polls]
-        buttons.append([back_button])
-        response = "\n\n".join(header + body)
+        header = [util.make_html_bold("Select the poll you wish to add:")]
+        response = "\n\n".join(header + [response])
 
-        query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(buttons))
-        query.answer(text="Select a poll you wish to add.")
+        query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
+        if not answered:
+            query.answer(text="Select a poll you wish to add.")
         return
     # Handle remove poll button
     elif action == backend.REMOVE_POLL:
@@ -852,7 +860,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     if match:
         group_name = match.group(1).strip()
         for group in user.get_owned_groups(group_name, limit=10):
-            invitation, join_button = group.build_invite_text_and_button(update.effective_user.username)
+            invitation, join_button = group.build_invite_text_and_button(update.effective_user.first_name)
             query_result = InlineQueryResultArticle(
                 id=group.get_gid(), title=group.get_name(), description="Send group invitation",
                 input_message_content=InputTextMessageContent(invitation), reply_markup=join_button
