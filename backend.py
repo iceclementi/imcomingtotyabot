@@ -154,13 +154,14 @@ class User(object):
         if poll_id not in self.poll_ids:
             return "No such poll exists."
         self.poll_ids.remove(poll_id)
-        poll = Poll.get_poll_by_id(poll_id)
-        poll.delete()
 
         # Delete poll from all user groups
         for group in self.get_all_groups():
             if poll_id in group.get_poll_ids():
                 group.remove_poll(poll_id)
+
+        poll = Poll.get_poll_by_id(poll_id)
+        poll.delete()
 
         return f"Poll {util.make_html_bold(poll.get_title())} has been deleted."
 
@@ -199,7 +200,7 @@ class Group(object):
         return group
 
     def delete(self) -> None:
-        for uid in self.get_member_ids():
+        for uid in list(self.get_member_ids()):
             self.remove_member(uid)
         all_groups.pop(self.gid, None)
 
@@ -243,7 +244,7 @@ class Group(object):
         self.member_ids.remove(uid)
         user = User.get_user_by_id(uid)
         user.leave_group(self.gid)
-        for poll_id in self.get_poll_ids():
+        for poll_id in list(self.get_poll_ids()):
             if Poll.get_poll_by_id(poll_id).get_creator_id() == uid:
                 self.poll_ids.remove(poll_id)
         return f"{user.get_name()} has been removed from the group."
