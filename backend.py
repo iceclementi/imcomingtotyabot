@@ -186,14 +186,14 @@ class User(object):
         if not polls:
             return util.make_html_italic(
                 "You do not have any more polls to add to this group. You can use /poll to create new polls."
-            ), InlineKeyboardMarkup([[back_button]])
+            ), InlineKeyboardMarkup([[back_button]]), False
 
         response = "\n\n".join(f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(polls, 1))
         buttons = [[util.build_button(poll.get_title(), subject,
                                       f"{action}_{poll.get_poll_id()}", identifier)] for poll in polls]
         buttons.append([back_button])
 
-        return response, InlineKeyboardMarkup(buttons)
+        return response, InlineKeyboardMarkup(buttons), True
 
 
 class Group(object):

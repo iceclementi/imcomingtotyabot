@@ -6,8 +6,8 @@ import backend
 from backend import User, Group, Poll, Option
 import util
 from telegram import (
-    Update, ParseMode, User as TeleUser, Message, KeyboardButton, ReplyKeyboardMarkup, InlineQueryResultArticle,
-    InputTextMessageContent, ForceReply, CallbackQuery
+    Update, ParseMode, User as TeleUser, Message, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup,
+    InlineQueryResultArticle, InputTextMessageContent, ForceReply, CallbackQuery
 )
 from telegram.ext import (
     CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
@@ -774,21 +774,27 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     # Handle add poll button
     elif action == backend.ADD_POLL:
         user = User.get_user_by_id(uid)
-        response, buttons = user.build_polls_text_and_buttons(
-            filters=group.get_poll_ids(), is_filter_away=True, subject=backend.GROUP_SUBJECT,
-            action=backend.ADD_POLL, identifier=gid, limit=20
-        )
 
-        if not buttons:
-            query.message.edit_message_text(response, parse_mode=ParseMode.HTML)
-            query.answer(text=None)
+        polls = [poll for poll in user.get_polls() if poll.get_poll_id() not in group.get_poll_ids()][:30]
+        back_button = util.build_button("Back", backend.GROUP_SUBJECT, backend.VIEW_GROUP_POLLS, gid)
+
+        if not polls:
+            response = util.make_html_italic(
+                "You do not have any more polls to add to this group. You can use /poll to create new polls."
+            )
+            query.edit_message_text(response, parse_mode=ParseMode.HTML,
+                                    reply_markup=InlineKeyboardMarkup([[back_button]]))
+            query.answer(text="Sorry, no available polls to add.")
             return
 
         header = [util.make_html_bold("Select the poll you wish to add")]
-        body = [response]
+        body = [f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(polls, 1)]
+        buttons = [[util.build_button(poll.get_title(), backend.GROUP_SUBJECT,
+                                      f"{backend.ADD_POLL}_{poll.get_poll_id()}", gid)] for poll in polls]
+        buttons.append([back_button])
         response = "\n\n".join(header + body)
 
-        query.message.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
+        query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(buttons))
         query.answer(text="Select a poll you wish to add.")
         return
     # Handle remove poll button
