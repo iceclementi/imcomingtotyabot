@@ -786,7 +786,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
 
         user = User.get_user_by_id(uid)
         response, buttons = group.build_polls_text_and_buttons(
-            user.get_polls(), filter_out=False, limit=30, action=backend.ADD_POLL, back_action=backend.VIEW_GROUP_POLLS
+            user.get_polls(), filter_out=True, limit=30, action=backend.ADD_POLL, back_action=backend.VIEW_GROUP_POLLS
         )
 
         if not response:

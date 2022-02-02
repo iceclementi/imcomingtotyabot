@@ -497,17 +497,26 @@ class Poll(object):
             return False
         return self.options[opt_id].is_user_comment_required(uid)
 
-    def generate_respondents_summary(self) -> str:
+    def get_respondent_count(self) -> int:
         all_respondents_uid = set(uid for option in self.options for uid in option.respondents)
-        respondents_count = len(all_respondents_uid)
-        summary = f"{respondents_count} {EMOJI_PEOPLE}"
+        return len(all_respondents_uid)
+
+    def generate_respondents_summary(self) -> str:
+        respondents_count = self.get_respondent_count()
+        if respondents_count == 0:
+            summary = "Nobody responded"
+        elif respondents_count == 1:
+            summary = "1 person responded"
+        else:
+            summary = f"{respondents_count} people responded"
         return summary
 
-    def generate_linked_summary(self) -> str:
+    def generate_linked_summary(self, include_creator=False) -> str:
         short_bold_title = util.make_html_bold(self.title)[:60]
-        header = [f"{short_bold_title} ({self.generate_respondents_summary()})"]
+        header = [f"{short_bold_title} ({self.get_respondent_count()} {EMOJI_PEOPLE})"]
+        creator = [f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"]
         link = [f"/poll_{self.poll_id}"]
-        return "\n".join(header + link)
+        return "\n".join(header + creator + link) if include_creator else "\n".join(header + link)
 
     def generate_options_summary(self) -> str:
         return " / ".join(option.title for option in self.options)
