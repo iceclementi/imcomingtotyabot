@@ -287,7 +287,7 @@ class Group(object):
         if not self.poll_ids:
             return util.make_html_italic("You have no group polls. Go ahead and add a poll into the group!")
 
-        return "\n\n".join(poll.generate_linked_summary() for poll in self.get_polls(limit=limit))
+        return "\n\n".join(poll.generate_linked_summary(include_creator=True) for poll in self.get_polls(limit=limit))
 
     def render_group_details_text(self) -> str:
         title = util.make_html_bold(self.name)
@@ -302,18 +302,34 @@ class Group(object):
         return "\n\n".join(header + body + footer)
 
     def render_group_members_text(self) -> str:
-        title = util.make_html_bold(f"{self.name} Members")
-        header = [f"{title} ({len(self.member_ids)} {EMOJI_PEOPLE})"]
-
+        header = [util.make_html_bold(f"{self.name} Members")]
         body = [self.generate_group_members_list()]
-        return "\n\n".join(header + body)
+
+        if len(self.member_ids) == 0:
+            footer_description = "No group members"
+        elif len(self.member_ids) == 1:
+            footer_description = "1 group member"
+        else:
+            footer_description = f"{len(self.member_ids)} group members"
+
+        footer = [f"{EMOJI_PEOPLE} {footer_description}"]
+
+        return "\n\n".join(header + body + footer)
 
     def render_group_polls_text(self) -> str:
-        title = util.make_html_bold(f"{self.name} Polls")
-        header = [f"{title} ({len(self.poll_ids)} {EMOJI_POLL})"]
-
+        header = [util.make_html_bold(f"{self.name} Polls")]
         body = [self.generate_group_polls_list()]
-        return "\n\n".join(header + body)
+
+        if len(self.poll_ids) == 0:
+            footer_description = "No group polls"
+        elif len(self.poll_ids) == 1:
+            footer_description = "1 group poll"
+        else:
+            footer_description = f"{len(self.poll_ids)} group polls"
+
+        footer = [f"{EMOJI_POLL} {footer_description}"]
+
+        return "\n\n".join(header + body + footer)
 
     def build_invite_text_and_button(self, owner_name: str) -> tuple:
         invitation = f"You are invited to join {owner_name}'s \"{self.name}\" group!"
@@ -373,7 +389,7 @@ class Group(object):
         if not polls:
             return "", InlineKeyboardMarkup([[back_button]])
 
-        response = "\n\n".join(f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(polls, 1))
+        response = "\n\n".join(f"{i}. {poll.generate_linked_summary(True)}" for i, poll in enumerate(polls, 1))
         buttons = [[util.build_button(poll.get_title(), GROUP_SUBJECT,
                                       f"{action}_{poll.get_poll_id()}", self.gid)] for poll in polls]
         buttons.append([back_button])

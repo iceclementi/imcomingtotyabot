@@ -772,7 +772,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         query.answer(text=None)
         return
     # Handle add poll button and add poll choice button
-    elif action.startswith(f"{backend.ADD_POLL}"):
+    elif action.startswith(backend.ADD_POLL):
         answered = False
         if "_" in action:
             _, poll_id = action.rsplit("_", 1)
@@ -805,8 +805,40 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         if not answered:
             query.answer(text="Select a poll you wish to add.")
         return
-    # Handle remove poll button
-    elif action == backend.REMOVE_POLL:
+    # Handle remove poll button an remove poll choice button
+    elif action.startswith(backend.REMOVE_POLL):
+        answered = False
+        if "_" in action:
+            _, poll_id = action.rsplit("_", 1)
+            poll = Poll.get_poll_by_id(poll_id)
+            if not poll:
+                query.answer(text="Poll does not exists.")
+            else:
+                result = group.remove_poll(poll_id)
+                query.answer(text=result)
+            answered = True
+
+        user = User.get_user_by_id(uid)
+        filters = group.get_polls() if is_owner else user.get_polls()
+        response, buttons = group.build_polls_text_and_buttons(
+            filters, filter_out=False, limit=30, action=backend.REMOVE_POLL, back_action=backend.VIEW_GROUP_POLLS
+        )
+
+        if not response:
+            response = util.make_html_italic(
+                "There are no polls that you can remove."
+            )
+            query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
+            if not answered:
+                query.answer(text="Sorry, no available polls to remove.")
+            return
+
+        header = [util.make_html_bold("Select the poll you wish to remove:")]
+        response = "\n\n".join(header + [response])
+
+        query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
+        if not answered:
+            query.answer(text="Select a poll you wish to remove.")
         return
     # Handle settings button
     elif action == backend.GROUP_SETTINGS:
