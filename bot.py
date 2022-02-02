@@ -364,7 +364,7 @@ def handle_group_view(update: Update, context: CallbackContext) -> None:
 
     gid = re.match(r"^/group_(\w+).*$", text).group(1)
     group = Group.get_group_by_id(gid)
-    if group and uid in group.get_memebr_ids():
+    if group and uid in group.get_member_ids():
         deliver_group(update, group)
         return
     else:
