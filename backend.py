@@ -260,7 +260,7 @@ class Group(object):
         return f"{user.get_name()} has been removed from the group."
 
     def get_poll_ids(self) -> set:
-        return self.polls
+        return self.poll_ids
 
     def get_polls(self, filters="", limit=50) -> list:
         group_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
