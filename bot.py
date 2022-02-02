@@ -753,12 +753,25 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         return
     # Handle delete confirmation button
     elif action.startswith(f"{backend.DELETE_YES}_") and is_owner:
-        _, sub_action, uid = action.rsplit("_", 2)
+        match = re.match(r"^([^_\W]+)_([^_\W]+)_?([^_\W]+)?$", action)
+        if not match:
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
+                                    reply_markup=group.build_group_details_buttons())
+
+        sub_action, identifier = match.group(2), match.group(3)
         if sub_action == backend.REMOVE_MEMBER:
-            status = group.remove_member(uid)
+            status = group.remove_member(identifier)
             query.answer(text=status)
             query.edit_message_text(group.render_group_members_text(), parse_mode=ParseMode.HTML,
                                     reply_markup=group.build_members_view_buttons(back_action=backend.BACK))
+            return
+        elif sub_action == backend.DELETE:
+            status = User.get_user_by_id(uid).delete_group(gid)
+            query.answer(text=status)
+            query.message.delete()
+            return
         else:
             logger.warning("Invalid callback query data.")
             query.answer(text="Invalid callback query data!")
@@ -778,7 +791,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             _, poll_id = action.rsplit("_", 1)
             poll = Poll.get_poll_by_id(poll_id)
             if not poll:
-                query.answer(text="Poll does not exists.")
+                query.answer(text="Poll does not exist.")
             else:
                 result = group.add_poll(poll_id)
                 query.answer(text=result)
@@ -812,7 +825,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             _, poll_id = action.rsplit("_", 1)
             poll = Poll.get_poll_by_id(poll_id)
             if not poll:
-                query.answer(text="Poll does not exists.")
+                query.answer(text="Poll does not exist.")
             else:
                 result = group.remove_poll(poll_id)
                 query.answer(text=result)
@@ -842,9 +855,14 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         return
     # Handle settings button
     elif action == backend.GROUP_SETTINGS:
-        query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML)
+        query.edit_message_reply_markup(group.build_settings_buttons(is_owner=is_owner))
         query.answer(text=None)
         return
+    elif action == backend.DELETE and is_owner:
+        query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
+            delete_text="Delete", delete_action=action, back_action=backend.GROUP_SETTINGS)
+        )
+        query.answer(text="Confirm delete group?")
     # Handle back button
     elif action == backend.BACK:
         query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
@@ -1029,7 +1047,8 @@ def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
 
 def deliver_group(update: Update, group: Group) -> None:
     """Delivers the group details."""
-    update.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_buttons())
+    update.message.reply_html(group.render_group_details_text(),
+                              reply_markup=group.build_group_details_buttons())
 
 
 def try_join_group_through_invitation(update: Update, invitation_code: str):

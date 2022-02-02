@@ -40,6 +40,7 @@ REMOVE_POLL = "delPoll"
 GROUP_SETTINGS = "set"
 CHANGE_SECRET = "pass"
 GROUP_INVITE = "invite"
+LEAVE_GROUP = "leave"
 
 
 all_users = dict()
@@ -107,7 +108,7 @@ class User(object):
         self.owned_group_ids.remove(gid)
         group = Group.get_group_by_id(gid)
         group.delete()
-        return f"Group {util.make_html_bold(group.get_name())} has been deleted."
+        return f"Group \"{group.get_name()}\" has been deleted."
 
     def get_joined_group_ids(self) -> set:
         return self.joined_group_ids
@@ -198,6 +199,8 @@ class Group(object):
         return group
 
     def delete(self) -> None:
+        for uid in self.get_member_ids():
+            self.remove_member(uid)
         all_groups.pop(self.gid, None)
 
     def get_gid(self) -> str:
@@ -240,6 +243,9 @@ class Group(object):
         self.member_ids.remove(uid)
         user = User.get_user_by_id(uid)
         user.leave_group(self.gid)
+        for poll_id in self.get_poll_ids():
+            if Poll.get_poll_by_id(poll_id).get_creator_id() == uid:
+                self.poll_ids.remove(poll_id)
         return f"{user.get_name()} has been removed from the group."
 
     def get_poll_ids(self) -> set:
@@ -395,6 +401,18 @@ class Group(object):
         buttons.append([back_button])
 
         return response, InlineKeyboardMarkup(buttons)
+
+    def build_settings_buttons(self, is_owner=False) -> InlineKeyboardMarkup:
+        if is_owner:
+            change_password_button = util.build_button("Change Password", GROUP_SUBJECT, CHANGE_SECRET, self.gid)
+            delete_group_button = util.build_button("Delete Group", GROUP_SUBJECT, DELETE, self.gid)
+            buttons = [[change_password_button], [delete_group_button]]
+        else:
+            leave_group_button = util.build_button("Leave Group", GROUP_SUBJECT, LEAVE_GROUP, self.gid)
+            buttons = [[leave_group_button]]
+        back_button = util.build_button("Back", GROUP_SUBJECT, BACK, self.gid)
+        buttons.append([back_button])
+        return InlineKeyboardMarkup(buttons)
 
     def build_delete_confirmation_buttons(self, delete_text="Delete", delete_action="", back_action="") \
             -> InlineKeyboardMarkup:
