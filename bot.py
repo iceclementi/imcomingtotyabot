@@ -752,7 +752,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         query.answer(text=f"Confirm remove {member_name} from the group?")
         return
     # Handle delete confirmation button
-    elif action.startswith(f"{backend.DELETE_YES}_") and is_owner:
+    elif action.startswith(f"{backend.DELETE_YES}_"):
         match = re.match(r"^([^_\W]+)_([^_\W]+)_?([^_\W]+)?$", action)
         if not match:
             logger.warning("Invalid callback query data.")
@@ -761,16 +761,21 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
                                     reply_markup=group.build_group_details_buttons())
 
         sub_action, identifier = match.group(2), match.group(3)
-        if sub_action == backend.REMOVE_MEMBER:
+        if sub_action == backend.REMOVE_MEMBER and is_owner:
             status = group.remove_member(identifier)
             query.answer(text=status)
             query.edit_message_text(group.render_group_members_text(), parse_mode=ParseMode.HTML,
                                     reply_markup=group.build_members_view_buttons(back_action=backend.BACK))
             return
-        elif sub_action == backend.DELETE:
+        elif sub_action == backend.DELETE and is_owner:
             status = User.get_user_by_id(uid).delete_group(gid)
             query.answer(text=status)
             query.message.delete()
+            return
+        elif sub_action == backend.LEAVE_GROUP:
+            group.remove_member(uid)
+            query.answer("You have left the group.")
+            query.edit_message_reply_markup(None)
             return
         else:
             logger.warning("Invalid callback query data.")
@@ -858,11 +863,18 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         query.edit_message_reply_markup(group.build_settings_buttons(is_owner=is_owner))
         query.answer(text=None)
         return
+    # Handle delete group button
     elif action == backend.DELETE and is_owner:
         query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
             delete_text="Delete", delete_action=action, back_action=backend.GROUP_SETTINGS)
         )
         query.answer(text="Confirm delete group?")
+    # Handle leave group button
+    elif action == backend.LEAVE_GROUP:
+        query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
+            delete_text="Leave", delete_action=action, back_action=backend.GROUP_SETTINGS)
+        )
+        query.answer(text="Confirm leave group?")
     # Handle back button
     elif action == backend.BACK:
         query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
