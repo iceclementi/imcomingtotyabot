@@ -559,6 +559,8 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
             update.message.reply_html(ERROR_INVALID_GROUP_PASS_FORMAT)
             return
 
+        update.message.delete()
+
         # Create group
         group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, text)
 
@@ -593,6 +595,8 @@ def handle_change_secret_conversation(update: Update, context: CallbackContext) 
     if not re.match(r"^[A-Za-z0-9]{4,20}$", new_secret):
         update.message.reply_html(ERROR_INVALID_GROUP_PASS_FORMAT)
         return
+
+    update.message.delete()
 
     # Change password
     group.edit_password(new_secret)
