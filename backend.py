@@ -214,7 +214,7 @@ class Group(object):
         self.name = new_name
 
     def get_password_hash(self) -> str:
-        return f"{self.gid}_{util.simple_hash(self.password, self.gid)}" if self.password else self.gid
+        return f"{self.gid}_{util.time_hash(self.password, self.gid)}" if self.password else self.gid
 
     def edit_password(self, new_password: str) -> None:
         self.password = new_password

@@ -2,6 +2,7 @@
 import string
 import random
 from datetime import datetime
+from hashlib import blake2b as blake
 from telegram import InlineKeyboardButton
 
 ENCODE_KEY = string.digits + string.ascii_letters
@@ -58,11 +59,17 @@ def decode(code: str, base=32) -> int:
     return num * factor
 
 
-def simple_hash(text: str, salt="", limit=16) -> str:
-    variance = sum(map(ord, salt)) % 32
-    base = sum(map(ord, text))
-    n = len(text) + 10 + variance
-    return "".join(encode(base + ord(c) * i, n) for i, c in enumerate(text))[:limit]
+def time_hash(text: str, salt="", length=16) -> str:
+    time_variance = datetime.now().strftime("%H%d%m%y")
+    salt_bytes = bytes(f"{time_variance}{salt}", "ascii")
+
+    hasher = blake(key=salt_bytes, digest_size=16)
+    hasher.update(bytes(text, "ascii"))
+
+    digest = hasher.hexdigest()
+    encoded_digest = encode(int(digest, 16), base=62)
+
+    return encoded_digest[:length]
 
 
 def build_button(text: str, subject: str, action: str, identifier: str) -> InlineKeyboardButton:
