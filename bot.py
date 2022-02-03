@@ -74,6 +74,7 @@ ERROR_INVALID_GROUP_PASS_FORMAT = \
 ERROR_EARLY_DONE_GROUP_NAME = "Sorry, please add a group name."
 ERROR_INVALID_GROUP_INVITE = "Sorry, invalid or expired group invitation code."
 ERROR_ALREADY_IN_GROUP = "You're already in the group! Use /groups to view all your groups."
+ERROR_ILLEGAL_SECRET_CHANGE = "Only group owners can change the group's password!"
 
 # endregion
 
@@ -482,6 +483,9 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     elif action == "join":
         handle_join_conversation(update, context)
         return
+    elif action == "pass":
+        handle_change_secret_conversation(update, context)
+        return
 
     if is_user_admin(update.message):
         update.message.reply_html(HELP)
@@ -571,6 +575,31 @@ def handle_join_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the user to join a group."""
     invitation_code = update.message.text.strip()
     try_join_group_through_invitation(update, invitation_code)
+    return
+
+
+def handle_change_secret_conversation(update: Update, context: CallbackContext) -> None:
+    """Handles the conversation between the bot and the user to change the group secret."""
+    gid = context.user_data.get("gid", "")
+
+    group = Group.get_group_by_id(gid)
+    if not group or group.get_owner() != update.effective_user.id:
+        update.message.reply_html(util.make_html_bold(ERROR_ILLEGAL_SECRET_CHANGE))
+        logger.warning("Illegal password change!")
+        return
+
+    new_secret = update.message.text.strip()
+
+    if not re.match(r"^[A-Za-z0-9]{4,20}$", new_secret):
+        update.message.reply_html(ERROR_INVALID_GROUP_PASS_FORMAT)
+        return
+
+    # Change password
+    group.edit_password(new_secret)
+    update.message.reply_html("Group password changed!")
+
+    # Clear user data
+    context.user_data.clear()
     return
 
 
@@ -875,6 +904,13 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             delete_text="Leave", delete_action=action, back_action=backend.GROUP_SETTINGS)
         )
         query.answer(text="Confirm leave group?")
+    # Handle change password button
+    elif action == backend.CHANGE_SECRET and is_owner:
+        query.message.reply_html("Enter a new secret password for your group.")
+        query.answer(text="Enter a new secret password.")
+        context.user_data.clear()
+        context.user_data.update({"action": "pass", "gid": gid})
+        return
     # Handle back button
     elif action == backend.BACK:
         query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
