@@ -78,7 +78,7 @@ def load(sheet: str) -> list:
 
 
 def load_users() -> list:
-    all_values = users_sheet.get_all_records()
+    all_values = users_sheet.get_all_records(numericise_ignore=["all"])
     users_data = []
     for user_data in all_values:
         users_data.append({

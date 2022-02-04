@@ -735,5 +735,5 @@ class BotManager(object):
                     user_data[db.USER_POLL_IDS]
                 )
             return "Data loaded successfully."
-        except (TypeError, json.JSONDecodeError):
-            return "Error loading data."
+        except (TypeError, json.JSONDecodeError) as e:
+            return e
