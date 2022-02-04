@@ -82,7 +82,7 @@ OPTION_FIELDS = [OPTION_TITLE, OPTION_COMMENT_REQUIRED, OPTION_RESPONDENTS]
 def save(data: dict, sheet_name: str) -> None:
     """Saves data to be stored into the database"""
     if sheet_name == USER_SHEET:
-        return save_users(data, users_sheet, USER_FIELDS)
+        return save_to_sheet(data, users_sheet, USER_FIELDS)
     elif sheet_name == GROUP_SHEET:
         return save_to_sheet(data, groups_sheet, GROUP_FIELDS)
     elif sheet_name == POLL_SHEET:
