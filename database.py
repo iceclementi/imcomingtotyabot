@@ -118,6 +118,7 @@ def load_from_sheet(sheet: Worksheet, headers: list) -> list:
     all_values = sheet.get_all_records(numericise_ignore=["all"])
     data = []
     for row_values in all_values:
-        row_data = {field: json.loads(row_values[field]) for field in headers}
+        # row_data = {field: json.loads(row_values[field]) for field in headers}
+        row_data = [json.loads(row_values[field]) for field in headers]
         data.append(row_data)
     return data

@@ -779,44 +779,48 @@ class BotManager(object):
 
     @staticmethod
     def load_data() -> str:
-        try:
-            users_data = db.load(db.USER_SHEET)
-            for user_data in users_data:
-                User.load(
-                    user_data[db.USER_ID],
-                    user_data[db.USER_FIRST_NAME],
-                    user_data[db.USER_LAST_NAME], 
-                    user_data[db.USER_USERNAME],
-                    user_data[db.USER_IS_GROUP_OWNER],
-                    user_data[db.USER_OWNED_GROUP_IDS],
-                    user_data[db.USER_JOINED_GROUP_IDS],
-                    user_data[db.USER_POLL_IDS]
-                )
-
-            groups_data = db.load(db.GROUP_SHEET)
-            for group_data in groups_data:
-                Group.load(
-                    group_data[db.GROUP_ID],
-                    group_data[db.GROUP_NAME],
-                    group_data[db.GROUP_OWNER],
-                    group_data[db.GROUP_PASSWORD],
-                    group_data[db.GROUP_MEMBER_IDS],
-                    group_data[db.GROUP_POLL_IDS],
-                    group_data[db.GROUP_CREATED_DATE],
-                )
-
-            polls_data = db.load(db.POLL_SHEET)
-            for poll_data in polls_data:
-                Poll.load(
-                    poll_data[db.POLL_ID],
-                    poll_data[db.POLL_TITLE],
-                    poll_data[db.POLL_CREATOR_ID],
-                    poll_data[db.POLL_OPTIONS],
-                    poll_data[db.POLL_SINGLE_RESPONSE],
-                    poll_data[db.POLL_MESSAGE_DETAILS],
-                    poll_data[db.POLL_EXPIRY],
-                    poll_data[db.POLL_CREATED_DATE]
-                )
-            return "Data loaded successfully."
-        except (TypeError, json.JSONDecodeError) as error:
-            return f"Error loading data: {error}"
+        users_data = db.load(db.USER_SHEET)
+        groups_data = db.load(db.GROUP_SHEET)
+        polls_data = db.load(db.POLL_SHEET)
+        return f"{users_data}\n\n{groups_data}\n\n{polls_data}"
+        # try:
+        #     users_data = db.load(db.USER_SHEET)
+        #     for user_data in users_data:
+        #         User.load(
+        #             user_data[db.USER_ID],
+        #             user_data[db.USER_FIRST_NAME],
+        #             user_data[db.USER_LAST_NAME],
+        #             user_data[db.USER_USERNAME],
+        #             user_data[db.USER_IS_GROUP_OWNER],
+        #             user_data[db.USER_OWNED_GROUP_IDS],
+        #             user_data[db.USER_JOINED_GROUP_IDS],
+        #             user_data[db.USER_POLL_IDS]
+        #         )
+        #
+        #     groups_data = db.load(db.GROUP_SHEET)
+        #     for group_data in groups_data:
+        #         Group.load(
+        #             group_data[db.GROUP_ID],
+        #             group_data[db.GROUP_NAME],
+        #             group_data[db.GROUP_OWNER],
+        #             group_data[db.GROUP_PASSWORD],
+        #             group_data[db.GROUP_MEMBER_IDS],
+        #             group_data[db.GROUP_POLL_IDS],
+        #             group_data[db.GROUP_CREATED_DATE],
+        #         )
+        #
+        #     polls_data = db.load(db.POLL_SHEET)
+        #     for poll_data in polls_data:
+        #         Poll.load(
+        #             poll_data[db.POLL_ID],
+        #             poll_data[db.POLL_TITLE],
+        #             poll_data[db.POLL_CREATOR_ID],
+        #             poll_data[db.POLL_OPTIONS],
+        #             poll_data[db.POLL_SINGLE_RESPONSE],
+        #             poll_data[db.POLL_MESSAGE_DETAILS],
+        #             poll_data[db.POLL_EXPIRY],
+        #             poll_data[db.POLL_CREATED_DATE]
+        #         )
+        #     return "Data loaded successfully."
+        # except (TypeError, json.JSONDecodeError) as error:
+        #     return f"Error loading data: {error}"
