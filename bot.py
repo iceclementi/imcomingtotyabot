@@ -1186,7 +1186,7 @@ def main():
 
     # Start database operations
     updater.job_queue.run_once(load_data, 0)
-    updater.job_queue.run_repeating(save_data, 60, first=60)
+    updater.job_queue.run_repeating(save_data, 300, first=60)
 
     # Start the bot
     updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN,

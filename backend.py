@@ -672,7 +672,7 @@ class Poll(object):
         return {
             db.POLL_ID: self.poll_id,
             db.POLL_TITLE: self.title,
-            db.POLL_CREATOR_ID: self.name,
+            db.POLL_CREATOR_ID: self.creator_id,
             db.POLL_OPTIONS: [option.to_json() for option in self.options],
             db.POLL_SINGLE_RESPONSE: self.single_response,
             db.POLL_MESSAGE_DETAILS: list(self.message_details),
