@@ -1126,12 +1126,7 @@ def try_join_group_through_invitation(update: Update, invitation_code: str):
         group = Group.get_group_by_id(gid)
 
         if group and group.get_password_hash() == invitation_code:
-            user = User.get_user_by_id(update.effective_user.id)
-
-            if gid in user.get_all_group_ids():
-                update.message.reply_html(ERROR_ALREADY_IN_GROUP)
-                return
-            response = user.join_group(gid)
+            response = group.add_member(update.effective_user.id)
             update.message.reply_html(response)
             return
         else:
