@@ -464,7 +464,7 @@ class Group(object):
 
 class Poll(object):
     def __init__(self, poll_id: str, title: str, uid: int, options: list, single_response: bool, message_details: set,
-                 expiry: int, created_date: date_time) -> None:
+                 expiry: int, created_date: datetime) -> None:
         self.poll_id = poll_id
         self.title = title
         self.creator_id = uid
