@@ -492,7 +492,8 @@ class Poll(object):
     @classmethod
     def load(cls, poll_id: str, title: str, uid: int, options: list, single_response: bool, message_details: list,
              expiry: int, created_date: str, tracer) -> None:
-        poll = cls(poll_id, title, uid, list(), single_response, set(message_details),
+        tracer.title += f"\nLoad poll..."
+        poll = cls(poll_id, title, uid, list(), single_response, set((mid, cid) for mid, cid in message_details),
                    expiry, datetime.fromisoformat(created_date))
 
         tracer.title += f"\nOptions are: {str(options)}"
