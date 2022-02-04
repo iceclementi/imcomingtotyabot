@@ -490,7 +490,7 @@ class Poll(object):
         return poll
 
     @classmethod
-    def load(cls, poll_id: str, title: str, uid: int, options: list, message_details: list, single_response: bool,
+    def load(cls, poll_id: str, title: str, uid: int, options: list, single_response: bool, message_details: list,
              expiry: int, created_date: str) -> None:
         poll = cls(poll_id, title, uid, list(), single_response, set(message_details),
                    expiry, datetime.fromisoformat(created_date))
