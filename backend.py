@@ -782,6 +782,17 @@ class BotManager(object):
         users_data = db.load(db.USER_SHEET)
         groups_data = db.load(db.GROUP_SHEET)
         polls_data = db.load(db.POLL_SHEET)
+        for poll_data in polls_data:
+            Poll.load(
+                poll_data[db.POLL_ID],
+                poll_data[db.POLL_TITLE],
+                poll_data[db.POLL_CREATOR_ID],
+                poll_data[db.POLL_OPTIONS],
+                poll_data[db.POLL_SINGLE_RESPONSE],
+                poll_data[db.POLL_MESSAGE_DETAILS],
+                poll_data[db.POLL_EXPIRY],
+                poll_data[db.POLL_CREATED_DATE]
+            )
         return f"{users_data}\n\n{groups_data}\n\n{polls_data}"
         # try:
         #     users_data = db.load(db.USER_SHEET)
