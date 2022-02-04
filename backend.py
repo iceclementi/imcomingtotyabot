@@ -491,14 +491,11 @@ class Poll(object):
 
     @classmethod
     def load(cls, poll_id: str, title: str, uid: int, options: list, single_response: bool, message_details: list,
-             expiry: int, created_date: str, tracer) -> None:
-        tracer.title += f"\nLoad poll..."
+             expiry: int, created_date: str) -> None:
         poll = cls(poll_id, title, uid, list(), single_response, set((mid, cid) for mid, cid in message_details),
                    expiry, datetime.fromisoformat(created_date))
 
-        tracer.title += f"\nOptions are: {str(options)}"
         for option_data in options:
-            tracer.title += f"\nOptions data are: {str(option_data)}"
             poll.add_option(Option.load(
                 option_data.get(db.OPTION_TITLE, ""),
                 option_data.get(db.OPTION_COMMENT_REQUIRED, False),
@@ -782,8 +779,6 @@ class BotManager(object):
 
     @staticmethod
     def load_data() -> str:
-        tracer = Option("Begin Trace", False, [])
-
         try:
             users_data = db.load(db.USER_SHEET)
             for user_data in users_data:
@@ -821,7 +816,6 @@ class BotManager(object):
                     poll_data[db.POLL_MESSAGE_DETAILS],
                     poll_data[db.POLL_EXPIRY],
                     poll_data[db.POLL_CREATED_DATE],
-                    tracer
                 )
             return "Data loaded successfully."
         except (TypeError, json.JSONDecodeError) as error:
