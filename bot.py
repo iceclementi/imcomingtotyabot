@@ -18,6 +18,7 @@ import telegram.error
 # region SETTINGS
 
 # Environment settings
+WEB_URL = os.environ["WEB_URL"]
 TOKEN = os.environ["TOKEN"]
 ACCESS_KEYS = os.environ["ACCESS_KEY"].split("_")
 PORT = int(os.environ.get("PORT", 8443))
@@ -1194,7 +1195,7 @@ def main():
 
     # Start the bot
     updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN,
-                          webhook_url="https://tya-countmein.herokuapp.com/" + TOKEN)
+                          webhook_url=WEB_URL + TOKEN)
     updater.idle()
 
 
