@@ -7,8 +7,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 # region DATABASE SETTINGS
 
 # Scope of application
-scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
-         "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
+scopes = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
+          "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
 json_creds = os.getenv("GOOGLE_SHEETS_CREDS_JSON")
 
 creds_dict = json.loads(json_creds)
