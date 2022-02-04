@@ -824,4 +824,4 @@ class BotManager(object):
                 )
             return "Data loaded successfully."
         except (TypeError, json.JSONDecodeError) as error:
-            return f"Error loading data: {error}"
+            return f"Error loading data: {error} {tracer.title}"
