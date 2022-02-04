@@ -102,9 +102,9 @@ def save_to_sheet(data: dict, sheet: Worksheet, headers: list) -> None:
     return
 
 
-def load(sheet: str) -> list:
+def load(sheet_name: str) -> list:
     """Loads stored data from the database as a list of dictionary."""
-    if sheet == USER_SHEET:
+    if sheet_name == USER_SHEET:
         return load_from_sheet(users_sheet, USER_FIELDS)
     elif sheet_name == GROUP_SHEET:
         return load_from_sheet(groups_sheet, GROUP_FIELDS)
