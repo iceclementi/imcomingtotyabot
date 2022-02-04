@@ -154,7 +154,7 @@ class User(object):
         return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)[:limit]
 
     def create_poll(self, title: str, options: list) -> tuple:
-        poll = Poll.create_new(self.uid, title, options)
+        poll = Poll.create_new(title, self.uid, options)
         self.poll_ids.add(poll.get_poll_id())
         return poll, f"Poll {util.make_html_bold(title)} created!"
 
@@ -199,14 +199,15 @@ class User(object):
 
 
 class Group(object):
-    def __init__(self, gid: str, name: str, uid: int, password: str) -> None:
+    def __init__(self, gid: str, name: str, uid: int, password: str, member_ids: set,
+                 poll_ids: set, created_date: datetime) -> None:
         self.gid = gid
         self.name = name
         self.owner = uid
         self.password = password
-        self.member_ids = {uid}
-        self.poll_ids = set()
-        self.created_date = datetime.now()
+        self.member_ids = member_ids
+        self.poll_ids = poll_ids
+        self.created_date = created_date
 
     @staticmethod
     def get_group_by_id(gid: str):
@@ -215,9 +216,16 @@ class Group(object):
     @classmethod
     def create_new(cls, name: str, uid: int, password=""):
         gid = util.generate_random_id(GROUP_ID_LENGTH, set(all_groups.keys()))
-        group = cls(gid, name, uid, password)
+        group = cls(gid, name, uid, password, {uid}, set(), datetime.now())
         all_groups[gid] = group
         return group
+
+    @classmethod
+    def load(cls, gid: str, name: str, owner: int, password: str, member_ids: list,
+             poll_ids: list, created_date: str) -> None:
+        group = cls(gid, name, owner, password, set(member_ids), set(poll_ids), datetime.fromisoformat(created_date))
+        all_users[gid] = group
+        return
 
     def delete(self) -> None:
         for uid in list(self.get_member_ids()):
@@ -442,32 +450,60 @@ class Group(object):
         buttons = [[yes_button, no_button]]
         return InlineKeyboardMarkup(buttons)
 
+    def to_json(self) -> dict:
+        return {
+            db.GROUP_ID: self.gid,
+            db.GROUP_NAME: self.name,
+            db.GROUP_OWNER: self.owner,
+            db.GROUP_PASSWORD: self.password,
+            db.GROUP_MEMBER_IDS: list(self.member_ids),
+            db.GROUP_POLL_IDS: list(self.poll_ids),
+            db.GROUP_CREATED_DATE: self.created_date.isoformat()
+        }
+
 
 class Poll(object):
-    def __init__(self, uid: int, poll_id: str, title: str) -> None:
-        self.creator_id = uid
+    def __init__(self, poll_id: str, title: str, uid: int, options: list, single_response: bool, message_details: set,
+                 expiry: int, created_date: date_time) -> None:
         self.poll_id = poll_id
         self.title = title
-        self.options = []
-        self.message_details = set()
-        self.single_response = True
-        self.created_date = datetime.now()
-        self.expiry = POLL_EXPIRY
+        self.creator_id = uid
+        self.options = options
+        self.single_response = single_response
+        self.message_details = message_details
+        self.expiry = expiry
+        self.created_date = created_date
 
     @staticmethod
     def get_poll_by_id(poll_id: str):
         return all_polls.get(poll_id, None)
 
     @classmethod
-    def create_new(cls, uid: int, title: str, option_titles: list):
+    def create_new(cls, title: str, uid: int, option_titles: list):
         poll_id = util.generate_random_id(POLL_ID_LENGTH, set(all_polls.keys()))
-        poll = cls(uid, poll_id, title)
+        poll = cls(poll_id, title, uid, list(), True, set(), POLL_EXPIRY, datetime.now())
 
         for option_title in option_titles:
             poll.add_option(Option.create_new(option_title))
 
         all_polls[poll_id] = poll
         return poll
+
+    @classmethod
+    def load(cls, poll_id: str, title: str, uid: int, options: list, message_details: list, single_response: bool,
+             expiry: int, created_date: str) -> None:
+        poll = cls(poll_id, title, uid, list(), single_response, set(message_details),
+                   expiry, datetime.fromisoformat(created_date))
+
+        for option_data in options:
+            poll.add_option(Option.load(
+                option_data.get(db.OPTION_TITLE, ""),
+                option_data.get(db.OPTION_COMMENT_REQUIRED, False),
+                option_data.get(db.OPTION_RESPONDENTS, [])
+            ))
+
+        all_polls[poll_id] = poll
+        return
 
     def delete(self) -> None:
         all_polls.pop(self.poll_id, None)
@@ -632,16 +668,32 @@ class Poll(object):
         buttons = [[yes_button, no_button]]
         return InlineKeyboardMarkup(buttons)
 
+    def to_json(self) -> dict:
+        return {
+            db.POLL_ID: self.poll_id,
+            db.POLL_TITLE: self.title,
+            db.POLL_CREATOR_ID: self.name,
+            db.POLL_OPTIONS: [option.to_json() for option in self.options],
+            db.POLL_SINGLE_RESPONSE: self.single_response,
+            db.POLL_MESSAGE_DETAILS: list(self.message_details),
+            db.POLL_EXPIRY: self.expiry,
+            db.POLL_CREATED_DATE: self.created_date.isoformat()
+        }
+
 
 class Option(object):
-    def __init__(self, title: str, is_comment_required: bool) -> None:
+    def __init__(self, title: str, is_comment_required: bool, respondents: list) -> None:
         self.title = title
         self.comment_required = is_comment_required
-        self.respondents = OrderedDict()
+        self.respondents = OrderedDict(respondents)
 
     @classmethod
     def create_new(cls, title: str, is_comment_required=False):
-        return cls(title, is_comment_required)
+        return cls(title, is_comment_required, list())
+
+    @classmethod
+    def load(cls, title:str, is_comment_required: bool, respondents: list):
+        return cls(title, is_comment_required, respondents)
 
     def get_title(self) -> str:
         return self.title
@@ -706,8 +758,12 @@ class Option(object):
         namelist = util.strip_html_symbols(self.generate_namelist())
         return f"{title}\n{namelist}"
 
-    def to_json(self) -> list:
-        return []
+    def to_json(self) -> dict:
+        return {
+            db.OPTION_TITLE: self.title,
+            db.OPTION_COMMENT_REQUIRED: self.comment_required,
+            db.OPTION_RESPONDENTS: list(self.respondents.items())
+        }
 
 
 class BotManager(object):
@@ -715,9 +771,11 @@ class BotManager(object):
     def save_data() -> str:
         try:
             db.save(all_users, db.USER_SHEET)
+            db.save(all_groups, db.GROUP_SHEET)
+            db.save(all_polls, db.POLL_SHEET)
             return "Data saved successfully."
-        except (TypeError, json.JSONDecodeError):
-            return "Error saving data."
+        except (TypeError, json.JSONDecodeError) as error:
+            return f"Error saving data: {error}"
 
     @staticmethod
     def load_data() -> str:
@@ -734,6 +792,31 @@ class BotManager(object):
                     user_data[db.USER_JOINED_GROUP_IDS],
                     user_data[db.USER_POLL_IDS]
                 )
+
+            groups_data = db.load(db.GROUP_SHEET)
+            for group_data in groups_data:
+                Group.load(
+                    group_data[db.GROUP_ID],
+                    group_data[db.GROUP_NAME],
+                    group_data[db.GROUP_OWNER],
+                    group_data[db.GROUP_PASSWORD],
+                    group_data[db.GROUP_MEMBER_IDS],
+                    group_data[db.GROUP_POLL_IDS],
+                    group_data[db.GROUP_CREATED_DATE],
+                )
+
+            polls_data = db.load(db.POLL_SHEET)
+            for poll_data in polls_data:
+                Poll.load(
+                    poll_data[db.POLL_ID],
+                    poll_data[db.POLL_TITLE],
+                    poll_data[db.POLL_CREATOR_ID],
+                    poll_data[db.POLL_OPTIONS],
+                    poll_data[db.POLL_SINGLE_RESPONSE],
+                    poll_data[db.POLL_MESSAGE_DETAILS],
+                    poll_data[db.POLL_EXPIRY],
+                    poll_data[db.POLL_CREATED_DATE]
+                )
             return "Data loaded successfully."
-        except (TypeError, json.JSONDecodeError) as e:
-            return e
+        except (TypeError, json.JSONDecodeError) as error:
+            return f"Error loading data: {error}"

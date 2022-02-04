@@ -21,7 +21,10 @@ client = gspread.authorize(creds)
 # region SHEET SETTINGS
 
 # Spreadsheets
-users_sheet = client.open_by_key("1Qd__kBpgbE6CqxbX30q4QulHAl0hiiRoEeTJxhmyQXI").worksheet("User Data")
+database_spreadsheet = client.open_by_key("1Qd__kBpgbE6CqxbX30q4QulHAl0hiiRoEeTJxhmyQXI")
+users_sheet = database_spreadsheet.worksheet("User Data")
+groups_sheet = database_spreadsheet.worksheet("Group Data")
+polls_sheet = database_spreadsheet.worksheet("Poll Data")
 
 # User database fields
 USER_SHEET = "user"
@@ -38,65 +41,83 @@ USER_FIELDS = [
     USER_OWNED_GROUP_IDS, USER_JOINED_GROUP_IDS, USER_POLL_IDS
 ]
 
+# Group database fields
+GROUP_SHEET = "group"
+GROUP_ID = "gid"
+GROUP_NAME = "name"
+GROUP_OWNER = "owner"
+GROUP_PASSWORD = "password"
+GROUP_MEMBER_IDS = "member_ids"
+GROUP_POLL_IDS = "poll_ids"
+GROUP_CREATED_DATE = "created_date"
+GROUP_FIELDS = [
+    GROUP_ID, GROUP_NAME, GROUP_OWNER, GROUP_PASSWORD, GROUP_MEMBER_IDS, GROUP_POLL_IDS, GROUP_CREATED_DATE
+]
+
+# Poll database fields
+POLL_SHEET = "poll"
+POLL_ID = "poll_id"
+POLL_TITLE = "title"
+POLL_CREATOR_ID = "creator_id"
+POLL_OPTIONS = "options"
+POLL_MESSAGE_DETAILS = "message_details"
+POLL_SINGLE_RESPONSE = "single_response"
+POLL_EXPIRY = "expiry"
+POLL_CREATED_DATE = "created_date"
+POLL_FIELDS = [
+    POLL_ID, POLL_TITLE, POLL_CREATOR_ID, POLL_OPTIONS, POLL_MESSAGE_DETAILS,
+    POLL_SINGLE_RESPONSE, POLL_EXPIRY, POLL_CREATED_DATE
+]
+
+# Option fields
+OPTION_TITLE = "title"
+OPTION_COMMENT_REQUIRED = "comment_required"
+OPTION_RESPONDENTS = "respondents"
+OPTION_FIELDS = [OPTION_TITLE, OPTION_COMMENT_REQUIRED, OPTION_RESPONDENTS]
+
 # endregion
 
 
 # Currently implementing lazy saving and loading
-def save(data: dict, sheet: str) -> None:
-    if sheet == USER_SHEET:
-        return save_users(data)
+def save(data: dict, sheet_name: str) -> None:
+    """Saves data to be stored into the database"""
+    if sheet_name == USER_SHEET:
+        return save_users(data, users_sheet, USER_FIELDS)
+    elif sheet_name == GROUP_SHEET:
+        return save_to_sheet(data, groups_sheet, GROUP_FIELDS)
+    elif sheet_name == POLL_SHEET:
+        return save_to_sheet(data, polls_sheet, POLL_FIELDS)
     else:
         return
 
 
-def save_users(users: dict) -> None:
-    """Saves data to be stored into the database"""
-    all_values = [USER_FIELDS]
-    for user in users.values():
-        user_data = user.to_json()
-        row_values = [json.dumps(user_data.get(field, "")) for field in USER_FIELDS]
+def save_to_sheet(data: dict, sheet: Worksheet, headers: list) -> None:
+    all_values = [headers]
+    for data_values in data.values():
+        row_data = data_values.to_json()
+        row_values = [json.dumps(row_data.get(field, "")) for field in headers]
         all_values.append(row_values)
-    users_sheet.clear()
-    users_sheet.insert_rows(all_values, row=1, value_input_option="RAW")
+    sheet.clear()
+    sheet.insert_rows(all_values, row=1, value_input_option="RAW")
     return
-
-
-def save_groups(data: dict) -> None:
-    pass
-
-
-def save_polls(data: dict) -> None:
-    pass
 
 
 def load(sheet: str) -> list:
     """Loads stored data from the database as a list of dictionary."""
     if sheet == USER_SHEET:
-        return load_users()
+        return load_from_sheet(users_sheet, USER_FIELDS)
+    elif sheet_name == GROUP_SHEET:
+        return load_from_sheet(groups_sheet, GROUP_FIELDS)
+    elif sheet_name == POLL_SHEET:
+        return load_from_sheet(polls_sheet, POLL_FIELDS)
     else:
         return list()
 
 
-def load_users() -> list:
-    all_values = users_sheet.get_all_records(numericise_ignore=["all"])
-    users_data = []
-    for user_data in all_values:
-        users_data.append({
-            USER_ID: json.loads(user_data.get(USER_ID, "-1")),
-            USER_FIRST_NAME: json.loads(user_data.get(USER_FIRST_NAME, "")),
-            USER_LAST_NAME: json.loads(user_data.get(USER_LAST_NAME, "")),
-            USER_USERNAME: json.loads(user_data.get(USER_USERNAME, "")),
-            USER_IS_GROUP_OWNER: json.loads(user_data.get(USER_IS_GROUP_OWNER, "False")),
-            USER_OWNED_GROUP_IDS: json.loads(user_data.get(USER_OWNED_GROUP_IDS, "[]")),
-            USER_JOINED_GROUP_IDS: json.loads(user_data.get(USER_JOINED_GROUP_IDS, "[]")),
-            USER_POLL_IDS: json.loads(user_data.get(USER_POLL_IDS, "[]"))
-        })
-    return users_data
-
-
-def load_groups() -> list:
-    pass
-
-
-def load_polls() -> list:
-    pass
+def load_from_sheet(sheet: Worksheet, headers: list) -> list:
+    all_values = sheet.get_all_records(numericise_ignore=["all"])
+    data = []
+    for row_values in all_values:
+        row_data = {field: row_values[field] for field in headers}
+        data.append(row_data)
+    return data
