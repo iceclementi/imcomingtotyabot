@@ -4,8 +4,6 @@ import gspread
 from gspread import Worksheet
 from oauth2client.service_account import ServiceAccountCredentials
 
-from backend import User, Group, Poll
-
 # region DATABASE SETTINGS
 
 # Scope of application
@@ -52,6 +50,7 @@ def save(data: dict, sheet: str) -> None:
 
 
 def save_users(users: dict) -> None:
+    """Saves data to be stored into the database"""
     all_values = [USER_FIELDS]
     for user in users.values():
         user_data = user.to_json()
@@ -70,32 +69,34 @@ def save_polls(data: dict) -> None:
     pass
 
 
-def load(sheet: str) -> None:
+def load(sheet: str) -> list:
+    """Loads stored data from the database as a list of dictionary."""
     if sheet == USER_SHEET:
         return load_users()
     else:
-        return
+        return list()
 
 
-def load_users() -> None:
+def load_users() -> list:
     all_values = users_sheet.get_all_records()
+    users_data = []
     for user_data in all_values:
-        User.load(
-            json.loads(user_data.get(USER_ID, "-1")),
-            json.loads(user_data.get(USER_FIRST_NAME, "")),
-            json.loads(user_data.get(USER_LAST_NAME, "")),
-            json.loads(user_data.get(USER_USERNAME, "")),
-            json.loads(user_data.get(USER_IS_GROUP_OWNER, "False")),
-            json.loads(user_data.get(USER_OWNED_GROUP_IDS, "[]")),
-            json.loads(user_data.get(USER_JOINED_GROUP_IDS, "[]")),
-            json.loads(user_data.get(USER_POLL_IDS, "[]"))
-        )
-    return
+        users_data.append({
+            USER_ID: json.loads(user_data.get(USER_ID, "-1")),
+            USER_FIRST_NAME: json.loads(user_data.get(USER_FIRST_NAME, "")),
+            USER_LAST_NAME: json.loads(user_data.get(USER_LAST_NAME, "")),
+            USER_USERNAME: json.loads(user_data.get(USER_USERNAME, "")),
+            USER_IS_GROUP_OWNER: json.loads(user_data.get(USER_IS_GROUP_OWNER, "False")),
+            USER_OWNED_GROUP_IDS: json.loads(user_data.get(USER_OWNED_GROUP_IDS, "[]")),
+            USER_JOINED_GROUP_IDS: json.loads(user_data.get(USER_JOINED_GROUP_IDS, "[]")),
+            USER_POLL_IDS: json.loads(user_data.get(USER_POLL_IDS, "[]"))
+        })
+    return users_data
 
 
-def load_groups() -> None:
+def load_groups() -> list:
     pass
 
 
-def load_polls() -> None:
+def load_polls() -> list:
     pass

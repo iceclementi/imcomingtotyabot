@@ -722,7 +722,18 @@ class BotManager(object):
     @staticmethod
     def load_data() -> str:
         try:
-            db.load(db.USER_SHEET)
+            users_data = db.load(db.USER_SHEET)
+            for user_data in users_data:
+                User.load(
+                    user_data[db.USER_ID],
+                    user_data[db.USER_FIRST_NAME],
+                    user_data[db.USER_LAST_NAME], 
+                    user_data[db.USER_USERNAME],
+                    user_data[db.USER_IS_GROUP_OWNER],
+                    user_data[db.USER_OWNED_GROUP_IDS],
+                    user_data[db.USER_JOINED_GROUP_IDS],
+                    user_data[db.USER_POLL_IDS]
+                )
             return "Data loaded successfully."
         except (TypeError, json.JSONDecodeError):
             return "Error loading data."
