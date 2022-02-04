@@ -13,7 +13,7 @@ json_creds = os.getenv("GOOGLE_SHEETS_CREDS_JSON")
 
 creds_dict = json.loads(json_creds)
 creds_dict["private_key"] = creds_dict["private_key"].replace("\\\\n", "\n")
-creds = ServiceAccountCredentials.from_json_keyfile_name(creds_dict, scopes)
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scopes)
 client = gspread.authorize(creds)
 
 # endregion
