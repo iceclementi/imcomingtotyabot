@@ -6,7 +6,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 from backend import User, Group, Poll
 
-# region Database Settings
+# region DATABASE SETTINGS
 
 # Scope of application
 scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
@@ -20,7 +20,7 @@ client = gspread.authorize(creds)
 
 # endregion
 
-# region Sheet Settings
+# region SHEET SETTINGS
 
 # Spreadsheets
 users_sheet = client.open_by_key("1Qd__kBpgbE6CqxbX30q4QulHAl0hiiRoEeTJxhmyQXI").worksheet("User Data")

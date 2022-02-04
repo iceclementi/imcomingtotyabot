@@ -3,7 +3,7 @@ import os
 import logging
 import re
 import backend
-from backend import User, Group, Poll, Option
+from backend import User, Group, Poll, Option, BotManager
 import util
 from telegram import (
     Update, ParseMode, User as TeleUser, Message, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup,
@@ -1052,6 +1052,20 @@ def handle_error(update: Update, context: CallbackContext) -> None:
     logger.warning(f"Update {update} caused error {context.error}")
 
 
+def handle_save(update: Update, context: CallbackContext) -> None:
+    """Saves data to database (Temporary)."""
+    status = BotManager.save_data()
+    update.message.reply_html(status)
+    return
+
+
+def handle_load(update: Update, context: CallbackContext) -> None:
+    """Loads data from database (Temporary)."""
+    status = BotManager.load_data()
+    update.message.reply_html(status)
+    return
+
+
 def validate_and_register_user(user: TeleUser) -> bool:
     """Validates if user has access to the bot and registers user if required."""
     if User.get_user_by_id(user.id):
@@ -1069,17 +1083,17 @@ def register_user(user: TeleUser) -> User:
 
 
 def is_user_admin(message: Message) -> bool:
-    """Verifies if a user is an admin"""
+    """Verifies if a user is an admin."""
     return message and message.chat.type == "private"
 
 
 def extract_user_data(user: TeleUser) -> tuple:
-    """Extracts user data from User object"""
+    """Extracts user data from User object."""
     return user.id, {"first_name": user.first_name, "last_name": user.last_name or "", "username": user.username or ""}
 
 
 def delete_message(context: CallbackContext) -> None:
-    """Deletes a message from the job queue"""
+    """Deletes a message from the job queue."""
     try:
         message = context.job.context
         message.delete()
@@ -1104,6 +1118,7 @@ def deliver_group(update: Update, group: Group) -> None:
 
 
 def try_join_group_through_invitation(update: Update, invitation_code: str):
+    """Authenticates group invitation code for user to join group."""
     match = re.match(r"^([^_\W]+)(_[^_\W]+)?$", invitation_code)
     if match:
         gid = match.group(1)
@@ -1126,6 +1141,18 @@ def try_join_group_through_invitation(update: Update, invitation_code: str):
     return
 
 
+def save_data(context: CallbackContext) -> None:
+    """Saves data to database."""
+    status = BotManager.save_data()
+    logger.info(status)
+
+
+def load_data(context: CallbackContext) -> None:
+    """Loads data from database."""
+    status = BotManager.load_data()
+    logger.info(status)
+
+
 def main():
     """Starts the bot."""
     # Dispatcher to register handlers
@@ -1142,6 +1169,8 @@ def main():
     dispatcher.add_handler(CommandHandler("invite", handle_invite))
     dispatcher.add_handler(CommandHandler("join", handle_join))
     dispatcher.add_handler(CommandHandler("help", handle_help))
+    dispatcher.add_handler(CommandHandler("save", handle_save))
+    dispatcher.add_handler(CommandHandler("load", handle_load))
 
     # Message handlers
     dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/poll_\w+.*$"), handle_poll_view))
@@ -1158,6 +1187,10 @@ def main():
 
     # Error handlers
     dispatcher.add_error_handler(handle_error)
+
+    # Start database operations
+    updater.job_queue.run_once(load_data, 0)
+    updater.job_queue.run_repeating(save_data, 60, first=60)
 
     # Start the bot
     updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN,

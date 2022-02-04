@@ -1,4 +1,5 @@
 """Backend models"""
+import json
 from datetime import datetime
 from collections import OrderedDict
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
@@ -709,4 +710,19 @@ class Option(object):
         return []
 
 
+class BotManager(object):
+    @staticmethod
+    def save_data() -> str:
+        try:
+            db.save(all_users, db.USER_SHEET)
+            return "Data saved successfully."
+        except (TypeError, json.JSONDecodeError):
+            return "Error saving data."
 
+    @staticmethod
+    def load_data() -> str:
+        try:
+            db.load(db.USER_SHEET)
+            return "Data loaded successfully."
+        except (TypeError, json.JSONDecodeError):
+            return "Error loading data."
