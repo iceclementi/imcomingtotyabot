@@ -11,7 +11,7 @@ from telegram import (
 )
 from telegram.ext import (
     CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
-    RegexHandler, Filters, Updater, JobQueue
+    ChosenInlineResultHandler, RegexHandler, Filters, Updater, JobQueue
 )
 import telegram.error
 
@@ -76,6 +76,7 @@ ERROR_EARLY_DONE_GROUP_NAME = "Sorry, please add a group name."
 ERROR_INVALID_GROUP_INVITE = "Sorry, invalid or expired group invitation code."
 ERROR_ALREADY_IN_GROUP = "You're already in the group! Use /groups to view all your groups."
 ERROR_ILLEGAL_SECRET_CHANGE = "Only group owners can change the group's password!"
+ERROR_INVALID_POLL_COMMENT_REQUEST = "Sorry, invalid poll comment request."
 
 # endregion
 
@@ -106,6 +107,30 @@ def handle_start(update: Update, context: CallbackContext) -> None:
         invitation_code = match.group(2)
         try_join_group_through_invitation(update, invitation_code)
         return
+    # Handle comment
+    elif action == "comment":
+        poll_details = match.group(2)
+        comment_match = re.match(r"^([^_\W]+_[^_\W]+)_?(\d+)?$", poll_details)
+        if not comment_match:
+            update.message.reply_html(ERROR_INVALID_POLL_COMMENT_REQUEST)
+            logger.warning("Invalid poll comment request!")
+            return
+
+        poll_hash, option_id = match.group(1), match.group(2)
+        poll_id = poll_hash.split("_")[0]
+        poll = Poll.get_poll_by_id(poll_id)
+
+        if not poll or poll.get_poll_hash() != poll_hash:
+            update.message.reply_html(ERROR_INVALID_POLL_COMMENT_REQUEST)
+            logger.warning("Invalid poll comment request!")
+            return
+
+        if option_id:
+            return
+        else:
+            response, buttons = poll.build_option_comment_text_and_buttons(update.effective_user.id)
+            update.message.reply_html(response, reply_markup=buttons)
+            return
     else:
         update.message.reply_html(HELP)
         return
@@ -657,14 +682,14 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
             return
         status = poll.toggle(int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=poll.build_option_buttons(message.message_id, is_admin=is_admin))
+                                reply_markup=poll.build_option_buttons(is_admin=is_admin))
         query.answer(text=status)
         return
     # Handle refresh option button
     elif action == backend.REFRESH_OPT:
         query.answer(text="Results updated!")
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=poll.build_option_buttons(message.message_id, is_admin=is_admin))
+                                reply_markup=poll.build_option_buttons(is_admin=is_admin))
         return
     # Handle refresh button
     elif action == backend.REFRESH and is_admin:
@@ -684,7 +709,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         return
     # Handle enforce comments button
     elif action == backend.COMMENT and is_admin:
-        query.edit_message_reply_markup(poll.build_option_comment_buttons())
+        query.edit_message_reply_markup(poll.build_option_comment_required_buttons())
         query.answer(text=None)
         return
     # Handle toggle comments required button
@@ -692,7 +717,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         _, opt_id = action.rsplit("_", 1)
         if opt_id.isdigit():
             status = poll.toggle_comment_requirement(int(opt_id))
-            query.edit_message_reply_markup(poll.build_option_comment_buttons())
+            query.edit_message_reply_markup(poll.build_option_comment_required_buttons())
             query.answer(text=status)
             return
         else:
@@ -701,7 +726,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
             return
     # Handle vote button
     elif action == backend.VOTE and is_admin:
-        query.edit_message_reply_markup(poll.build_option_buttons(message.message_id, is_admin=True))
+        query.edit_message_reply_markup(poll.build_option_buttons(is_admin=True))
         query.answer(text="You may now vote!")
         return
     # Handle delete button
@@ -712,7 +737,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     # Handle delete confirmation button
     elif action == backend.DELETE_YES and is_admin:
         User.get_user_by_id(uid).delete_poll(poll_id)
-        for mid, cid in poll.get_all_message_details():
+        for mid, cid in poll.get_message_details():
             try:
                 query.bot.delete_message(util.decode(cid), util.decode(mid))
             except telegram.error.TelegramError:
@@ -723,10 +748,6 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     elif action == backend.BACK and is_admin:
         query.edit_message_reply_markup(poll.build_admin_buttons())
         query.answer(text=None)
-        return
-    # TESTING ONLY!!!
-    elif action == "test":
-        query.answer(text="")
         return
     # Handle other cases
     else:
@@ -939,25 +960,14 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     results = []
 
     # Handle comment query
-    match = re.match(r"^\s*/comment_([^_\W]+)_([^_\W]+)\s*(\S*)\s*$", text)
+    match = re.match(r"^\s*/comment\s+(\w+)\s*$", text)
     if match:
-        poll_id, mid_code, opt_title = match.group(1), match.group(2), match.group(3)
-        poll = Poll.get_poll_by_id(poll_id)
-
-        if not poll or not poll.has_message_details(mid_code):
-            inline_query.answer(results)
-            return
-
-        for i, option in enumerate(poll.get_options()):
-            if opt_title.lower() in option.get_title().lower() and option.is_voted_by_user(uid):
-                query_result = InlineQueryResultArticle(
-                    id=f"{poll_id}_{i}_{mid_code}", title=option.get_title(), description=option.get_user_comment(uid),
-                    input_message_content=InputTextMessageContent(f"/comment_{poll_id}_{i}_{mid_code} @{BOT_NAME}")
-                )
-                results.append(query_result)
-        inline_query.answer(results)
+        poll_details = match.group(1)
+        inline_query.answer(
+            results, switch_pm_text="Click here to add a comment to the poll",
+            switch_pm_parameter=f"comment-{poll_details}"
+        )
         return
-
     # Handle invite query
     match = re.match(r"^\s*/invite\s*(.*)$", text)
     if match:
@@ -985,12 +995,29 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     polls = user.get_polls(text, limit=10)
     for poll in polls:
         query_result = InlineQueryResultArticle(
-            id=poll.get_poll_id(), title=poll.get_title(), description=poll.generate_options_summary(),
-            input_message_content=InputTextMessageContent(f"/show_{poll.get_poll_id()} @{BOT_NAME}")
+            id=f"poll {poll.get_poll_id()}", title=poll.get_title(), description=poll.generate_options_summary(),
+            input_message_content=InputTextMessageContent(poll.render_text()), reply_markup=poll.build_option_buttons()
         )
         results.append(query_result)
 
     inline_query.answer(results)
+    return
+
+
+def handle_chosen_poll_result(update: Update, context: CallbackContext) -> None:
+    chosen_poll = update.chosen_inline_result
+    match = re.match(r"^poll (\w+)$", chosen_poll.result_id)
+
+    if not match:
+        logger.warning("Invalid poll result!")
+        return
+
+    poll_id = match.group(1)
+    poll = Poll.get_poll_by_id(poll_id)
+    if poll:
+        poll.add_message_details(chosen_poll.inline_message_id)
+    else:
+        logger.warning("Invalid poll from chosen poll result!")
     return
 
 
@@ -1044,7 +1071,7 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
     chat_id = update.message.chat_id
     context.bot.edit_message_text(
         poll.render_text(), message_id=message_id, chat_id=chat_id,
-        parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons(message_id, is_admin=is_admin)
+        parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons(is_admin=is_admin)
     )
 
 
@@ -1108,8 +1135,8 @@ def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
         reply = update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
     else:
         reply = update.message.reply_html(poll.render_text(), reply_to_message_id=-1)
-        reply.edit_reply_markup(poll.build_option_buttons(reply.message_id))
-    poll.add_message_details(util.encode(reply.message_id), util.encode(update.message.chat_id))
+        reply.edit_reply_markup(poll.build_option_buttons(is_admin=False))
+    poll.add_message_details(reply.message_id, update.message.chat_id)
 
 
 def deliver_group(update: Update, group: Group) -> None:
@@ -1180,6 +1207,9 @@ def main():
 
     # Inline query handlers
     dispatcher.add_handler(InlineQueryHandler(handle_inline_query))
+
+    # Chosen inline result handlers
+    dispatcher.add_handler(ChosenInlineResultHandler(handle_chosen_poll_result, pattern=r"^poll \w+$"))
 
     # Error handlers
     dispatcher.add_error_handler(handle_error)
