@@ -743,9 +743,9 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     # Handle delete confirmation button
     elif action == backend.DELETE_YES and is_admin:
         User.get_user_by_id(uid).delete_poll(poll_id)
-        for mid, cid in poll.get_message_details():
+        for mid in poll.get_message_details():
             try:
-                query.bot.delete_message(util.decode(cid), util.decode(mid))
+                query.bot.delete_message(mid)
             except telegram.error.TelegramError:
                 pass
         query.answer(text="Poll deleted!")
@@ -1020,7 +1020,7 @@ def handle_chosen_poll_result(update: Update, context: CallbackContext) -> None:
     match = re.match(r"^poll (\w+)$", chosen_poll.result_id)
 
     if not match:
-        logger.warning("Invalid poll result!")
+        logger.warning(f"Invalid poll result! {chosen_poll.result_id}")
         return
 
     poll_id = match.group(1)
@@ -1028,7 +1028,7 @@ def handle_chosen_poll_result(update: Update, context: CallbackContext) -> None:
     if poll:
         poll.add_message_details(chosen_poll.inline_message_id)
     else:
-        logger.warning("Invalid poll from chosen poll result!")
+        logger.warning(f"Invalid poll from chosen poll result! {poll_id}")
     return
 
 
@@ -1221,7 +1221,7 @@ def main():
     dispatcher.add_handler(InlineQueryHandler(handle_inline_query))
 
     # Chosen inline result handlers
-    dispatcher.add_handler(ChosenInlineResultHandler(handle_chosen_poll_result, pattern=r"^poll \w+$"))
+    dispatcher.add_handler(ChosenInlineResultHandler(handle_chosen_poll_result))
 
     # Error handlers
     dispatcher.add_error_handler(handle_error)
