@@ -45,6 +45,7 @@ CHANGE_SECRET = "pass"
 GROUP_INVITE = "invite"
 LEAVE_GROUP = "leave"
 CLOSE = "close"
+CLOSE_POLL = "closePoll"
 
 
 all_users = dict()
@@ -639,12 +640,17 @@ class Poll(object):
             buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_admin_buttons(self) -> InlineKeyboardMarkup:
+    def build_admin_buttons(self, uid: int) -> InlineKeyboardMarkup:
         publish_button = util.build_switch_button("Publish", self.title)
         customise_button = util.build_button("Customise", POLL_SUBJECT, CUSTOMISE, self.poll_id)
         refresh_button = util.build_button("Refresh", POLL_SUBJECT, REFRESH, self.poll_id)
-        delete_button = util.build_button("Delete", POLL_SUBJECT, DELETE, self.poll_id)
-        buttons = [[publish_button], [customise_button], [refresh_button, delete_button]]
+        close_button = util.build_button("Close", POLL_SUBJECT, CLOSE_POLL, self.poll_id)
+
+        if uid == self.creator_id:
+            delete_button = util.build_button("Delete", POLL_SUBJECT, DELETE, self.poll_id)
+            buttons = [[publish_button], [customise_button], [delete_button], [refresh_button, close_button]]
+        else:
+            buttons = [[publish_button], [customise_button], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_customise_buttons(self) -> InlineKeyboardMarkup:

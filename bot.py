@@ -116,7 +116,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
             logger.warning("Invalid poll comment request!")
             return
 
-        poll_hash, option_id = match.group(1), match.group(2)
+        poll_hash, option_id = comment_match.group(1), comment_match.group(2)
         poll_id = poll_hash.split("_")[0]
         poll = Poll.get_poll_by_id(poll_id)
 
@@ -211,7 +211,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
         poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, options)
 
         update.message.reply_html(POLL_DONE)
-        deliver_poll(update, poll, is_creator=True)
+        deliver_poll(update, poll)
 
         # Clear user data
         context.user_data.clear()
@@ -256,7 +256,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
 
     recent_polls = User.get_user_by_id(uid).get_polls(limit=20)
     if recent_polls:
-        body = [f"{i + 1}. {poll.generate_linked_summary()}" for i, poll in enumerate(recent_polls)]
+        body = [f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(recent_polls, 1)]
     else:
         body = [util.make_html_italic("You have no polls! Use /poll to build a new poll.")]
 
@@ -286,10 +286,10 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
         return
 
     if poll.get_creator_id() == uid:
-        deliver_poll(update, poll, is_creator=True)
+        deliver_poll(update, poll)
         return
     elif User.get_user_by_id(uid).has_group_poll(poll_id):
-        deliver_poll(update, poll, is_creator=True)
+        deliver_poll(update, poll)
         return
     else:
         update.message.reply_html(HELP)
@@ -449,7 +449,7 @@ def handle_show(update: Update, context: CallbackContext) -> None:
     poll = Poll.get_poll_by_id(poll_id)
 
     if poll and poll.get_creator_id() == update.effective_user.id:
-        deliver_poll(update, poll, is_creator=True)
+        deliver_poll(update, poll)
 
 
 def handle_comment(update: Update, context: CallbackContext) -> None:
@@ -552,7 +552,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, options)
 
         update.message.reply_html(POLL_DONE)
-        deliver_poll(update, poll, is_creator=True)
+        deliver_poll(update, poll)
 
         # Clear user data
         context.user_data.clear()
@@ -666,7 +666,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
 
     uid, user_profile = extract_user_data(query.from_user)
     message = query.message
-    is_admin = is_private_chat(message)
+    is_pm = is_private_chat(message)
 
     # Handle poll option button
     if action.isdigit():
@@ -682,44 +682,40 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
             return
         status = poll.toggle(int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=poll.build_option_buttons(is_admin=is_admin))
+                                reply_markup=poll.build_option_buttons(is_admin=is_pm))
         query.answer(text=status)
         return
     # Handle refresh option button
     elif action == backend.REFRESH_OPT:
         query.answer(text="Results updated!")
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=poll.build_option_buttons(is_admin=is_admin))
+                                reply_markup=poll.build_option_buttons(is_admin=is_pm))
         return
     # Handle refresh button
-    elif action == backend.REFRESH and is_admin:
+    elif action == backend.REFRESH and is_pm:
         query.answer(text="Results updated!")
-        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons())
-        return
-    # Handle user refresh button
-    elif action == backend.USER_REFRESH and is_admin:
-        query.answer(text="Results updated!")
-        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=poll.build_single_button("Refresh", action))
+        query.edit_message_text(
+            poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons(uid)
+        )
         return
     # Handle customise button
-    elif action == backend.CUSTOMISE and is_admin:
+    elif action == backend.CUSTOMISE and is_pm:
         query.edit_message_reply_markup(poll.build_customise_buttons())
         query.answer(text=None)
         return
     # Handle toggle response button
-    elif action == backend.RESPONSE and is_admin:
+    elif action == backend.RESPONSE and is_pm:
         status = poll.toggle_response_type()
         query.answer(text=status)
         query.edit_message_reply_markup(poll.build_customise_buttons())
         return
     # Handle enforce comments button
-    elif action == backend.COMMENT and is_admin:
+    elif action == backend.COMMENT and is_pm:
         query.edit_message_reply_markup(poll.build_option_comment_required_buttons())
         query.answer(text=None)
         return
     # Handle toggle comments required button
-    elif action.startswith(f"{backend.COMMENT}_") and is_admin:
+    elif action.startswith(f"{backend.COMMENT}_") and is_pm:
         _, opt_id = action.rsplit("_", 1)
         if opt_id.isdigit():
             status = poll.toggle_comment_requirement(int(opt_id))
@@ -731,17 +727,17 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
             query.answer(text="Invalid callback query data!")
             return
     # Handle vote button
-    elif action == backend.VOTE and is_admin:
+    elif action == backend.VOTE and is_pm:
         query.edit_message_reply_markup(poll.build_option_buttons(is_admin=True))
         query.answer(text="You may now vote!")
         return
     # Handle delete button
-    elif action == backend.DELETE and is_admin:
+    elif action == backend.DELETE and is_pm:
         query.edit_message_reply_markup(poll.build_delete_confirmation_buttons())
         query.answer(text="Confirm delete?")
         return
     # Handle delete confirmation button
-    elif action == backend.DELETE_YES and is_admin:
+    elif action == backend.DELETE_YES and is_pm:
         User.get_user_by_id(uid).delete_poll(poll_id)
         for mid in poll.get_message_details():
             try:
@@ -751,8 +747,8 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         query.answer(text="Poll deleted!")
         return
     # Handle back button
-    elif action == backend.BACK and is_admin:
-        query.edit_message_reply_markup(poll.build_admin_buttons())
+    elif action == backend.BACK and is_pm:
+        query.edit_message_reply_markup(poll.build_admin_buttons(uid))
         query.answer(text=None)
         return
     # Handle close button
@@ -1017,7 +1013,6 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
 
 def handle_chosen_poll_result(update: Update, context: CallbackContext) -> None:
     chosen_poll = update.chosen_inline_result
-    logger.info(f"Inline result: {chosen_poll.result_id}")
     match = re.match(r"^poll (\w+)$", chosen_poll.result_id)
 
     if not match:
@@ -1141,13 +1136,9 @@ def delete_message(context: CallbackContext) -> None:
         logger.info("Message has been deleted.")
 
 
-def deliver_poll(update: Update, poll: Poll, is_creator=False) -> None:
+def deliver_poll(update: Update, poll: Poll) -> None:
     """Delivers the poll."""
-    if is_creator:
-        update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
-    else:
-        update.message.reply_html(poll.render_text(),
-                                  reply_markup=poll.build_single_button("Refresh", backend.USER_REFRESH))
+    update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(update.effective_user.id))
     return
 
 
@@ -1222,7 +1213,7 @@ def main():
     dispatcher.add_handler(InlineQueryHandler(handle_inline_query))
 
     # Chosen inline result handlers
-    dispatcher.add_handler(ChosenInlineResultHandler(handle_chosen_poll_result))
+    dispatcher.add_handler(ChosenInlineResultHandler(handle_chosen_poll_result, pattern=r"^poll \w+$"))
 
     # Error handlers
     dispatcher.add_error_handler(handle_error)
