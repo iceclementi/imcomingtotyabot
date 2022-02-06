@@ -626,20 +626,21 @@ class Poll(object):
         footer = [f"{EMOJI_PEOPLE} {self.generate_respondents_summary()}"]
         return "\n\n".join(header + body + footer)
 
-    def build_option_buttons(self, is_admin=False) -> InlineKeyboardMarkup:
+    def build_option_buttons(self) -> InlineKeyboardMarkup:
         buttons = []
         for i, option in enumerate(self.options):
-            option_button = util.build_button(option.get_title(), POLL_SUBJECT, str(i), self.poll_id)
+            if option.is_comment_required():
+                option_button = util.build_switch_button(
+                    option.get_title(), f"/vote {self.get_poll_hash()}_{i}", to_self=True
+                )
+            else:
+                option_button = util.build_button(option.get_title(), POLL_SUBJECT, str(i), self.poll_id)
             buttons.append([option_button])
         edit_comments_button = util.build_switch_button(
-            "Comment", f"/comment {self.poll_id}_{util.simple_hash(self.title, self.poll_id, variance=False)}",
-            to_self=True
+            "Comment", f"/comment {self.get_poll_hash()}", to_self=True
         )
         refresh_button = util.build_button("Refresh", POLL_SUBJECT, REFRESH_OPT, self.poll_id)
         buttons.append([edit_comments_button, refresh_button])
-        if is_admin:
-            back_button = util.build_button("Back", POLL_SUBJECT, BACK, self.poll_id)
-            buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_admin_buttons(self, uid: int) -> InlineKeyboardMarkup:

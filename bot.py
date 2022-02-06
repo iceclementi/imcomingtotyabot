@@ -835,26 +835,14 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
 
     # Handle poll option button
     if action.isdigit():
-        if poll.is_user_comment_required(int(action), uid):
-            query.answer(text=REASON)
-            reply_message = query.message.reply_html(
-                f"@{user_profile['username']} {REASON} #vote_{poll_id}_{action}_{util.encode(message.message_id)}",
-                reply_markup=ForceReply(), disable_notification=True
-            )
-
-            # Delete reply message after 10 minutes
-            delete_message_with_timer(reply_message, 600)
-            return
         status = poll.toggle(int(action), uid, user_profile)
-        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=poll.build_option_buttons(is_admin=is_pm))
+        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
         query.answer(text=status)
         return
     # Handle refresh option button
     elif action == backend.REFRESH_OPT:
         query.answer(text="Results updated!")
-        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=poll.build_option_buttons(is_admin=is_pm))
+        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
         return
     # Handle refresh button
     elif action == backend.REFRESH and is_pm:
@@ -879,21 +867,35 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         query.edit_message_reply_markup(poll.build_option_comment_required_buttons())
         query.answer(text=None)
         return
-    # Handle toggle comments required button
-    elif action.startswith(f"{backend.COMMENT}_") and is_pm:
+    # Handle edit comment button
+    elif action.startswith(f"{backend.EDIT_COMMENT}_") and is_pm:
         _, opt_id = action.rsplit("_", 1)
-        if opt_id.isdigit():
-            status = poll.toggle_comment_requirement(int(opt_id))
-            query.edit_message_reply_markup(poll.build_option_comment_required_buttons())
-            query.answer(text=status)
-            return
-        else:
+        if not opt_id.isdigit():
             logger.warning("Invalid callback query data.")
             query.answer(text="Invalid callback query data!")
             return
+
+        reply_message = update.message.reply_html(
+            util.make_html_bold(REASON), reply_markup=util.build_single_button_markup("Close", backend.RESET),
+        )
+        context.user_data.update({"action": "comment", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
+        delete_message_with_timer(reply_message, 900)
+        return
+    # Handle toggle comments required button
+    elif action.startswith(f"{backend.COMMENT}_") and is_pm:
+        _, opt_id = action.rsplit("_", 1)
+        if not opt_id.isdigit():
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            return
+
+        status = poll.toggle_comment_requirement(int(opt_id))
+        query.edit_message_reply_markup(poll.build_option_comment_required_buttons())
+        query.answer(text=status)
+        return
     # Handle vote button
     elif action == backend.VOTE and is_pm:
-        query.edit_message_reply_markup(poll.build_option_buttons(is_admin=True))
+        query.edit_message_reply_markup(poll.build_option_buttons())
         query.answer(text="You may now vote!")
         return
     # Handle delete button
@@ -1249,7 +1251,7 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
     chat_id = update.message.chat_id
     context.bot.edit_message_text(
         poll.render_text(), message_id=message_id, chat_id=chat_id,
-        parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons(is_admin=is_admin)
+        parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons()
     )
 
 
