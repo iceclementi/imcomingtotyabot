@@ -635,6 +635,7 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(
             ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
         )
+        delete_message_and_response()
         logger.warning("Invalid option selected from poll vote!")
         return
 
@@ -642,6 +643,7 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(
             ERROR_ALREADY_VOTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
         )
+        delete_message_and_response()
         logger.warning("Poll option already voted by user!")
         return
 
@@ -655,7 +657,7 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
         poll.render_text(),
         reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
-    update.message.delete()
+    delete_message_and_response()
 
     # Edit all polls to match change
     for mid in poll.get_message_details():
@@ -689,6 +691,7 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
         update.message.reply_html(
             ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
         )
+        delete_message_and_response()
         logger.warning("Invalid option selected from poll vote!")
         return
 
@@ -696,6 +699,7 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
         update.message.reply_html(
             ERROR_NOT_VOTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
         )
+        delete_message_and_response()
         logger.warning("Poll option not voted by user!")
         return
 
@@ -709,7 +713,7 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
         poll.render_text(),
         reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
-    update.message.delete()
+    delete_message_and_response()
 
     # Edit all polls to match change
     for mid in poll.get_message_details():
