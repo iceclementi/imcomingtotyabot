@@ -1017,6 +1017,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
 
 def handle_chosen_poll_result(update: Update, context: CallbackContext) -> None:
     chosen_poll = update.chosen_inline_result
+    logger.info(f"Inline result: {chosen_poll.result_id}")
     match = re.match(r"^poll (\w+)$", chosen_poll.result_id)
 
     if not match:
