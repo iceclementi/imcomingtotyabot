@@ -324,7 +324,7 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(HELP)
         return
 
-    if poll.get_creator_id == uid or User.get_user_by_id(uid).has_group_poll(poll_id):
+    if poll.get_creator_id() == uid or User.get_user_by_id(uid).has_group_poll(poll_id):
         deliver_poll(update, poll)
         return
     else:
