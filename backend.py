@@ -25,6 +25,7 @@ POLL_SUBJECT = "p"
 GROUP_SUBJECT = "g"
 PUBLISH = "publish"
 REFRESH = "refresh"
+USER_REFRESH = "userRefresh"
 REFRESH_OPT = "refreshOpt"
 CUSTOMISE = "custom"
 RESPONSE = "response"
@@ -689,9 +690,9 @@ class Poll(object):
 
         return response, InlineKeyboardMarkup(buttons)
 
-    def build_single_close_button(self):
-        close_button = util.build_button("Close", POLL_SUBJECT, CLOSE, self.poll_id)
-        return InlineKeyboardMarkup([[close_button]])
+    def build_single_button(self, text: str, action: str):
+        button = util.build_button(text, POLL_SUBJECT, action, self.poll_id)
+        return InlineKeyboardMarkup([[button]])
 
     def to_json(self) -> dict:
         return {

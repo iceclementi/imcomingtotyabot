@@ -84,7 +84,7 @@ ERROR_INVALID_POLL_COMMENT_REQUEST = "Sorry, invalid poll comment request."
 def handle_start(update: Update, context: CallbackContext) -> None:
     """Manages implicit references to the bot."""
     # Start command only work in private chat
-    if not is_user_admin(update.message):
+    if not is_private_chat(update.message):
         return
 
     if not validate_and_register_user(update.effective_user):
@@ -139,7 +139,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 def handle_access(update: Update, context: CallbackContext) -> None:
     """Grants access to the user to build the poll."""
     # Access command only work in private chat or when access is required
-    if not is_user_admin(update.message) or not ACCESS_REQUIRED:
+    if not is_private_chat(update.message) or not ACCESS_REQUIRED:
         return
 
     context.user_data.clear()
@@ -167,7 +167,7 @@ def handle_access(update: Update, context: CallbackContext) -> None:
 def handle_poll(update: Update, context: CallbackContext) -> None:
     """Begins building a new poll."""
     # Poll command only work in private chat and when access is granted
-    if not is_user_admin(update.message):
+    if not is_private_chat(update.message):
         return
 
     if not validate_and_register_user(update.effective_user):
@@ -184,7 +184,7 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
 def handle_done(update: Update, context: CallbackContext) -> None:
     """Finishes building the poll."""
     # Done command only work in private chat
-    if not is_user_admin(update.message):
+    if not is_private_chat(update.message):
         return
 
     if not validate_and_register_user(update.effective_user):
@@ -211,7 +211,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
         poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, options)
 
         update.message.reply_html(POLL_DONE)
-        deliver_poll(update, poll, is_admin=True)
+        deliver_poll(update, poll, is_creator=True)
 
         # Clear user data
         context.user_data.clear()
@@ -241,7 +241,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
 def handle_polls(update: Update, context: CallbackContext) -> None:
     """Displays all recent polls created by user."""
     # Polls command only work in private chat
-    if not is_user_admin(update.message):
+    if not is_private_chat(update.message):
         return
 
     if not validate_and_register_user(update.effective_user):
@@ -267,7 +267,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
 def handle_poll_view(update: Update, context: CallbackContext) -> None:
     """Displays the master poll identified by its poll id"""
     # Poll view command only work in private chat
-    if not is_user_admin(update.message):
+    if not is_private_chat(update.message):
         return
 
     if not validate_and_register_user(update.effective_user):
@@ -286,10 +286,10 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
         return
 
     if poll.get_creator_id() == uid:
-        deliver_poll(update, poll, is_admin=True)
+        deliver_poll(update, poll, is_creator=True)
         return
     elif User.get_user_by_id(uid).has_group_poll(poll_id):
-        deliver_poll(update, poll, is_admin=False)
+        deliver_poll(update, poll, is_creator=True)
         return
     else:
         update.message.reply_html(HELP)
@@ -299,7 +299,7 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
 def handle_group(update: Update, context: CallbackContext) -> None:
     """Begins creating a new group."""
     # Group command only work in private chat
-    if not is_user_admin(update.message):
+    if not is_private_chat(update.message):
         return
 
     if not validate_and_register_user(update.effective_user):
@@ -333,7 +333,7 @@ def handle_group(update: Update, context: CallbackContext) -> None:
 def handle_groups(update: Update, context: CallbackContext) -> None:
     """Views all the user's groups."""
     # Groups command only work in private chat
-    if not is_user_admin(update.message):
+    if not is_private_chat(update.message):
         return
 
     if not validate_and_register_user(update.effective_user):
@@ -377,7 +377,7 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
 def handle_group_view(update: Update, context: CallbackContext) -> None:
     """Views details of a group."""
     # Group view command only work in private chat
-    if not is_user_admin(update.message):
+    if not is_private_chat(update.message):
         return
 
     if not validate_and_register_user(update.effective_user):
@@ -401,7 +401,7 @@ def handle_group_view(update: Update, context: CallbackContext) -> None:
 def handle_invite(update: Update, context: CallbackContext) -> None:
     """Sends group invitation code."""
     # Invite command only work in private chat
-    if not is_user_admin(update.message):
+    if not is_private_chat(update.message):
         return
 
     if not validate_and_register_user(update.effective_user):
@@ -421,7 +421,7 @@ def handle_invite(update: Update, context: CallbackContext) -> None:
 def handle_join(update: Update, context: CallbackContext) -> None:
     """Joins a group from a group invite code."""
     # Join command only work in private chat
-    if not is_user_admin(update.message):
+    if not is_private_chat(update.message):
         return
 
     if not validate_and_register_user(update.effective_user):
@@ -449,7 +449,7 @@ def handle_show(update: Update, context: CallbackContext) -> None:
     poll = Poll.get_poll_by_id(poll_id)
 
     if poll and poll.get_creator_id() == update.effective_user.id:
-        deliver_poll(update, poll)
+        deliver_poll(update, poll, is_creator=True)
 
 
 def handle_comment(update: Update, context: CallbackContext) -> None:
@@ -476,7 +476,7 @@ def handle_comment(update: Update, context: CallbackContext) -> None:
 def handle_help(update: Update, context: CallbackContext) -> None:
     """Displays a help message."""
     # Help command only work in private chat
-    if not is_user_admin(update.message):
+    if not is_private_chat(update.message):
         return
     update.message.reply_html(HELP)
 
@@ -513,7 +513,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         handle_change_secret_conversation(update, context)
         return
 
-    if is_user_admin(update.message):
+    if is_private_chat(update.message):
         update.message.reply_html(HELP)
         return
 
@@ -552,7 +552,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, options)
 
         update.message.reply_html(POLL_DONE)
-        deliver_poll(update, poll, is_admin=True)
+        deliver_poll(update, poll, is_creator=True)
 
         # Clear user data
         context.user_data.clear()
@@ -666,7 +666,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
 
     uid, user_profile = extract_user_data(query.from_user)
     message = query.message
-    is_admin = is_user_admin(message)
+    is_admin = is_private_chat(message)
 
     # Handle poll option button
     if action.isdigit():
@@ -695,6 +695,12 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     elif action == backend.REFRESH and is_admin:
         query.answer(text="Results updated!")
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons())
+        return
+    # Handle user refresh button
+    elif action == backend.USER_REFRESH and is_admin:
+        query.answer(text="Results updated!")
+        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
+                                reply_markup=poll.build_single_button("Refresh", action))
         return
     # Handle customise button
     elif action == backend.CUSTOMISE and is_admin:
@@ -749,6 +755,10 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         query.edit_message_reply_markup(poll.build_admin_buttons())
         query.answer(text=None)
         return
+    # Handle close button
+    elif action == backend.CLOSE:
+        message.delete()
+        return
     # Handle other cases
     else:
         logger.warning("Invalid callback query data.")
@@ -768,7 +778,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
 
     uid, user_profile = extract_user_data(query.from_user)
     message = query.message
-    is_admin = is_user_admin(message)
+    is_admin = is_private_chat(message)
     is_owner = group.get_owner() == uid
 
     if not is_admin:
@@ -996,7 +1006,8 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     for poll in polls:
         query_result = InlineQueryResultArticle(
             id=f"poll {poll.get_poll_id()}", title=poll.get_title(), description=poll.generate_options_summary(),
-            input_message_content=InputTextMessageContent(poll.render_text()), reply_markup=poll.build_option_buttons()
+            input_message_content=InputTextMessageContent(poll.render_text(), parse_mode=ParseMode.HTML),
+            reply_markup=poll.build_option_buttons(),
         )
         results.append(query_result)
 
@@ -1067,7 +1078,7 @@ def handle_reply_message(update: Update, context: CallbackContext) -> None:
     delete_message_and_response(update.message)
 
     # Edit the poll
-    is_admin = is_user_admin(update.message)
+    is_admin = is_private_chat(update.message)
     chat_id = update.message.chat_id
     context.bot.edit_message_text(
         poll.render_text(), message_id=message_id, chat_id=chat_id,
@@ -1110,9 +1121,9 @@ def register_user(user: TeleUser) -> User:
     return User.register(uid, user_profile["first_name"], user_profile["last_name"], user_profile["username"])
 
 
-def is_user_admin(message: Message) -> bool:
+def is_private_chat(message: Message) -> bool:
     """Verifies if a user is an admin."""
-    return message and message.chat.type == "private"
+    return message and message.chat.type == "sender"
 
 
 def extract_user_data(user: TeleUser) -> tuple:
@@ -1129,20 +1140,21 @@ def delete_message(context: CallbackContext) -> None:
         logger.info("Message has been deleted.")
 
 
-def deliver_poll(update: Update, poll: Poll, is_admin=False) -> None:
+def deliver_poll(update: Update, poll: Poll, is_creator=False) -> None:
     """Delivers the poll."""
-    if is_admin:
-        reply = update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
+    if is_creator:
+        update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
     else:
-        reply = update.message.reply_html(poll.render_text(), reply_to_message_id=-1)
-        reply.edit_reply_markup(poll.build_option_buttons(is_admin=False))
-    poll.add_message_details(reply.message_id, update.message.chat_id)
+        update.message.reply_html(poll.render_text(),
+                                  reply_markup=poll.build_single_button("Refresh", backend.USER_REFRESH))
+    return
 
 
 def deliver_group(update: Update, group: Group) -> None:
     """Delivers the group details."""
     update.message.reply_html(group.render_group_details_text(),
                               reply_markup=group.build_group_details_buttons())
+    return
 
 
 def try_join_group_through_invitation(update: Update, invitation_code: str):
