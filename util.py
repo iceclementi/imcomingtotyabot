@@ -85,9 +85,14 @@ def build_switch_button(text: str, placeholder: str, to_self=False) -> InlineKey
         else InlineKeyboardButton(text, switch_inline_query=placeholder)
 
 
-def build_single_button_markup(text: str, action: str):
+def build_single_button_markup(text: str, action: str) -> InlineKeyboardMarkup:
     data = f"{action}"
     button = InlineKeyboardButton(text, callback_data=data)
+    return InlineKeyboardMarkup([[button]])
+
+
+def build_single_link_button_markup(text: str, link: str) -> InlineKeyboardMarkup:
+    button = InlineKeyboardButton(text, url=link)
     return InlineKeyboardMarkup([[button]])
 
 

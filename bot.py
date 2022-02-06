@@ -548,17 +548,17 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
     poll_id = context.user_data.get("pid", "")
     opt_id = int(context.user_data.get("opt", -1))
     from_mid = context.user_data.get("del", "")
+    link = context.user_data.get("link", "")
     cid = update.effective_chat.id
     uid, user_profile = extract_user_data(update.effective_user)
 
     context.user_data.clear()
-
-    delete_message_and_response = lambda: (update.message.delete(), context.bot.delete_message(cid, from_mid))
+    update.message.delete(),
+    context.bot.delete_message(cid, from_mid)
 
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
         update.message.reply_html(DELETED_POLL, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
-        delete_message_and_response()
         logger.warning("Poll deleted before vote.")
         return
 
@@ -566,7 +566,6 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(
             ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
         )
-        delete_message_and_response()
         logger.warning("Invalid option selected from poll vote!")
         return
 
@@ -574,21 +573,28 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(
             ERROR_ALREADY_VOTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
         )
-        delete_message_and_response()
         logger.warning("Poll option already voted by user!")
         return
 
     response = poll.toggle(opt_id, uid, user_profile, update.message.text)
 
-    update.message.reply_html(
+    reply_one = update.message.reply_html(
         util.make_html_bold(f"{response} {backend.EMOJI_HAPPY}"),
         reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
-    update.message.reply_html(
-        poll.render_text(),
-        reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
+    delete_message_with_timer(reply_one, 60)
+
+    reply_two =  update.message.reply_html(
+        poll.render_text(), reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
-    delete_message_and_response()
+    delete_message_with_timer(reply_two, 60)
+
+    if link:
+        reply_three = update.message.reply_html(
+            "Click button to return to chat.", reply_markup=util.build_single_link_button_markup("Return To Chat", link)
+        )
+        delete_message_with_timer(reply_three, 60)
+
     refresh_polls(poll, context)
     return
 
@@ -598,17 +604,17 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
     poll_id = context.user_data.get("pid", "")
     opt_id = int(context.user_data.get("opt", -1))
     from_mid = context.user_data.get("del", "")
+    link = context.user_data.get("link", "")
     cid = update.effective_chat.id
     uid, user_profile = extract_user_data(update.effective_user)
 
     context.user_data.clear()
-
-    delete_message_and_response = lambda: (update.message.delete(), context.bot.delete_message(cid, from_mid))
+    update.message.delete(),
+    context.bot.delete_message(cid, from_mid)
 
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
         update.message.reply_html(DELETED_POLL, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
-        delete_message_and_response()
         logger.warning("Poll deleted before vote.")
         return
 
@@ -616,7 +622,6 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
         update.message.reply_html(
             ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
         )
-        delete_message_and_response()
         logger.warning("Invalid option selected from poll vote!")
         return
 
@@ -624,21 +629,28 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
         update.message.reply_html(
             ERROR_NOT_VOTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
         )
-        delete_message_and_response()
         logger.warning("Poll option not voted by user!")
         return
 
     poll.edit_user_comment(opt_id, uid, update.message.text)
 
-    update.message.reply_html(
+    reply_one = update.message.reply_html(
         util.make_html_bold(f"Comment updated successfully! {backend.EMOJI_HAPPY}"),
         reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
-    update.message.reply_html(
-        poll.render_text(),
-        reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
+    delete_message_with_timer(reply_one, 60)
+
+    reply_two = update.message.reply_html(
+        poll.render_text(), reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
-    delete_message_and_response()
+    delete_message_with_timer(reply_two, 60)
+
+    if link:
+        reply_three = update.message.reply_html(
+            "Click button to return to chat.", reply_markup=util.build_single_link_button_markup("Return To Chat", link)
+        )
+        delete_message_with_timer(reply_three, 60)
+
     refresh_polls(poll, context)
     return
 
@@ -1091,6 +1103,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             results, switch_pm_text="Click here to toggle your vote.",
             switch_pm_parameter=f"vote-{poll_details}"
         )
+        context.user_data.update({"link": update.effective_chat.invite_link})
         return
     # Handle comment query
     match = re.match(r"^\s*/comment\s+(\w+)\s*$", text)
@@ -1100,6 +1113,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             results, switch_pm_text="Click here to add a comment to the poll",
             switch_pm_parameter=f"comment-{poll_details}"
         )
+        context.user_data.update({"link": update.effective_chat.invite_link})
         return
     # Handle invite query
     match = re.match(r"^\s*/invite\s*(.*)$", text)
@@ -1114,7 +1128,6 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             results.append(query_result)
         inline_query.answer(results)
         return
-
     # Handle join query
     match = re.match(r"^\s*/join\s+(\w+)\s*$", text)
     if match:
@@ -1123,7 +1136,6 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             results, switch_pm_text="Click here to join group", switch_pm_parameter=f"join-{invite_code}"
         )
         return
-
     # Handle poll query
     polls = user.get_polls(text, limit=10)
     for poll in polls:
