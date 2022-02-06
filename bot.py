@@ -87,10 +87,6 @@ ERROR_NOT_VOTED = "Sorry, you've not voted for this option in the poll."
 
 def handle_start(update: Update, context: CallbackContext) -> None:
     """Manages implicit references to the bot."""
-    # Start command only work in private chat
-    if not is_private_chat(update.message):
-        return
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
@@ -100,10 +96,14 @@ def handle_start(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(HELP)
         return
 
+    update.message.delete()
+
     match = re.match(r"^(\w+)-(\w+)$", arguments[0])
     if not match:
         update.message.reply_html(HELP)
         return
+
+    uid, user_profile = extract_user_data(update.effective_user)
 
     action = match.group(1)
     # Handle join
@@ -167,10 +167,10 @@ def handle_start(update: Update, context: CallbackContext) -> None:
             return
 
         if poll.get_options()[opt_id].is_voted_by_user(update.effective_user.id):
+            response = poll.toggle(opt_id, uid, user_profile)
             update.message.reply_html(
-                ERROR_ALREADY_VOTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+                response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
             )
-            logger.warning("Poll option already voted by user!")
             return
 
         reply_message = update.message.reply_html(
@@ -187,7 +187,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 def handle_access(update: Update, context: CallbackContext) -> None:
     """Grants access to the user to build the poll."""
     # Access command only work in private chat or when access is required
-    if not is_private_chat(update.message) or not ACCESS_REQUIRED:
+    if not ACCESS_REQUIRED:
         return
 
     context.user_data.clear()
@@ -214,10 +214,6 @@ def handle_access(update: Update, context: CallbackContext) -> None:
 
 def handle_poll(update: Update, context: CallbackContext) -> None:
     """Begins building a new poll."""
-    # Poll command only work in private chat and when access is granted
-    if not is_private_chat(update.message):
-        return
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
@@ -231,10 +227,6 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
 
 def handle_done(update: Update, context: CallbackContext) -> None:
     """Finishes building the poll."""
-    # Done command only work in private chat
-    if not is_private_chat(update.message):
-        return
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
@@ -288,10 +280,6 @@ def handle_done(update: Update, context: CallbackContext) -> None:
 
 def handle_polls(update: Update, context: CallbackContext) -> None:
     """Displays all recent polls created by user."""
-    # Polls command only work in private chat
-    if not is_private_chat(update.message):
-        return
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
@@ -314,10 +302,6 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
 
 def handle_poll_view(update: Update, context: CallbackContext) -> None:
     """Displays the master poll identified by its poll id"""
-    # Poll view command only work in private chat
-    if not is_private_chat(update.message):
-        return
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
@@ -346,10 +330,6 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
 
 def handle_group(update: Update, context: CallbackContext) -> None:
     """Begins creating a new group."""
-    # Group command only work in private chat
-    if not is_private_chat(update.message):
-        return
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
@@ -380,10 +360,6 @@ def handle_group(update: Update, context: CallbackContext) -> None:
 
 def handle_groups(update: Update, context: CallbackContext) -> None:
     """Views all the user's groups."""
-    # Groups command only work in private chat
-    if not is_private_chat(update.message):
-        return
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
@@ -424,10 +400,6 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
 
 def handle_group_view(update: Update, context: CallbackContext) -> None:
     """Views details of a group."""
-    # Group view command only work in private chat
-    if not is_private_chat(update.message):
-        return
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
@@ -448,10 +420,6 @@ def handle_group_view(update: Update, context: CallbackContext) -> None:
 
 def handle_invite(update: Update, context: CallbackContext) -> None:
     """Sends group invitation code."""
-    # Invite command only work in private chat
-    if not is_private_chat(update.message):
-        return
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
@@ -468,10 +436,6 @@ def handle_invite(update: Update, context: CallbackContext) -> None:
 
 def handle_join(update: Update, context: CallbackContext) -> None:
     """Joins a group from a group invite code."""
-    # Join command only work in private chat
-    if not is_private_chat(update.message):
-        return
-
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
@@ -489,43 +453,8 @@ def handle_join(update: Update, context: CallbackContext) -> None:
     return
 
 
-def handle_show(update: Update, context: CallbackContext) -> None:
-    """Displays the standard poll identified by its poll id"""
-    text = update.message.text
-
-    poll_id = re.match(r"^/show_(\w+).*$", text).group(1)
-    poll = Poll.get_poll_by_id(poll_id)
-
-    if poll and poll.get_creator_id() == update.effective_user.id:
-        deliver_poll(update, poll)
-
-
-def handle_comment(update: Update, context: CallbackContext) -> None:
-    message = update.message
-    text = message.text
-
-    match = re.match(r"^\s*/comment_([^_\W]+)_(\d+)_([^_\W]+).*$", text)
-    if not match:
-        return
-
-    poll_id, opt_id, mid_code = match.group(1), match.group(2), match.group(3)
-    reply_message = message.reply_html(
-        f"@{update.effective_user.username} {REASON} #comment_{poll_id}_{opt_id}_{mid_code}",
-        reply_markup=ForceReply(), disable_notification=True
-    )
-
-    # Delete reply message after 10 minutes
-    delete_message_with_timer(reply_message, 600)
-
-    # Delete user message
-    update.message.delete()
-
-
 def handle_help(update: Update, context: CallbackContext) -> None:
     """Displays a help message."""
-    # Help command only work in private chat
-    if not is_private_chat(update.message):
-        return
     update.message.reply_html(HELP)
 
 
@@ -533,10 +462,6 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     """Handles a message from the user."""
     if not update.message:
         return
-
-    # if update.message.reply_to_message:
-    #     handle_reply_message(update, context)
-    #     return
 
     text = update.message.text
     if not text:
@@ -647,10 +572,10 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
         logger.warning("Poll option already voted by user!")
         return
 
-    poll.toggle(opt_id, uid, user_profile, update.message.text)
+    response = poll.toggle(opt_id, uid, user_profile, update.message.text)
 
     update.message.reply_html(
-        util.make_html_bold(f"Vote successful! {backend.EMOJI_HAPPY}"),
+        util.make_html_bold(f"{response} {backend.EMOJI_HAPPY}"),
         reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
     update.message.reply_html(
@@ -1154,8 +1079,8 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     if match:
         poll_details = match.group(1)
         inline_query.answer(
-            results, switch_pm_text="Click here to vote with a comment.",
-            switch_pm_parameter=f"comment-{poll_details}"
+            results, switch_pm_text="Click here to toggle your vote.",
+            switch_pm_parameter=f"vote-{poll_details}"
         )
         return
     # Handle comment query
@@ -1219,60 +1144,6 @@ def handle_chosen_poll_result(update: Update, context: CallbackContext) -> None:
     else:
         logger.warning(f"Invalid poll from chosen poll result! {poll_id}")
     return
-
-
-def handle_reply_message(update: Update, context: CallbackContext) -> None:
-    """Handles a reply message to the bot."""
-    uid, user_profile = extract_user_data(update.effective_user)
-    comment = update.message.text
-
-    text = update.message.reply_to_message.text
-
-    delete_message_and_response = lambda message: (message.reply_to_message.delete(), message.delete())
-
-    # Verify reply message format
-    match = re.match(r"^@(\w+) [^#]+#([^_\W]+)_([^_\W]+)_(\d+)_([^_\W]+)$", text)
-    if not match:
-        update.message.reply_html("Invalid reply message format!", disable_notification=True)
-        logger.warning("Invalid reply message format.")
-        delete_message_and_response(update.message)
-        return
-
-    username, action, poll_id, opt_id, message_id = \
-        match.group(1), match.group(2), match.group(3), int(match.group(4)), util.decode(match.group(5))
-
-    # Check if username matches
-    if username != user_profile["username"]:
-        return
-
-    poll = Poll.get_poll_by_id(poll_id)
-    if not poll:
-        update.message.reply_html(DELETED_POLL, disable_notification=True)
-        delete_message_and_response(update.message)
-        return
-
-    if opt_id >= len(poll.get_options()):
-        update.message.reply_html("Invalid poll option.", disable_notification=True)
-        logger.warning("Invalid poll option from reply message.")
-        delete_message_and_response(update.message)
-        return
-
-    if action == "vote":
-        poll.toggle(opt_id, uid, user_profile, comment)
-    elif action == "comment":
-        status = poll.edit_user_comment(opt_id, uid, comment)
-        if status:
-            update.message.reply_html(status, disable_notification=True)
-
-    delete_message_and_response(update.message)
-
-    # Edit the poll
-    is_admin = is_private_chat(update.message)
-    chat_id = update.message.chat_id
-    context.bot.edit_message_text(
-        poll.render_text(), message_id=message_id, chat_id=chat_id,
-        parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons()
-    )
 
 
 def handle_error(update: Update, context: CallbackContext) -> None:
@@ -1384,23 +1255,27 @@ def main():
     dispatcher = updater.dispatcher
 
     # Command handlers
-    dispatcher.add_handler(CommandHandler("access", handle_access))
-    dispatcher.add_handler(CommandHandler("start", handle_start))
-    dispatcher.add_handler(CommandHandler("poll", handle_poll))
-    dispatcher.add_handler(CommandHandler("group", handle_group))
-    dispatcher.add_handler(CommandHandler("done", handle_done))
-    dispatcher.add_handler(CommandHandler("polls", handle_polls))
-    dispatcher.add_handler(CommandHandler("groups", handle_groups))
-    dispatcher.add_handler(CommandHandler("invite", handle_invite))
-    dispatcher.add_handler(CommandHandler("join", handle_join))
-    dispatcher.add_handler(CommandHandler("help", handle_help))
-    dispatcher.add_handler(CommandHandler("save", handle_save))
-    dispatcher.add_handler(CommandHandler("load", handle_load))
+    dispatcher.add_handler(CommandHandler("access", handle_access, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("start", handle_start, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("poll", handle_poll, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("group", handle_group, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("done", handle_done, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("polls", handle_polls, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("groups", handle_groups, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("invite", handle_invite, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("join", handle_join, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("help", handle_help, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("save", handle_save, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("load", handle_load, filters=Filters.chat_type.private))
 
     # Message handlers
-    dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/poll_\w+.*$"), handle_poll_view))
-    dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/group_\w+.*$"), handle_group_view))
-    dispatcher.add_handler(MessageHandler(Filters.text, handle_message))
+    dispatcher.add_handler(
+        MessageHandler((Filters.regex(r"^\/poll_\w+.*$") & Filters.chat_type.private), handle_poll_view)
+    )
+    dispatcher.add_handler(
+        MessageHandler((Filters.regex(r"^\/group_\w+.*$") & Filters.chat_type.private), handle_group_view)
+    )
+    dispatcher.add_handler(MessageHandler((Filters.text & Filters.chat_type.private), handle_message))
 
     # Callback query handlers
     dispatcher.add_handler(CallbackQueryHandler(handle_callback_query))
