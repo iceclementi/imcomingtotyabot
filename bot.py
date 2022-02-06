@@ -1122,8 +1122,8 @@ def register_user(user: TeleUser) -> User:
 
 
 def is_private_chat(message: Message) -> bool:
-    """Verifies if a user is an admin."""
-    return message and message.chat.type == "sender"
+    """Verifies if a user is in a private chat."""
+    return message and message.chat.type == "private"
 
 
 def extract_user_data(user: TeleUser) -> tuple:
