@@ -805,6 +805,23 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         query.edit_message_reply_markup(poll.build_option_comment_required_buttons())
         query.answer(text=None)
         return
+    # Handle toggle comments required button
+    elif action.startswith(f"{backend.COMMENT}_") and is_pm:
+        _, opt_id = action.rsplit("_", 1)
+        if not opt_id.isdigit():
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            return
+        status = poll.toggle_comment_requirement(int(opt_id))
+        query.edit_message_reply_markup(poll.build_option_comment_required_buttons())
+        query.answer(text=status)
+        refresh_polls(poll, context, only_buttons=True)
+        return
+    # Handle vote button
+    elif action == backend.VOTE and is_pm:
+        query.edit_message_reply_markup(poll.build_option_buttons())
+        query.answer(text="You may now vote!")
+        return
     # Handle edit comment button
     elif action.startswith(f"{backend.EDIT_COMMENT}_") and is_pm:
         _, opt_id = action.rsplit("_", 1)
@@ -830,23 +847,6 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         message.delete()
         delete_message_with_timer(reply_message, 900)
         query.answer(text="Please enter a reason/comment for your selected option.")
-        return
-    # Handle toggle comments required button
-    elif action.startswith(f"{backend.COMMENT}_") and is_pm:
-        _, opt_id = action.rsplit("_", 1)
-        if not opt_id.isdigit():
-            logger.warning("Invalid callback query data.")
-            query.answer(text="Invalid callback query data!")
-            return
-
-        status = poll.toggle_comment_requirement(int(opt_id))
-        query.edit_message_reply_markup(poll.build_option_comment_required_buttons())
-        query.answer(text=status)
-        return
-    # Handle vote button
-    elif action == backend.VOTE and is_pm:
-        query.edit_message_reply_markup(poll.build_option_buttons())
-        query.answer(text="You may now vote!")
         return
     # Handle delete button
     elif action == backend.DELETE and is_pm:
@@ -1216,13 +1216,17 @@ def deliver_poll(update: Update, poll: Poll) -> None:
     return
 
 
-def refresh_polls(poll: Poll, context: CallbackContext):
+def refresh_polls(poll: Poll, context: CallbackContext, only_buttons=False):
     """Refreshes all polls to update changes."""
-    for mid in poll.get_message_details():
-        context.bot.edit_message_text(
-            poll.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
-            reply_markup=poll.build_option_buttons()
-        )
+    if only_buttons:
+        for mid in poll.get_message_details():
+            context.bot.edit_message_reply_markup(inline_message_id=mid, reply_markup=poll.build_option_buttons())
+    else:
+        for mid in poll.get_message_details():
+            context.bot.edit_message_text(
+                poll.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
+                reply_markup=poll.build_option_buttons()
+            )
     return
 
 
