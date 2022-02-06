@@ -170,19 +170,17 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
         if option.is_voted_by_user(update.effective_user.id):
             response = poll.toggle(opt_id, uid, user_profile)
+
             reply_one = update.message.reply_html(
                 response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
             )
-            delete_message_with_timer(reply_one, 60)
+            reply_two = update.message.reply_html(
+                "Click button to return to chat.",
+                reply_markup=util.build_single_switch_button_markup("Return To Chat", "return")
+            )
 
-            link = context.user_data.get("link", "")
-            context.user_data.clear()
-            if link:
-                reply_three = update.message.reply_html(
-                    "Click button to return to chat.",
-                    reply_markup=util.build_single_link_button_markup("Return To Chat", link)
-                )
-                delete_message_with_timer(reply_three, 60)
+            delete_message_with_timer(reply_one, 60)
+            delete_message_with_timer(reply_two, 60)
 
             refresh_polls(poll, context)
             return
@@ -592,18 +590,17 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
         util.make_html_bold(f"{response} {backend.EMOJI_HAPPY}"),
         reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
-    delete_message_with_timer(reply_one, 60)
-
-    reply_two =  update.message.reply_html(
+    reply_two = update.message.reply_html(
         poll.render_text(), reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
-    delete_message_with_timer(reply_two, 60)
+    reply_three = update.message.reply_html(
+        "Click button to return to chat.",
+        reply_markup=util.build_single_switch_button_markup("Return To Chat", "return")
+    )
 
-    if link:
-        reply_three = update.message.reply_html(
-            "Click button to return to chat.", reply_markup=util.build_single_link_button_markup("Return To Chat", link)
-        )
-        delete_message_with_timer(reply_three, 60)
+    delete_message_with_timer(reply_one, 60)
+    delete_message_with_timer(reply_two, 60)
+    delete_message_with_timer(reply_three, 60)
 
     refresh_polls(poll, context)
     return
@@ -614,7 +611,6 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
     poll_id = context.user_data.get("pid", "")
     opt_id = int(context.user_data.get("opt", -1))
     from_mid = context.user_data.get("del", "")
-    link = context.user_data.get("link", "")
     cid = update.effective_chat.id
     uid, user_profile = extract_user_data(update.effective_user)
 
@@ -648,18 +644,17 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
         util.make_html_bold(f"Comment updated successfully! {backend.EMOJI_HAPPY}"),
         reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
-    delete_message_with_timer(reply_one, 60)
-
     reply_two = update.message.reply_html(
         poll.render_text(), reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
-    delete_message_with_timer(reply_two, 60)
+    reply_three = update.message.reply_html(
+        "Click button to return to chat.",
+        reply_markup=util.build_single_switch_button_markup("Return To Chat", "return")
+    )
 
-    if link:
-        reply_three = update.message.reply_html(
-            "Click button to return to chat.", reply_markup=util.build_single_link_button_markup("Return To Chat", link)
-        )
-        delete_message_with_timer(reply_three, 60)
+    delete_message_with_timer(reply_one, 60)
+    delete_message_with_timer(reply_two, 60)
+    delete_message_with_timer(reply_three, 60)
 
     refresh_polls(poll, context)
     return
@@ -1113,7 +1108,6 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             results, switch_pm_text="Click here to toggle your vote.",
             switch_pm_parameter=f"vote-{poll_details}"
         )
-        context.user_data.update({"link": update.effective_chat.invite_link})
         return
     # Handle comment query
     match = re.match(r"^\s*/comment\s+(\w+)\s*$", text)
@@ -1123,9 +1117,6 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             results, switch_pm_text="Click here to add a comment to the poll",
             switch_pm_parameter=f"comment-{poll_details}"
         )
-        context.user_data.update({"link": update.effective_chat.invite_link})
-        logger.info(f"Invite link: {update.effective_chat.invite_link}")
-        logger.info(f"Link: {update.effective_chat.link}")
         return
     # Handle invite query
     match = re.match(r"^\s*/invite\s*(.*)$", text)
