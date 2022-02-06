@@ -615,7 +615,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
 def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the user to vote a poll option."""
     poll_id = context.user_data.get("pid", "")
-    opt_id = context.user_data.get("opt", -1)
+    opt_id = int(context.user_data.get("opt", -1))
     from_mid = context.user_data.get("del", "")
     cid = update.effective_chat.id
     uid, user_profile = extract_user_data(update.effective_user)
@@ -668,7 +668,7 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
 def handle_comment_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the user to comment a poll option."""
     poll_id = context.user_data.get("pid", "")
-    opt_id = context.user_data.get("opt", -1)
+    opt_id = int(context.user_data.get("opt", -1))
     from_mid = context.user_data.get("del", "")
     cid = update.effective_chat.id
     uid, user_profile = extract_user_data(update.effective_user)
@@ -891,6 +891,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
             util.make_html_bold(REASON), reply_markup=util.build_single_button_markup("Close", backend.RESET),
         )
         context.user_data.update({"action": "comment", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
+        message.delete()
         delete_message_with_timer(reply_message, 900)
         query.answer(text=REASON)
         return
