@@ -56,7 +56,7 @@ GROUP_DONE = "\U0001f44d Group created! You are now the owner of the group. " \
 DELETED_GROUP = "Sorry, the group has been deleted."
 GROUP_INVITATION = "Which group's invite code do you want to send?"
 
-REASON = "Please enter a reason/comment for your selected option."
+REASON = "You've selected {}.\nPlease enter a reason/comment for your selected option."
 HELP = "This bot will help you create polls where people can leave their names. " + \
            "Use /poll to create a poll here, then publish it to groups or send it to " + \
            "individual friends.\n\nSend /polls to manage your existing polls."
@@ -166,7 +166,9 @@ def handle_start(update: Update, context: CallbackContext) -> None:
             logger.warning("Invalid option selected from poll vote!")
             return
 
-        if poll.get_options()[opt_id].is_voted_by_user(update.effective_user.id):
+        option = poll.get_options()[opt_id]
+
+        if option.is_voted_by_user(update.effective_user.id):
             response = poll.toggle(opt_id, uid, user_profile)
             update.message.reply_html(
                 response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
@@ -176,7 +178,8 @@ def handle_start(update: Update, context: CallbackContext) -> None:
             return
 
         reply_message = update.message.reply_html(
-            util.make_html_bold(REASON), reply_markup=util.build_single_button_markup("Close", backend.RESET),
+            REASON.format(util.make_html_bold(option.get_title())),
+            reply_markup=util.build_single_button_markup("Close", backend.RESET),
         )
         context.user_data.update({"action": "vote", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
         delete_message_with_timer(reply_message, 900)
@@ -810,13 +813,23 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
             query.answer(text="Invalid callback query data!")
             return
 
+        opt_id = int(opt_id)
+
+        if opt_id >= len(poll.get_options()):
+            query.answer(text=ERROR_INVALID_POLL_OPTION_REQUEST)
+            logger.warning("Invalid option selected from poll vote!")
+            return
+
+        option = poll.get_options()[opt_id]
+
         reply_message = message.reply_html(
-            util.make_html_bold(REASON), reply_markup=util.build_single_button_markup("Close", backend.RESET),
+            REASON.format(util.make_html_bold(option.get_title())),
+            reply_markup=util.build_single_button_markup("Close", backend.RESET),
         )
         context.user_data.update({"action": "comment", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
         message.delete()
         delete_message_with_timer(reply_message, 900)
-        query.answer(text=REASON)
+        query.answer(text="Please enter a reason/comment for your selected option.")
         return
     # Handle toggle comments required button
     elif action.startswith(f"{backend.COMMENT}_") and is_pm:
