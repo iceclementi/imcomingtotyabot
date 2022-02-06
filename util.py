@@ -3,7 +3,7 @@ import string
 import random
 from datetime import datetime
 from hashlib import blake2b as blake
-from telegram import InlineKeyboardButton
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 ENCODE_KEY = string.digits + string.ascii_letters
 NEGATIVE_SYMBOL = "Z"
@@ -59,9 +59,12 @@ def decode(code: str, base=32) -> int:
     return num * factor
 
 
-def time_hash(text: str, salt="", length=16) -> str:
-    time_variance = datetime.now().strftime("%H%d%m%y")
-    salt_bytes = bytes(f"{time_variance}{salt}", "ascii")
+def simple_hash(text: str, salt="", length=16, variance=True) -> str:
+    if variance:
+        time_variance = datetime.now().strftime("%H%d%m%y")
+        salt_bytes = bytes(f"{time_variance}{salt}", "ascii")
+    else:
+        salt_bytes = bytes(f"{salt}", "ascii")
 
     hasher = blake(key=salt_bytes, digest_size=16)
     hasher.update(bytes(text, "ascii"))
@@ -80,6 +83,12 @@ def build_button(text: str, subject: str, action: str, identifier: str) -> Inlin
 def build_switch_button(text: str, placeholder: str, to_self=False) -> InlineKeyboardButton:
     return InlineKeyboardButton(text, switch_inline_query_current_chat=placeholder) if to_self \
         else InlineKeyboardButton(text, switch_inline_query=placeholder)
+
+
+def build_single_button_markup(text: str, action: str):
+    data = f"{action}"
+    button = InlineKeyboardButton(text, callback_data=data)
+    return InlineKeyboardMarkup([[button]])
 
 
 def format_date(date: datetime, date_format="%B %d, %Y") -> str:

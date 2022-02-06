@@ -56,7 +56,7 @@ GROUP_DONE = "\U0001f44d Group created! You are now the owner of the group. " \
 DELETED_GROUP = "Sorry, the group has been deleted."
 GROUP_INVITATION = "Which group's invite code do you want to send?"
 
-REASON = "Please enter a reason/comment."
+REASON = "Please enter a reason/comment for your selected option."
 HELP = "This bot will help you create polls where people can leave their names. " + \
            "Use /poll to create a poll here, then publish it to groups or send it to " + \
            "individual friends.\n\nSend /polls to manage your existing polls."
@@ -77,6 +77,10 @@ ERROR_INVALID_GROUP_INVITE = "Sorry, invalid or expired group invitation code."
 ERROR_ALREADY_IN_GROUP = "You're already in the group! Use /groups to view all your groups."
 ERROR_ILLEGAL_SECRET_CHANGE = "Only group owners can change the group's password!"
 ERROR_INVALID_POLL_COMMENT_REQUEST = "Sorry, invalid poll comment request."
+ERROR_INVALID_POLL_VOTE_REQUEST = "Sorry, invalid poll vote request."
+ERROR_INVALID_POLL_OPTION_REQUEST = "Sorry, invalid poll option request."
+ERROR_ALREADY_VOTED = "You've already voted for this option in the poll!"
+ERROR_NOT_VOTED = "Sorry, you've not voted for this option in the poll."
 
 # endregion
 
@@ -110,27 +114,71 @@ def handle_start(update: Update, context: CallbackContext) -> None:
     # Handle comment
     elif action == "comment":
         poll_details = match.group(2)
-        comment_match = re.match(r"^([^_\W]+_[^_\W]+)_?(\d+)?$", poll_details)
+        comment_match = re.match(r"^([^_\W]+_[^_\W]+)$", poll_details)
         if not comment_match:
-            update.message.reply_html(ERROR_INVALID_POLL_COMMENT_REQUEST)
+            update.message.reply_html(
+                ERROR_INVALID_POLL_COMMENT_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            )
             logger.warning("Invalid poll comment request!")
             return
 
-        poll_hash, option_id = comment_match.group(1), comment_match.group(2)
+        poll_hash = comment_match.group(1)
         poll_id = poll_hash.split("_")[0]
         poll = Poll.get_poll_by_id(poll_id)
 
         if not poll or poll.get_poll_hash() != poll_hash:
-            update.message.reply_html(ERROR_INVALID_POLL_COMMENT_REQUEST)
+            update.message.reply_html(
+                ERROR_INVALID_POLL_COMMENT_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            )
             logger.warning("Invalid poll comment request!")
             return
 
-        if option_id:
+        response, buttons = poll.build_option_comment_text_and_buttons(update.effective_user.id)
+        reply_message = update.message.reply_html(response, reply_markup=buttons)
+        delete_message_with_timer(reply_message, 300)
+        return
+    # Handle vote
+    elif action == "vote":
+        poll_details = match.group(2)
+        vote_match = re.match(r"^([^_\W]+_[^_\W]+)_(\d+)$", poll_details)
+        if not vote_match:
+            update.message.reply_html(
+                ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            )
+            logger.warning("Invalid poll vote request!")
             return
-        else:
-            response, buttons = poll.build_option_comment_text_and_buttons(update.effective_user.id)
-            update.message.reply_html(response, reply_markup=buttons)
+
+        poll_hash, opt_id = vote_match.group(1), int(vote_match.group(2))
+        poll_id = poll_hash.split("_")[0]
+        poll = Poll.get_poll_by_id(poll_id)
+
+        if not poll or poll.get_poll_hash() != poll_hash:
+            update.message.reply_html(
+                ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            )
+            logger.warning("Invalid poll vote request!")
             return
+
+        if opt_id >= len(poll.get_options()):
+            update.message.reply_html(
+                ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            )
+            logger.warning("Invalid option selected from poll vote!")
+            return
+
+        if poll.get_options()[opt_id].is_voted_by_user(update.effective_user.id):
+            update.message.reply_html(
+                ERROR_ALREADY_VOTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            )
+            logger.warning("Poll option already voted by user!")
+            return
+
+        reply_message = update.message.reply_html(
+            util.make_html_bold(REASON), reply_markup=util.build_single_button_markup("Close", backend.RESET),
+        )
+        context.user_data.update({"action": "vote", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
+        delete_message_with_timer(reply_message, 900)
+        return
     else:
         update.message.reply_html(HELP)
         return
@@ -467,7 +515,7 @@ def handle_comment(update: Update, context: CallbackContext) -> None:
     )
 
     # Delete reply message after 10 minutes
-    updater.job_queue.run_once(delete_message, 600, context=reply_message)
+    delete_message_with_timer(reply_message, 600)
 
     # Delete user message
     update.message.delete()
@@ -486,9 +534,9 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if not update.message:
         return
 
-    if update.message.reply_to_message:
-        handle_reply_message(update, context)
-        return
+    # if update.message.reply_to_message:
+    #     handle_reply_message(update, context)
+    #     return
 
     text = update.message.text
     if not text:
@@ -502,6 +550,12 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     action = context.user_data.get("action", "")
     if action == "poll":
         handle_poll_conversation(update, context)
+        return
+    elif action == "vote":
+        handle_vote_conversation(update, context)
+        return
+    elif action == "comment":
+        handle_comment_conversation(update, context)
         return
     elif action == "group":
         handle_group_conversation(update, context)
@@ -558,6 +612,100 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         context.user_data.clear()
 
 
+def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
+    """Handles the conversation between the bot and the user to vote a poll option."""
+    poll_id = context.user_data.get("pid", "")
+    opt_id = context.user_data.get("opt", -1)
+    from_mid = context.user_data.get("del", "")
+    cid = update.effective_chat.id
+    uid, user_profile = extract_user_data(update.effective_user)
+
+    context.user_data.clear()
+
+    delete_message_and_response = lambda: (update.message.delete(), context.bot.delete_message(cid, from_mid))
+
+    poll = Poll.get_poll_by_id(poll_id)
+    if not poll:
+        update.message.reply_html(DELETED_POLL, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        delete_message_and_response()
+        logger.warning("Poll deleted before vote.")
+        return
+
+    if opt_id >= len(poll.get_options()) or opt_id < 0:
+        update.message.reply_html(
+            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        logger.warning("Invalid option selected from poll vote!")
+        return
+
+    if poll.get_options()[opt_id].is_voted_by_user(uid):
+        update.message.reply_html(
+            ERROR_ALREADY_VOTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        logger.warning("Poll option already voted by user!")
+        return
+
+    poll.toggle(opt_id, uid, user_profile, update.message)
+
+    update.message.reply_html(
+        util.make_html_bold(f"Vote successful! {backend.EMOJI_HAPPY}"),
+        reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
+    )
+    update.message.reply_html(
+        poll.render_text(),
+        reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
+    )
+    update.message.delete()
+    return
+
+
+def handle_comment_conversation(update: Update, context: CallbackContext) -> None:
+    """Handles the conversation between the bot and the user to comment a poll option."""
+    poll_id = context.user_data.get("pid", "")
+    opt_id = context.user_data.get("opt", -1)
+    from_mid = context.user_data.get("del", "")
+    cid = update.effective_chat.id
+    uid, user_profile = extract_user_data(update.effective_user)
+
+    context.user_data.clear()
+
+    delete_message_and_response = lambda: (update.message.delete(), context.bot.delete_message(cid, from_mid))
+
+    poll = Poll.get_poll_by_id(poll_id)
+    if not poll:
+        update.message.reply_html(DELETED_POLL, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        delete_message_and_response()
+        logger.warning("Poll deleted before vote.")
+        return
+
+    if opt_id >= len(poll.get_options()) or opt_id < 0:
+        update.message.reply_html(
+            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        logger.warning("Invalid option selected from poll vote!")
+        return
+
+    if not poll.get_options()[opt_id].is_voted_by_user(uid):
+        update.message.reply_html(
+            ERROR_NOT_VOTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        logger.warning("Poll option not voted by user!")
+        return
+
+    poll.edit_user_comment(opt_id, uid, update.message)
+
+    update.message.reply_html(
+        util.make_html_bold(f"Comment updated successfully! {backend.EMOJI_HAPPY}"),
+        reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
+    )
+    update.message.reply_html(
+        poll.render_text(),
+        reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
+    )
+    update.message.delete()
+    return
+
+
 def handle_group_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the user to create a group."""
     text = update.message.text.strip()
@@ -590,7 +738,7 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
         # Create group
         group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, text)
 
-        code = f"{group.get_gid()}_{util.time_hash(text, salt=group.get_gid())}"
+        code = f"{group.get_gid()}_{util.simple_hash(text, salt=group.get_gid())}"
 
         update.message.reply_html(GROUP_DONE.format(util.make_html_bold(code)))
         deliver_group(update, group)
@@ -639,8 +787,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     match = re.match(r"^(\w+)\s+(\w+)\s+(\w+)$", query.data)
     if not match:
-        query.answer(text="Invalid callback query data!")
-        logger.warning("Invalid callback query data.")
+        handle_general_callback_query(query, context, query.data)
         return
 
     subject, action, identifier = match.group(1), match.group(2), match.group(3)
@@ -652,6 +799,24 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
+        return
+
+
+def handle_general_callback_query(query: CallbackQuery, context: CallbackContext, action: str) -> None:
+    # Handle close button
+    if action == backend.CLOSE:
+        query.message.delete()
+        query.answer(text=None)
+        return
+    # Handle reset button
+    elif action == backend.RESET:
+        query.message.delete()
+        query.answer(text=None)
+        context.user_data.clear()
+        return
+    else:
+        query.answer(text="Invalid callback query data!")
+        logger.warning("Invalid callback query data.")
         return
 
 
@@ -678,7 +843,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
             )
 
             # Delete reply message after 10 minutes
-            updater.job_queue.run_once(delete_message, 600, context=reply_message)
+            delete_message_with_timer(reply_message, 600)
             return
         status = poll.toggle(int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML,
@@ -739,11 +904,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     # Handle delete confirmation button
     elif action == backend.DELETE_YES and is_pm:
         User.get_user_by_id(uid).delete_poll(poll_id)
-        for mid in poll.get_message_details():
-            try:
-                query.bot.delete_message(mid)
-            except telegram.error.TelegramError:
-                pass
+        message.delete()
         query.answer(text="Poll deleted!")
         return
     # Handle back button
@@ -754,6 +915,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     # Handle close button
     elif action == backend.CLOSE:
         message.delete()
+        query.answer(text=None)
         return
     # Handle other cases
     else:
@@ -965,6 +1127,15 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
 
     results = []
 
+    # Handle vote query
+    match = re.match(r"^\s*/vote\s+(\w+)\s*$", text)
+    if match:
+        poll_details = match.group(1)
+        inline_query.answer(
+            results, switch_pm_text="Click here to vote with a comment.",
+            switch_pm_parameter=f"comment-{poll_details}"
+        )
+        return
     # Handle comment query
     match = re.match(r"^\s*/comment\s+(\w+)\s*$", text)
     if match:
@@ -1127,6 +1298,11 @@ def extract_user_data(user: TeleUser) -> tuple:
     return user.id, {"first_name": user.first_name, "last_name": user.last_name or "", "username": user.username or ""}
 
 
+def delete_message_with_timer(message: Message, countdown: int):
+    """Deletes a message after a given countdown"""
+    updater.job_queue.run_once(delete_message, countdown, context=message)
+
+
 def delete_message(context: CallbackContext) -> None:
     """Deletes a message from the job queue."""
     try:
@@ -1201,8 +1377,6 @@ def main():
 
     # Message handlers
     dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/poll_\w+.*$"), handle_poll_view))
-    dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/show_\w+.*$"), handle_show))
-    dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/comment_\w+.*$"), handle_comment))
     dispatcher.add_handler(MessageHandler(Filters.regex(r"^\/group_\w+.*$"), handle_group_view))
     dispatcher.add_handler(MessageHandler(Filters.text, handle_message))
 

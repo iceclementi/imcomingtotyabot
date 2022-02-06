@@ -16,6 +16,7 @@ MAX_GROUP_SIZE = 50
 EMOJI_PEOPLE = "\U0001f465"
 EMOJI_POLL = "\U0001f4ca"
 EMOJI_CROWN = "\U0001f451"
+EMOJI_HAPPY = "\U0001f60a"
 SESSION_EXPIRY = 1  # In hours
 POLL_EXPIRY = 720
 BOT_NAME = "tyacountmeintbot"
@@ -45,7 +46,7 @@ CHANGE_SECRET = "pass"
 GROUP_INVITE = "invite"
 LEAVE_GROUP = "leave"
 CLOSE = "close"
-CLOSE_POLL = "closePoll"
+RESET = "reset"
 
 
 all_users = dict()
@@ -246,7 +247,7 @@ class Group(object):
         self.name = new_name
 
     def get_password_hash(self) -> str:
-        return f"{self.gid}_{util.time_hash(self.password, self.gid)}" if self.password else self.gid
+        return f"{self.gid}_{util.simple_hash(self.password, self.gid)}" if self.password else self.gid
 
     def edit_password(self, new_password: str) -> None:
         self.password = new_password
@@ -543,8 +544,8 @@ class Poll(object):
         return self.single_response
 
     def toggle_response_type(self) -> str:
-        if any(option.has_votes() for option in self.options):
-            return "Cannot change response type for non-empty poll."
+        # if any(option.has_votes() for option in self.options):
+        #     return "Cannot change response type for non-empty poll."
         self.single_response = not self.single_response
         status = "single response" if self.single_response else "multi-response"
         return f"Response type is changed to {status}."
@@ -559,7 +560,7 @@ class Poll(object):
         self.expiry = expiry
 
     def get_poll_hash(self) -> str:
-        return f"{self.poll_id}_{util.time_hash(self.title, self.poll_id)}"
+        return f"{self.poll_id}_{util.simple_hash(self.title, self.poll_id, variance=False)}"
 
     def toggle(self, opt_id: int, uid: int, user_profile: dict, comment="") -> str:
         if opt_id >= len(self.options):
@@ -631,7 +632,8 @@ class Poll(object):
             option_button = util.build_button(option.get_title(), POLL_SUBJECT, str(i), self.poll_id)
             buttons.append([option_button])
         edit_comments_button = util.build_switch_button(
-            "Comment", f"/comment {self.poll_id}_{util.time_hash(self.title, self.poll_id)}", to_self=True
+            "Comment", f"/comment {self.poll_id}_{util.simple_hash(self.title, self.poll_id, variance=False)}",
+            to_self=True
         )
         refresh_button = util.build_button("Refresh", POLL_SUBJECT, REFRESH_OPT, self.poll_id)
         buttons.append([edit_comments_button, refresh_button])
@@ -687,7 +689,7 @@ class Poll(object):
                 buttons.append([option_button])
 
         if buttons:
-            response = util.make_html_bold("Select the option to enter your comment.")
+            response = util.make_html_bold("Select the option to add or change your comment.")
         else:
             response = util.make_html_italic("You have to vote first before you can enter a comment.")
 
