@@ -171,17 +171,11 @@ def handle_start(update: Update, context: CallbackContext) -> None:
         if option.is_voted_by_user(update.effective_user.id):
             response = poll.toggle(opt_id, uid, user_profile)
 
-            reply_one = update.message.reply_html(
-                response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
-            )
-            reply_two = update.message.reply_html(
-                "Click button to return to chat.",
-                reply_markup=util.build_single_switch_button_markup("Return To Chat", "return")
+            reply_message = update.message.reply_html(
+                response, reply_markup=util.build_single_switch_button_markup("Return To Chat", "return")
             )
 
-            delete_message_with_timer(reply_one, 60)
-            delete_message_with_timer(reply_two, 60)
-
+            reply_message.delete()
             refresh_polls(poll, context)
             return
 
@@ -586,22 +580,12 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
 
     response = poll.toggle(opt_id, uid, user_profile, update.message.text)
 
-    reply_one = update.message.reply_html(
+    reply_message = update.message.reply_html(
         util.make_html_bold(f"{response} {backend.EMOJI_HAPPY}"),
-        reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
-    )
-    reply_two = update.message.reply_html(
-        poll.render_text(), reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
-    )
-    reply_three = update.message.reply_html(
-        "Click button to return to chat.",
         reply_markup=util.build_single_switch_button_markup("Return To Chat", "return")
     )
 
-    delete_message_with_timer(reply_one, 60)
-    delete_message_with_timer(reply_two, 60)
-    delete_message_with_timer(reply_three, 60)
-
+    reply_message.delete()
     refresh_polls(poll, context)
     return
 
@@ -640,22 +624,12 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
 
     poll.edit_user_comment(opt_id, uid, update.message.text)
 
-    reply_one = update.message.reply_html(
+    reply_message = update.message.reply_html(
         util.make_html_bold(f"Comment updated successfully! {backend.EMOJI_HAPPY}"),
-        reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
-    )
-    reply_two = update.message.reply_html(
-        poll.render_text(), reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
-    )
-    reply_three = update.message.reply_html(
-        "Click button to return to chat.",
         reply_markup=util.build_single_switch_button_markup("Return To Chat", "return")
     )
 
-    delete_message_with_timer(reply_one, 60)
-    delete_message_with_timer(reply_two, 60)
-    delete_message_with_timer(reply_three, 60)
-
+    reply_message.delete()
     refresh_polls(poll, context)
     return
 

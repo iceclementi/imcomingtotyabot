@@ -85,14 +85,14 @@ def build_switch_button(text: str, placeholder: str, to_self=False) -> InlineKey
         else InlineKeyboardButton(text, switch_inline_query=placeholder)
 
 
-def build_single_button_markup(text: str, placeholder: str) -> InlineKeyboardMarkup:
-    button = InlineKeyboardButton(text, switch_inline_query=placeholder)
+def build_single_button_markup(text: str, action: str) -> InlineKeyboardMarkup:
+    data = f"{action}"
+    button = InlineKeyboardButton(text, callback_data=data)
     return InlineKeyboardMarkup([[button]])
 
 
-def build_single_switch_button_markup(text: str, action: str) -> InlineKeyboardMarkup:
-    data = f"{action}"
-    button = InlineKeyboardButton(text, callback_data=data)
+def build_single_switch_button_markup(text: str, placeholder: str) -> InlineKeyboardMarkup:
+    button = InlineKeyboardButton(text, switch_inline_query=placeholder)
     return InlineKeyboardMarkup([[button]])
 
 
