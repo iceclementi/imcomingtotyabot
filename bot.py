@@ -656,6 +656,12 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
         reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
     update.message.delete()
+
+    # Edit all polls to match change
+    for mid in poll.get_message_details():
+        context.bot.edit_message_text(
+            poll.render_text(), inline_message_id=mid, reply_markup=poll.build_option_buttons()
+        )
     return
 
 
@@ -703,6 +709,12 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
         reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
     update.message.delete()
+
+    # Edit all polls to match change
+    for mid in poll.get_message_details():
+        context.bot.edit_message_text(
+            poll.render_text(), inline_message_id=mid, reply_markup=poll.build_option_buttons()
+        )
     return
 
 
