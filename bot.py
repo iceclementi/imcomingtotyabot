@@ -171,6 +171,8 @@ def handle_start(update: Update, context: CallbackContext) -> None:
             update.message.reply_html(
                 response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
             )
+
+            refresh_polls(poll, context)
             return
 
         reply_message = update.message.reply_html(
@@ -583,13 +585,7 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
         reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
     delete_message_and_response()
-
-    # Edit all polls to match change
-    for mid in poll.get_message_details():
-        context.bot.edit_message_text(
-            poll.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
-            reply_markup=poll.build_option_buttons(),
-        )
+    refresh_polls(poll, context)
     return
 
 
@@ -639,13 +635,7 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
         reply_markup=util.build_single_button_markup("Close", backend.CLOSE),
     )
     delete_message_and_response()
-
-    # Edit all polls to match change
-    for mid in poll.get_message_details():
-        context.bot.edit_message_text(
-            poll.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
-            reply_markup=poll.build_option_buttons()
-        )
+    refresh_polls(poll, context)
     return
 
 
@@ -781,6 +771,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         status = poll.toggle(int(action), uid, user_profile)
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
         query.answer(text=status)
+        refresh_polls(poll, context)
         return
     # Handle refresh option button
     elif action == backend.REFRESH_OPT:
@@ -1208,6 +1199,16 @@ def delete_message(context: CallbackContext) -> None:
 def deliver_poll(update: Update, poll: Poll) -> None:
     """Delivers the poll."""
     update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(update.effective_user.id))
+    return
+
+
+def refresh_polls(poll: Poll, context: CallbackContext):
+    """Refreshes all polls to update changes."""
+    for mid in poll.get_message_details():
+        context.bot.edit_message_text(
+            poll.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
+            reply_markup=poll.build_option_buttons()
+        )
     return
 
 
