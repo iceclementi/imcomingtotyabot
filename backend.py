@@ -496,7 +496,7 @@ class Poll(object):
     @classmethod
     def load(cls, poll_id: str, title: str, uid: int, options: list, single_response: bool, message_details: list,
              expiry: int, created_date: str) -> None:
-        poll = cls(poll_id, title, uid, list(), single_response, set((mid, cid) for mid, cid in message_details),
+        poll = cls(poll_id, title, uid, list(), single_response, set(message_details),
                    expiry, datetime.fromisoformat(created_date))
 
         for option_data in options:
@@ -644,7 +644,7 @@ class Poll(object):
         publish_button = util.build_switch_button("Publish", self.title)
         customise_button = util.build_button("Customise", POLL_SUBJECT, CUSTOMISE, self.poll_id)
         refresh_button = util.build_button("Refresh", POLL_SUBJECT, REFRESH, self.poll_id)
-        close_button = util.build_button("Close", POLL_SUBJECT, CLOSE_POLL, self.poll_id)
+        close_button = util.build_button("Close", POLL_SUBJECT, CLOSE, self.poll_id)
 
         if uid == self.creator_id:
             delete_button = util.build_button("Delete", POLL_SUBJECT, DELETE, self.poll_id)
