@@ -286,6 +286,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
+    update.message.delete()
     context.user_data.clear()
 
     uid = update.effective_user.id
@@ -299,7 +300,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
         body = [util.make_html_italic("You have no polls! Use /poll to build a new poll.")]
 
     response = "\n\n".join(header + body)
-    update.message.reply_html(response)
+    update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
 
 
 def handle_poll_view(update: Update, context: CallbackContext) -> None:
@@ -308,6 +309,7 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
+    update.message.delete()
     context.user_data.clear()
 
     uid = update.effective_user.id
@@ -319,10 +321,7 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(HELP)
         return
 
-    if poll.get_creator_id() == uid:
-        deliver_poll(update, poll)
-        return
-    elif User.get_user_by_id(uid).has_group_poll(poll_id):
+    if User.get_user_by_id(uid).has_group_poll(poll_id):
         deliver_poll(update, poll)
         return
     else:
@@ -367,6 +366,7 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
         return
 
     context.user_data.clear()
+    update.message.delete()
 
     uid = update.effective_user.id
 
@@ -397,7 +397,7 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
     body = [owned_groups_summary] + [joined_groups_summary]
 
     response = "\n\n".join(header + body)
-    update.message.reply_html(response)
+    update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
 
 
 def handle_group_view(update: Update, context: CallbackContext) -> None:
@@ -407,6 +407,7 @@ def handle_group_view(update: Update, context: CallbackContext) -> None:
         return
 
     context.user_data.clear()
+    update.message.delete()
 
     uid = update.effective_user.id
     text = update.message.text
