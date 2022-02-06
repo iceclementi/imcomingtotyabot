@@ -887,11 +887,12 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
             query.answer(text="Invalid callback query data!")
             return
 
-        reply_message = update.message.reply_html(
+        reply_message = message.reply_html(
             util.make_html_bold(REASON), reply_markup=util.build_single_button_markup("Close", backend.RESET),
         )
         context.user_data.update({"action": "comment", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
         delete_message_with_timer(reply_message, 900)
+        query.answer(text=REASON)
         return
     # Handle toggle comments required button
     elif action.startswith(f"{backend.COMMENT}_") and is_pm:
