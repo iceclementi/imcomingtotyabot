@@ -170,9 +170,19 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
         if option.is_voted_by_user(update.effective_user.id):
             response = poll.toggle(opt_id, uid, user_profile)
-            update.message.reply_html(
+            reply_one = update.message.reply_html(
                 response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
             )
+            delete_message_with_timer(reply_one, 60)
+
+            link = context.user_data.get("link", "")
+            context.user_data.clear()
+            if link:
+                reply_three = update.message.reply_html(
+                    "Click button to return to chat.",
+                    reply_markup=util.build_single_link_button_markup("Return To Chat", link)
+                )
+                delete_message_with_timer(reply_three, 60)
 
             refresh_polls(poll, context)
             return
@@ -1114,6 +1124,8 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             switch_pm_parameter=f"comment-{poll_details}"
         )
         context.user_data.update({"link": update.effective_chat.invite_link})
+        logger.info(f"Invite link: {update.effective_chat.invite_link}")
+        logger.info(f"Link: {update.effective_chat.link}")
         return
     # Handle invite query
     match = re.match(r"^\s*/invite\s*(.*)$", text)
