@@ -172,7 +172,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
             response = poll.toggle(opt_id, uid, user_profile)
 
             reply_message = update.message.reply_html(
-                response, reply_markup=util.build_single_switch_button_markup("Return To Chat", "return")
+                response, reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
             )
 
             reply_message.delete()
@@ -582,7 +582,7 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
 
     reply_message = update.message.reply_html(
         util.make_html_bold(f"{response} {backend.EMOJI_HAPPY}"),
-        reply_markup=util.build_single_switch_button_markup("Return To Chat", "return")
+        reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
     )
 
     reply_message.delete()
@@ -626,7 +626,7 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
 
     reply_message = update.message.reply_html(
         util.make_html_bold(f"Comment updated successfully! {backend.EMOJI_HAPPY}"),
-        reply_markup=util.build_single_switch_button_markup("Return To Chat", "return")
+        reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
     )
 
     reply_message.delete()
