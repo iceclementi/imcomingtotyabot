@@ -645,7 +645,7 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
         logger.warning("Poll option already voted by user!")
         return
 
-    poll.toggle(opt_id, uid, user_profile, update.message)
+    poll.toggle(opt_id, uid, user_profile, update.message.text)
 
     update.message.reply_html(
         util.make_html_bold(f"Vote successful! {backend.EMOJI_HAPPY}"),
@@ -660,7 +660,8 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
     # Edit all polls to match change
     for mid in poll.get_message_details():
         context.bot.edit_message_text(
-            poll.render_text(), inline_message_id=mid, reply_markup=poll.build_option_buttons()
+            poll.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
+            reply_markup=poll.build_option_buttons(),
         )
     return
 
@@ -698,7 +699,7 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
         logger.warning("Poll option not voted by user!")
         return
 
-    poll.edit_user_comment(opt_id, uid, update.message)
+    poll.edit_user_comment(opt_id, uid, update.message.text)
 
     update.message.reply_html(
         util.make_html_bold(f"Comment updated successfully! {backend.EMOJI_HAPPY}"),
@@ -713,7 +714,8 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
     # Edit all polls to match change
     for mid in poll.get_message_details():
         context.bot.edit_message_text(
-            poll.render_text(), inline_message_id=mid, reply_markup=poll.build_option_buttons()
+            poll.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
+            reply_markup=poll.build_option_buttons()
         )
     return
 
