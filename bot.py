@@ -858,6 +858,10 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         User.get_user_by_id(uid).delete_poll(poll_id)
         message.delete()
         query.answer(text="Poll deleted!")
+        for mid in poll.get_message_details():
+            context.bot.edit_message_reply_markup(
+                inline_message_id=mid, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            )
         return
     # Handle back button
     elif action == backend.BACK and is_pm:
