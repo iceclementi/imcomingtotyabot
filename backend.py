@@ -384,7 +384,8 @@ class Group(object):
         view_members_button = util.build_button("View Members", GROUP_SUBJECT, VIEW_MEMBERS, self.gid)
         view_polls_button = util.build_button("View Polls", GROUP_SUBJECT, VIEW_GROUP_POLLS, self.gid)
         settings_button = util.build_button("Settings", GROUP_SUBJECT, GROUP_SETTINGS, self.gid)
-        buttons = [[view_members_button], [view_polls_button], [settings_button]]
+        close_button = util.build_button("Close", GROUP_SUBJECT, CLOSE, self.gid)
+        buttons = [[view_members_button], [view_polls_button], [settings_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_members_view_buttons(self, back_action="", is_owner=False) -> InlineKeyboardMarkup:

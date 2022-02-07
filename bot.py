@@ -92,7 +92,7 @@ ERROR_NOT_VOTED = "Sorry, you've not voted for this option in the poll."
 START_GUIDE = "<b>/start</b>\nView the bot's welcome message"
 POLL_GUIDE = "<b>/poll</b> &lt;title&gt;\nBuild a new poll with an optional title"
 POLLS_GUIDE = "<b>/polls</b>\nView all the polls you have built"
-GROUP_GUIDE = "<b>/group</b>&lt;name&gt\nCreate a new group with an optional name"
+GROUP_GUIDE = "<b>/group</b> &lt;name&gt\nCreate a new group with an optional name"
 GROUPS_GUIDE = "<b>/groups</b>\nView all the groups you are in"
 INVITE_GUIDE = "<b>/invite</b>\nSend an invite link to your friends to join your group"
 HELP_GUIDE = "<b>/help</b>\nView this help message"
@@ -858,6 +858,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
 
 def handle_general_callback_query(query: CallbackQuery, context: CallbackContext, action: str) -> None:
+    """Handles a general callback query."""
     # Handle close button
     if action == backend.CLOSE:
         query.message.delete()
@@ -876,6 +877,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
 
 
 def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, action: str, poll_id: str) -> None:
+    """Handles a poll callback query."""
     poll = Poll.get_poll_by_id(poll_id)
 
     # Poll is deleted or has error
@@ -1000,6 +1002,10 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
 
 
 def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, action: str, gid: str) -> None:
+    """Handles a group callback query."""
+    if not is_private_chat(query.message):
+        return
+
     group = Group.get_group_by_id(gid)
 
     # Group is deleted or has error
@@ -1010,11 +1016,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
 
     uid, user_profile = extract_user_data(query.from_user)
     message = query.message
-    is_admin = is_private_chat(message)
     is_owner = group.get_owner() == uid
-
-    if not is_admin:
-        return
 
     # User is no longer in the group
     if uid not in group.get_member_ids():
@@ -1185,6 +1187,12 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
                                 reply_markup=group.build_group_details_buttons())
         query.answer(text=None)
         return
+    # Handle close button
+    elif action == backend.CLOSE:
+        message.delete()
+        query.answer(text=None)
+        return
+    # Handle other cases
     else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
@@ -1459,8 +1467,7 @@ def main():
     updater.job_queue.run_repeating(save_data, 300, first=60)
 
     # Start the bot
-    updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN,
-                          webhook_url=WEB_URL + TOKEN)
+    updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=WEB_URL + TOKEN)
     updater.idle()
 
 
