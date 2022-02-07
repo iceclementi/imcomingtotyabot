@@ -333,6 +333,12 @@ class Group(object):
 
         return "\n\n".join(poll.generate_linked_summary(include_creator=True) for poll in self.get_polls(limit=limit))
 
+    def generate_group_description_summary(self) -> str:
+        owner = [f"{EMOJI_CROWN} {User.get_user_by_id(self.owner).get_name()}"]
+        member_count = [f"{EMOJI_PEOPLE} {len(self.member_ids)}"]
+        poll_count = [f"{EMOJI_POLL} {len(self.poll_ids)}"]
+        return " / ".join(owner + member_count + poll_count)
+
     def render_group_details_text(self) -> str:
         title = util.make_html_bold(self.name)
         owner = f"{EMOJI_CROWN} {User.get_user_by_id(self.owner).get_name()}"

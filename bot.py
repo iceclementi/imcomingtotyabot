@@ -7,7 +7,7 @@ from backend import User, Group, Poll, Option, BotManager
 import util
 from telegram import (
     Update, ParseMode, User as TeleUser, Message, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup,
-    InlineQueryResultArticle, InputTextMessageContent, ForceReply, CallbackQuery
+    InlineQueryResultArticle, InputTextMessageContent, ForceReply, CallbackQuery, InlineQuery
 )
 from telegram.ext import (
     CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
@@ -98,6 +98,8 @@ INVITE_GUIDE = "<b>/invite</b>\nSend an invite link to your friends to join your
 HELP_GUIDE = "<b>/help</b>\nView this help message"
 
 # endregion
+
+# region COMMAND HANDLERS
 
 
 def handle_start(update: Update, context: CallbackContext) -> None:
@@ -567,6 +569,11 @@ def handle_help(update: Update, context: CallbackContext) -> None:
     return
 
 
+# endregion
+
+# region MESSAGE HANDLERS
+
+
 def handle_message(update: Update, context: CallbackContext) -> None:
     """Handles a message from the user."""
     if not update.message:
@@ -834,6 +841,11 @@ def handle_change_secret_conversation(update: Update, context: CallbackContext) 
     # Clear user data
     context.user_data.clear()
     return
+
+
+# endregion
+
+# region CALLBACK QUERY HANDLERS
 
 
 def handle_callback_query(update: Update, context: CallbackContext) -> None:
@@ -1200,54 +1212,155 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         return
 
 
+# endregion
+
+# region INLINE QUERY HANDLERS
+
+
 def handle_inline_query(update: Update, context: CallbackContext) -> None:
     """Handles an inline query."""
-    inline_query = update.inline_query
-    text = inline_query.query
+    query = update.inline_query
+    text = query.query.strip()
     uid = update.effective_user.id
     user = User.get_user_by_id(uid)
+    is_leader = user and user.is_leader()
 
     results = []
 
-    # Handle vote query
-    match = re.match(r"^\s*/vote\s+(\w+)\s*$", text)
+    # Handle vote and comment queries
+    match = re.match(r"^/(vote|comment|join)\s+(\w+)$", text)
     if match:
-        poll_details = match.group(1)
-        inline_query.answer(
-            results, switch_pm_text="Click here to toggle your vote.",
-            switch_pm_parameter=f"vote-{poll_details}"
-        )
+        handle_inline_pm_query(query, match.group(1), match.group(2))
         return
-    # Handle comment query
-    match = re.match(r"^\s*/comment\s+(\w+)\s*$", text)
+
+    # Display incomplete commands
+    match = re.match(r"^/([a-z]+)$", text)
     if match:
-        poll_details = match.group(1)
-        inline_query.answer(
-            results, switch_pm_text="Click here to add a comment to the poll",
-            switch_pm_parameter=f"comment-{poll_details}"
-        )
-        return
-    # Handle invite query
-    match = re.match(r"^\s*/invite\s*(.*)$", text)
-    if match:
-        group_name = match.group(1).strip()
-        for group in user.get_owned_groups(group_name, limit=10):
-            invitation, join_button = group.build_invite_text_and_button(update.effective_user.first_name)
+        command = match.group(1)
+        # Handle start query
+        if "star".startswith(command):
             query_result = InlineQueryResultArticle(
-                id=group.get_gid(), title=group.get_name(), description="Send group invitation",
-                input_message_content=InputTextMessageContent(invitation), reply_markup=join_button
+                id=command, title="/start", description="View the bot's welcome message",
+                input_message_content=InputTextMessageContent("/start")
             )
             results.append(query_result)
-        inline_query.answer(results)
-        return
-    # Handle join query
-    match = re.match(r"^\s*/join\s+(\w+)\s*$", text)
+        # Handle poll query
+        if "pol".startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id=command, title="/poll", description="Build a new poll",
+                input_message_content=InputTextMessageContent("/poll")
+            )
+            results.append(query_result)
+        # Handle polls query
+        if "poll".startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id=command, title="/polls", description="View all the polls you have built",
+                input_message_content=InputTextMessageContent("/polls")
+            )
+            results.append(query_result)
+        # Handle group query
+        if "grou".startswith(command) and is_leader:
+            query_result = InlineQueryResultArticle(
+                id=command, title="/group", description="Create a new group",
+                input_message_content=InputTextMessageContent("/group")
+            )
+            results.append(query_result)
+        # Handle groups query
+        if "group".startswith(command) and is_leader:
+            query_result = InlineQueryResultArticle(
+                id=command, title="/groups", description="View all the groups you are in",
+                input_message_content=InputTextMessageContent("/groups")
+            )
+            results.append(query_result)
+        # Handle invite query
+        if "invit".startswith(command) and is_leader:
+            query_result = InlineQueryResultArticle(
+                id=command, title="/invite", description="Send a group invite link to your friends",
+                input_message_content=InputTextMessageContent("/invite")
+            )
+            results.append(query_result)
+        # Handle help query
+        if "hel".startswith(command):
+            query_result = InlineQueryResultArticle(
+                id=command, title="/help", description="View the help message",
+                input_message_content=InputTextMessageContent("/help")
+            )
+            results.append(query_result)
+
+    # Display complete commands as pm text
+    match = re.match(r"^/(start|poll|polls|group|groups|invite|help)\s*(.*)$", text)
     if match:
-        invite_code = match.group(1)
-        inline_query.answer(
-            results, switch_pm_text="Click here to join group", switch_pm_parameter=f"join-{invite_code}"
-        )
-        return
+        command, details = match.group(1), match.group(2)
+        # Handle start query
+        if command == "start":
+            query.answer(results, switch_pm_text="Click to view the bot's welcome message", switch_pm_parameter=command)
+            return
+        # Handle poll query
+        elif command == "poll" and user:
+            if details:
+                context.user_data.update({"title": details})
+                query.answer(
+                    results, switch_pm_text="Click to build a new poll with the title", switch_pm_parameter=command
+                )
+            else:
+                query.answer(results, switch_pm_text="Click to build a new poll", switch_pm_parameter=command)
+            return
+        # Handle polls query
+        elif command == "polls" and user:
+            for poll in user.get_polls(details, limit=10):
+                query_result = InlineQueryResultArticle(
+                    id=f"poll_{poll.get_poll_id()}", title=poll.get_title(),
+                    description=poll.generate_options_summary(),
+                    input_message_content=InputTextMessageContent(poll.render_text(), parse_mode=ParseMode.HTML),
+                    reply_markup=poll.build_admin_buttons(uid),
+                )
+                results.append(query_result)
+            query.answer(results, switch_pm_text="Click to view all your polls", switch_pm_parameter=command)
+            return
+        # Handle group query
+        elif command == "group" and is_leader:
+            if details:
+                context.user_data.update({"name": details})
+                query.answer(
+                    results, switch_pm_text="Click to create a new group with a name", switch_pm_parameter=command
+                )
+            else:
+                query.answer(results, switch_pm_text="Click to create a new group", switch_pm_parameter=command)
+            return
+        # Handle groups query
+        elif command == "groups" and is_leader:
+            for group in user.get_all_groups(details, limit=30):
+                query_result = InlineQueryResultArticle(
+                    id=f"group_{group.get_gid()}", title=group.get_name(),
+                    description=group.generate_group_description_summary(),
+                    input_message_content=InputTextMessageContent(
+                        group.render_group_details_text(), parse_mode=ParseMode.HTML
+                    ), reply_markup=group.build_group_details_buttons()
+                )
+                results.append(query_result)
+            query.answer(results, switch_pm_text="Click to view all your joined groups", switch_pm_parameter=command)
+            return
+        # Handle invite query
+        elif command == "invite" and is_leader:
+            for group in user.get_owned_groups(details, limit=10):
+                invitation, join_button = group.build_invite_text_and_button(update.effective_user.first_name)
+                query_result = InlineQueryResultArticle(
+                    id=group.get_gid(), title=group.get_name(), description="Send group invitation",
+                    input_message_content=InputTextMessageContent(invitation, parse_mode=ParseMode.HTML),
+                    reply_markup=join_button
+                )
+                results.append(query_result)
+            query.answer(results, switch_pm_text="Click to send a group invite link", switch_pm_parameter=command)
+            return
+        # Handle help query
+        elif command == "help":
+            query.answer(results, switch_pm_text="Click to view the help message", switch_pm_parameter=command)
+            return
+        # Handle other query
+        else:
+            query.answer(results)
+            return
+
     # Handle poll query
     polls = user.get_polls(text, limit=10)
     for poll in polls:
@@ -1258,7 +1371,22 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         )
         results.append(query_result)
 
-    inline_query.answer(results)
+    query.answer(results)
+    return
+
+
+def handle_inline_pm_query(query: InlineQuery, action: str, details: str) -> None:
+    """Handles specific inline to pm queries."""
+    if action == "vote":
+        text = "Click here to toggle your vote."
+    elif action == "comment":
+        text = "Click here to add a comment to the poll."
+    elif action == "join":
+        text = "Click here to join group"
+    else:
+        text = ""
+
+    query.answer([], switch_pm_text=text, switch_pm_parameter=f"{action}-{details}")
     return
 
 
@@ -1279,6 +1407,9 @@ def handle_chosen_poll_result(update: Update, context: CallbackContext) -> None:
     return
 
 
+# endregion
+
+
 def handle_error(update: Update, context: CallbackContext) -> None:
     """Logs errors caused by Updates."""
     logger.warning(f"Update {update} caused error {context.error}")
@@ -1296,6 +1427,9 @@ def handle_load(update: Update, context: CallbackContext) -> None:
     status = BotManager.load_data()
     update.message.reply_html(status)
     return
+
+
+# region HELPERS
 
 
 def validate_and_register_user(user: TeleUser) -> bool:
@@ -1382,8 +1516,7 @@ def refresh_polls(poll: Poll, context: CallbackContext, only_buttons=False) -> N
 
 def deliver_group(update: Update, group: Group) -> None:
     """Delivers the group details."""
-    update.message.reply_html(group.render_group_details_text(),
-                              reply_markup=group.build_group_details_buttons())
+    update.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_buttons())
     return
 
 
@@ -1414,12 +1547,16 @@ def save_data(context: CallbackContext) -> None:
     """Saves data to database."""
     status = BotManager.save_data()
     logger.info(status)
+    return
 
 
 def load_data(context: CallbackContext) -> None:
     """Loads data from database."""
     status = BotManager.load_data()
     logger.info(status)
+    return
+
+# endregion
 
 
 def main():
