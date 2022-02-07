@@ -1234,55 +1234,55 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         return
 
     # Display incomplete commands
-    match = re.match(r"^/([a-z]+)$", text)
+    match = re.match(r"^/([a-z]*)$", text)
     if match:
         command = match.group(1)
         # Handle start query
         if "star".startswith(command):
             query_result = InlineQueryResultArticle(
-                id=command, title="/start", description="View the bot's welcome message",
+                id="startcom", title="/start", description="View the bot's welcome message",
                 input_message_content=InputTextMessageContent("/start")
             )
             results.append(query_result)
         # Handle poll query
         if "pol".startswith(command) and user:
             query_result = InlineQueryResultArticle(
-                id=command, title="/poll", description="Build a new poll",
+                id="pollcom", title="/poll", description="Build a new poll",
                 input_message_content=InputTextMessageContent("/poll")
             )
             results.append(query_result)
         # Handle polls query
         if "poll".startswith(command) and user:
             query_result = InlineQueryResultArticle(
-                id=command, title="/polls", description="View all the polls you have built",
+                id="pollscom", title="/polls", description="View all the polls you have built",
                 input_message_content=InputTextMessageContent("/polls")
             )
             results.append(query_result)
         # Handle group query
         if "grou".startswith(command) and is_leader:
             query_result = InlineQueryResultArticle(
-                id=command, title="/group", description="Create a new group",
+                id="groupcom", title="/group", description="Create a new group",
                 input_message_content=InputTextMessageContent("/group")
             )
             results.append(query_result)
         # Handle groups query
         if "group".startswith(command) and is_leader:
             query_result = InlineQueryResultArticle(
-                id=command, title="/groups", description="View all the groups you are in",
+                id="groupscom", title="/groups", description="View all the groups you are in",
                 input_message_content=InputTextMessageContent("/groups")
             )
             results.append(query_result)
         # Handle invite query
         if "invit".startswith(command) and is_leader:
             query_result = InlineQueryResultArticle(
-                id=command, title="/invite", description="Send a group invite link to your friends",
+                id="invitecom", title="/invite", description="Send a group invite link to your friends",
                 input_message_content=InputTextMessageContent("/invite")
             )
             results.append(query_result)
         # Handle help query
         if "hel".startswith(command):
             query_result = InlineQueryResultArticle(
-                id=command, title="/help", description="View the help message",
+                id="helpcom", title="/help", description="View the help message",
                 input_message_content=InputTextMessageContent("/help")
             )
             results.append(query_result)
