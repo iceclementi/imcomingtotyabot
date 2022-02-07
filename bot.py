@@ -52,7 +52,7 @@ DELETED_POLL = "Sorry, the poll has been deleted."
 NEW_GROUP = "Let's create a new group! To begin, send me the group name."
 GROUP_PASSWORD_REQUEST = "{}\n\nGreat! Now enter a secret password for your group. " \
                          "Alternatively, enter /done to skip this step."
-GROUP_DONE = "\U0001f44d Group created! You are now the owner of the group. " \
+GROUP_DONE = "\U0001f44d Group created! You are now the owner of this group. " \
              "Use /invite to invite your friends to join the group."
 DELETED_GROUP = "Sorry, the group has been deleted."
 GROUP_INVITATION = "Which group's invite code do you want to send?"
@@ -60,9 +60,6 @@ GROUP_INVITATION = "Which group's invite code do you want to send?"
 REASON = "You've selected {}.\nPlease enter a reason/comment for your selected option."
 START = "Welcome to the bot! \U0001f60a\n\nClick the button below to show available bot commands.\n\n" \
         "Use /help to check the description for each bot command."
-HELP = "This bot will help you create polls where people can leave their names. " + \
-           "Use /poll to create a poll here, then publish it to groups or send it to " + \
-           "individual friends.\n\nSend /polls to manage your existing polls."
 
 ERROR_ACCESS_FORMAT = "Invalid access request format. Please use <b>/access &lt;key&gt;</b>."
 ERROR_ACCESS_ALREADY_GRANTED = "You already have access to the bot! Use /poll to begin building a poll."
@@ -122,9 +119,13 @@ def handle_start(update: Update, context: CallbackContext) -> None:
         )
         return
 
+    if re.match(r"^\w+$", arguments[0]):
+        handle_pm_command(arguments[0], update, context)
+        return
+
     match = re.match(r"^(\w+)-(\w+)$", arguments[0])
     if not match:
-        update.message.reply_html(HELP)
+        handle_help(update, context)
         return
 
     uid, user_profile = extract_user_data(update.effective_user)
@@ -210,8 +211,37 @@ def handle_start(update: Update, context: CallbackContext) -> None:
         context.user_data.update({"action": "vote", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
         delete_message_with_timer(reply_message, 900)
         return
+    # Handle others
     else:
-        update.message.reply_html(HELP, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        handle_help(update, context)
+        return
+
+
+def handle_pm_command(command: str, update: Update, context: CallbackContext) -> None:
+    if command == "start":
+        handle_start(update, context)
+        return
+    elif command == "poll":
+        title = context.user_data.get("title", "")
+        update.message = f"/{command} {title}"
+        handle_poll(update, context)
+        return
+    elif command == "polls":
+        handle_polls(update, context)
+        return
+    elif command == "group":
+        name = context.user_data.get("name", "")
+        update.message = f"/{command} {name}"
+        handle_group(update, context)
+        return
+    elif command == "groups":
+        handle_groups(update, context)
+        return
+    elif command == "invite":
+        handle_invite(update, context)
+        return
+    elif command == "help":
+        handle_help(update, context)
         return
 
 
@@ -255,7 +285,7 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
     context.user_data.clear()
     context.user_data.update({"action": "poll", "title": "", "options": []})
 
-    match = re.match(r"^\s*/poll\s+(.*)$", update.message.text)
+    match = re.match(r"^\s*/poll\s+(.+)$", update.message.text.strip())
     if not match:
         reply_message = update.message.reply_html(
             NEW_POLL, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
@@ -263,7 +293,7 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
         context.user_data.update({"del": reply_message.message_id})
         return
 
-    title = match.group(1).strip()
+    title = match.group(1)
 
     if len(title) > MAX_TITLE_LENGTH:
         reply_message = update.message.reply_html(
@@ -342,7 +372,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
         context.user_data.clear()
         return
     else:
-        update.message.reply_html(HELP, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        handle_help(update, context)
         return
 
 
@@ -386,14 +416,14 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
     poll_id = re.match(r"^/poll_(\w+).*$", text).group(1)
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
-        update.message.reply_html(HELP, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        handle_help(update, context)
         return
 
     if poll.get_creator_id() == uid or User.get_user_by_id(uid).has_group_poll(poll_id):
         deliver_poll(update, poll)
         return
     else:
-        update.message.reply_html(HELP, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        handle_help(update, context)
         return
 
 
@@ -408,7 +438,7 @@ def handle_group(update: Update, context: CallbackContext) -> None:
     context.user_data.clear()
     context.user_data.update({"action": "group", "name": "", "secret": ""})
 
-    match = re.match(r"^\s*/group\s+(.*)$", update.message.text)
+    match = re.match(r"^\s*/group\s+(.+)$", update.message.text.strip())
     if not match:
         reply_message = update.message.reply_html(
             NEW_GROUP, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
@@ -416,7 +446,7 @@ def handle_group(update: Update, context: CallbackContext) -> None:
         context.user_data.update({"del": reply_message.message_id})
         return
 
-    group_name = match.group(1).strip().replace("\n", " ")
+    group_name = match.group(1).replace("\n", " ")
 
     if len(group_name) > MAX_GROUP_NAME_LENGTH:
         reply_message = update.message.reply_html(
@@ -500,7 +530,7 @@ def handle_group_view(update: Update, context: CallbackContext) -> None:
     if group and uid in group.get_member_ids():
         deliver_group(update, group)
     else:
-        update.message.reply_html(HELP, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        handle_help(update, context)
     return
 
 
@@ -520,26 +550,6 @@ def handle_invite(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(response, reply_markup=buttons)
     else:
         update.message.reply_html(util.make_html_italic("You do not own any groups!"), reply_markup=buttons)
-    return
-
-
-# To be removed
-def handle_join(update: Update, context: CallbackContext) -> None:
-    """Joins a group from a group invite code."""
-    if not validate_and_register_user(update.effective_user):
-        update.message.reply_html(ACCESS_REQUEST)
-        return
-
-    context.user_data.clear()
-
-    arguments = context.args
-    if not arguments:
-        context.user_data.update({"action": "join"})
-        update.message.reply_html("Enter the group invitation code.")
-        return
-
-    invitation_code = arguments[0]
-    try_join_group_through_invitation(update, invitation_code)
     return
 
 
@@ -609,7 +619,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         return
 
     if is_private_chat(update.message):
-        update.message.reply_html(HELP)
+        handle_help(update, context)
         return
 
 
@@ -1559,7 +1569,7 @@ def load_data(context: CallbackContext) -> None:
 # endregion
 
 
-def main():
+def main() -> None:
     """Starts the bot."""
     # Dispatcher to register handlers
     dispatcher = updater.dispatcher
@@ -1573,7 +1583,6 @@ def main():
     dispatcher.add_handler(CommandHandler("polls", handle_polls, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("groups", handle_groups, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("invite", handle_invite, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("join", handle_join, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("help", handle_help, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("save", handle_save, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("load", handle_load, filters=Filters.chat_type.private))
