@@ -57,6 +57,8 @@ DELETED_GROUP = "Sorry, the group has been deleted."
 GROUP_INVITATION = "Which group's invite code do you want to send?"
 
 REASON = "You've selected {}.\nPlease enter a reason/comment for your selected option."
+START = "Welcome to the bot! \U0001f60a\n\nClick the button below to show available bot commands.\n\n" \
+        "Use /help to check the description for each bot command."
 HELP = "This bot will help you create polls where people can leave their names. " + \
            "Use /poll to create a poll here, then publish it to groups or send it to " + \
            "individual friends.\n\nSend /polls to manage your existing polls."
@@ -93,7 +95,13 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
     arguments = context.args
     if not arguments:
-        update.message.reply_html(HELP)
+        update.message.reply_html(
+            START,
+            reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("View Commands", "/", True, True),
+                util.generate_button_details("Close", backend.CLOSE)
+            )
+        )
         return
 
     update.message.delete()

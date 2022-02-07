@@ -86,14 +86,29 @@ def build_switch_button(text: str, placeholder: str, to_self=False) -> InlineKey
 
 
 def build_single_button_markup(text: str, action: str) -> InlineKeyboardMarkup:
-    data = f"{action}"
-    button = InlineKeyboardButton(text, callback_data=data)
+    button = InlineKeyboardButton(text, callback_data=action)
     return InlineKeyboardMarkup([[button]])
 
 
 def build_single_switch_button_markup(text: str, placeholder: str) -> InlineKeyboardMarkup:
     button = InlineKeyboardButton(text, switch_inline_query=placeholder)
     return InlineKeyboardMarkup([[button]])
+
+
+def build_multiple_buttons_markup(*button_details: tuple) -> InlineKeyboardMarkup:
+    buttons = []
+    for text, action, is_switch, to_self in button_details:
+        if is_switch:
+            button = InlineKeyboardButton(text, switch_inline_query_current_chat=action) if to_self \
+                else InlineKeyboardButton(text, switch_inline_query=action)
+        else:
+            button = InlineKeyboardButton(text, callback_data=action)
+        buttons.append([button])
+    return InlineKeyboardMarkup(buttons)
+
+
+def generate_button_details(text: str, action: str, is_switch=False, to_self=False) -> tuple:
+    return text, action, is_switch, to_self
 
 
 def build_single_link_button_markup(text: str, link: str) -> InlineKeyboardMarkup:
