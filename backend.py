@@ -19,7 +19,6 @@ EMOJI_CROWN = "\U0001f451"
 EMOJI_HAPPY = "\U0001f60a"
 SESSION_EXPIRY = 1  # In hours
 POLL_EXPIRY = 720
-BOT_NAME = "tyacountmeintbot"
 
 # Button Actions
 POLL_SUBJECT = "p"
@@ -182,12 +181,14 @@ class User(object):
         return any(poll_id in group.get_poll_ids() for group in self.get_all_groups())
 
     def build_invite_text_and_buttons(self) -> tuple:
+        close_button = InlineKeyboardButton("Close", callback_data=CLOSE)
         if not self.owned_group_ids:
-            return util.make_html_italic("You do not own any groups!"), None
+            return "", InlineKeyboardMarkup.from_button(close_button)
         buttons = []
         for group in self.get_owned_groups():
             invite_button = util.build_switch_button(group.get_name(), f"/invite {group.get_name()}")
             buttons.append([invite_button])
+        buttons.append([close_button])
         return "Which group's invite code do you want to send?", InlineKeyboardMarkup(buttons)
 
     def to_json(self) -> dict:
