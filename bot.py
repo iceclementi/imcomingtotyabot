@@ -1324,8 +1324,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 query_result = InlineQueryResultArticle(
                     id=f"poll_{poll.get_poll_id()}", title=poll.get_title(),
                     description=poll.generate_options_summary(),
-                    input_message_content=InputTextMessageContent(poll.render_text(), parse_mode=ParseMode.HTML),
-                    reply_markup=poll.build_admin_buttons(uid),
+                    input_message_content=InputTextMessageContent(f"/poll_{poll.get_poll_id()}")
                 )
                 results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your polls", switch_pm_parameter=command)
@@ -1346,9 +1345,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 query_result = InlineQueryResultArticle(
                     id=f"group_{group.get_gid()}", title=group.get_name(),
                     description=group.generate_group_description_summary(),
-                    input_message_content=InputTextMessageContent(
-                        group.render_group_details_text(), parse_mode=ParseMode.HTML
-                    ), reply_markup=group.build_group_details_buttons()
+                    input_message_content=InputTextMessageContent(f"/group_{group.get_gid()}")
                 )
                 results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your joined groups", switch_pm_parameter=command)
