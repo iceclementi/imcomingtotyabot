@@ -818,6 +818,10 @@ class BotManager(object):
         return util.simple_hash(token, name, 32)
 
     @staticmethod
+    def get_leader_token_hash(token: str, uid: int) -> str:
+        return util.simple_hash(token, str(uid), 32)
+
+    @staticmethod
     def save_data() -> str:
         try:
             db.save(all_users, db.USER_SHEET)
