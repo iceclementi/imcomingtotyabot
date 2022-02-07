@@ -41,8 +41,7 @@ ACCESS_REQUIRED = False  # Set to False if access is not required to access bot
 
 ACCESS_DECLINED = "Sorry, wrong access key."
 ACCESS_GRANTED = "Congratulations, you now have access to the bot! Use /start to begin building a poll."
-ACCESS_REQUEST = "In order to use this bot, you need to have access.\n" \
-                 "Enter <b>>/access &lt;key&gt;</b> to request for access."
+ACCESS_REQUEST = "To explore the full potential of this bot, please request for access from the creator \U0001f60e"
 
 NEW_POLL = "Let's create a new poll! First, send me the title."
 NEW_OPTION = "{}\n\nNice! Now send me the first answer option."
@@ -90,19 +89,19 @@ ERROR_NOT_VOTED = "Sorry, you've not voted for this option in the poll."
 
 # region COMMAND GUIDE
 
-START_GUIDE = "<b>/start</b> - View the bot's welcome message"
-HELP_GUIDE = "<b>/help</b> - View this help message"
-POLL_GUIDE = "<b>/poll</b> &lt;title&gt; - Build a new poll with an optional title"
-POLLS_GUIDE = "<b>/polls</b> - View all the polls you have built"
-GROUP_GUIDE = "<b>/group</b>&lt;name&gt - Create a new group with an optional name"
-GROUPS_GUIDE = "<b>/groups</b> - View all the groups you are in"
-INVITE_GUIDE = "<b>/invite</b> - Send an invite link to your friends to join your group"
+START_GUIDE = "<b>/start</b>\nView the bot's welcome message"
+POLL_GUIDE = "<b>/poll</b> &lt;title&gt;\nBuild a new poll with an optional title"
+POLLS_GUIDE = "<b>/polls</b>\nView all the polls you have built"
+GROUP_GUIDE = "<b>/group</b>&lt;name&gt\nCreate a new group with an optional name"
+GROUPS_GUIDE = "<b>/groups</b>\nView all the groups you are in"
+INVITE_GUIDE = "<b>/invite</b>\nSend an invite link to your friends to join your group"
+HELP_GUIDE = "<b>/help</b>\nView this help message"
 
 # endregion
 
 
 def handle_start(update: Update, context: CallbackContext) -> None:
-    """Manages implicit references to the bot."""
+    """Displays welcome message to the bot and manages pm messages."""
     if not validate_and_register_user(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
@@ -543,8 +542,29 @@ def handle_join(update: Update, context: CallbackContext) -> None:
 
 
 def handle_help(update: Update, context: CallbackContext) -> None:
-    """Displays a help message."""
-    update.message.reply_html(HELP, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    """Displays a help message to explain available bot commands."""
+    update.message.delete()
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    uid = update.effective_user.id
+    user = User.get_user_by_id(uid)
+
+    header = [util.make_html_bold("Available Bot Commands")]
+
+    body = [START_GUIDE]
+    if user:
+        body += [POLL_GUIDE, POLLS_GUIDE]
+        if user.is_leader():
+            body += [GROUP_GUIDE, GROUPS_GUIDE, INVITE_GUIDE]
+    body += [HELP_GUIDE]
+
+    if not user:
+        body += [util.make_html_italic(ACCESS_REQUEST)]
+
+    response = "\n\n".join(header + body)
+    update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    return
 
 
 def handle_message(update: Update, context: CallbackContext) -> None:

@@ -55,12 +55,12 @@ all_polls = dict()
 
 class User(object):
     def __init__(self, uid: int, first_name: str, last_name: str, username: str,
-                 is_group_owner: bool, owned_group_ids: set, joined_group_ids: set, poll_ids: set) -> None:
+                 is_leader: bool, owned_group_ids: set, joined_group_ids: set, poll_ids: set) -> None:
         self.uid = uid
         self.first_name = first_name
         self.last_name = last_name
         self.username = username
-        self.is_group_owner = is_group_owner
+        self.leader = is_leader
         self.owned_group_ids = owned_group_ids
         self.joined_group_ids = joined_group_ids
         self.poll_ids = poll_ids
@@ -71,14 +71,14 @@ class User(object):
 
     @classmethod
     def register(cls, uid: int, first_name: str, last_name="", username=""):
-        user = cls(uid, first_name, last_name, username, True, set(), set(), set())
+        user = cls(uid, first_name, last_name, username, False, set(), set(), set())
         all_users[uid] = user
         return user
 
     @classmethod
     def load(cls, uid: int, first_name: str, last_name: str, username: str,
-             is_group_owner: bool, owned_group_ids: list, joined_group_ids: list, poll_ids: list) -> None:
-        user = cls(uid, first_name, last_name, username, is_group_owner,
+             is_leader: bool, owned_group_ids: list, joined_group_ids: list, poll_ids: list) -> None:
+        user = cls(uid, first_name, last_name, username, is_leader,
                    set(owned_group_ids), set(joined_group_ids), set(poll_ids))
         all_users[uid] = user
         return
@@ -93,6 +93,9 @@ class User(object):
 
     def get_username(self) -> str:
         return self.username
+
+    def is_leader(self) -> bool:
+        return self.leader
 
     def get_owned_group_ids(self) -> set:
         return self.groups
@@ -197,7 +200,7 @@ class User(object):
             db.USER_FIRST_NAME: self.first_name,
             db.USER_LAST_NAME: self.last_name,
             db.USER_USERNAME: self.username,
-            db.USER_IS_GROUP_OWNER: self.is_group_owner,
+            db.USER_IS_LEADER: self.is_group_owner,
             db.USER_OWNED_GROUP_IDS: list(self.owned_group_ids),
             db.USER_JOINED_GROUP_IDS: list(self.joined_group_ids),
             db.USER_POLL_IDS: list(self.poll_ids)
@@ -823,7 +826,7 @@ class BotManager(object):
                     user_data[db.USER_FIRST_NAME],
                     user_data[db.USER_LAST_NAME],
                     user_data[db.USER_USERNAME],
-                    user_data[db.USER_IS_GROUP_OWNER],
+                    user_data[db.USER_IS_LEADER],
                     user_data[db.USER_OWNED_GROUP_IDS],
                     user_data[db.USER_JOINED_GROUP_IDS],
                     user_data[db.USER_POLL_IDS]
