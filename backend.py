@@ -200,7 +200,7 @@ class User(object):
             db.USER_FIRST_NAME: self.first_name,
             db.USER_LAST_NAME: self.last_name,
             db.USER_USERNAME: self.username,
-            db.USER_IS_LEADER: self.is_group_owner,
+            db.USER_IS_LEADER: self.leader,
             db.USER_OWNED_GROUP_IDS: list(self.owned_group_ids),
             db.USER_JOINED_GROUP_IDS: list(self.joined_group_ids),
             db.USER_POLL_IDS: list(self.poll_ids)
