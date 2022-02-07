@@ -108,6 +108,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
         return
 
     update.message.delete()
+    delete_old_chat_message(update, context)
 
     arguments = context.args
     if not arguments:
@@ -249,27 +250,33 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
         return
 
     update.message.delete()
+    delete_old_chat_message(update, context)
     context.user_data.clear()
     context.user_data.update({"action": "poll", "title": "", "options": []})
 
     match = re.match(r"^\s*/poll\s+(.*)$", update.message.text)
     if not match:
-        update.message.reply_html(NEW_POLL, reply_markup=util.build_single_button_markup("Cancel", backend.RESET))
+        reply_message = update.message.reply_html(
+            NEW_POLL, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+        )
+        context.user_data.update({"del": reply_message.message_id})
         return
 
     title = match.group(1).strip()
 
     if len(title) > MAX_TITLE_LENGTH:
-        update.message.reply_html(
+        reply_message = update.message.reply_html(
             ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
         )
+        context.user_data.update({"del": reply_message.message_id})
         return
 
     bold_title = util.make_html_bold_first_line(title)
     response = NEW_OPTION.format(bold_title)
-    update.message.reply_html(response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET))
-
-    context.user_data["title"] = text
+    reply_message = update.message.reply_html(
+        response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+    )
+    context.user_data.update({"title": text, "del": reply_message.message_id})
     return
 
 
@@ -280,6 +287,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
         return
 
     update.message.delete()
+    delete_old_chat_message(update, context)
 
     action = context.user_data.setdefault("action", "")
     # Handle poll
@@ -288,16 +296,18 @@ def handle_done(update: Update, context: CallbackContext) -> None:
 
         # Check if there is a title
         if not title:
-            update.message.reply_html(
+            reply_message = update.message.reply_html(
                 ERROR_EARLY_DONE_TITLE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
             )
+            context.user_data.update({"del": reply_message.message_id})
             return
 
         # Check if there are options
         if not options:
-            update.message.reply_html(
+            reply_message = update.message.reply_html(
                 ERROR_EARLY_DONE_OPTION, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
             )
+            context.user_data.update({"del": reply_message.message_id})
             return
 
         # Create poll
@@ -315,9 +325,11 @@ def handle_done(update: Update, context: CallbackContext) -> None:
 
         # Check if there is a group name
         if not group_name:
-            update.message.reply_html(
+            reply_message = update.message.reply_html(
                 ERROR_EARLY_DONE_GROUP_NAME, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
             )
+            context.user_data.update({"del": reply_message.message_id})
+            return
 
         # Create group
         group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, "")
@@ -340,6 +352,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
         return
 
     update.message.delete()
+    delete_old_chat_message(update, context)
     context.user_data.clear()
 
     uid = update.effective_user.id
@@ -363,6 +376,7 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
         return
 
     update.message.delete()
+    delete_old_chat_message(update, context)
     context.user_data.clear()
 
     uid = update.effective_user.id
@@ -389,31 +403,39 @@ def handle_group(update: Update, context: CallbackContext) -> None:
         return
 
     update.message.delete()
+    delete_old_chat_message(update, context)
     context.user_data.clear()
     context.user_data.update({"action": "group", "name": "", "secret": ""})
 
     match = re.match(r"^\s*/group\s+(.*)$", update.message.text)
     if not match:
-        update.message.reply_html(NEW_GROUP, reply_markup=util.build_single_button_markup("Cancel", backend.RESET))
+        reply_message = update.message.reply_html(
+            NEW_GROUP, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+        )
+        context.user_data.update({"del": reply_message.message_id})
         return
 
     group_name = match.group(1).strip().replace("\n", " ")
 
     if len(group_name) > MAX_GROUP_NAME_LENGTH:
-        update.message.reply_html(
+        reply_message = update.message.reply_html(
             ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
         )
+        context.user_data.update({"del": reply_message.message_id})
         return
 
     if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
-        update.message.reply_html(
+        reply_message = update.message.reply_html(
             ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
         )
+        context.user_data.update({"del": reply_message.message_id})
         return
 
-    context.user_data["name"] = group_name
     response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
-    update.message.reply_html(response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET))
+    reply_message = update.message.reply_html(
+        response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+    )
+    context.user_data.update({"name": group_name, "del": reply_message.message_id})
     return
 
 
@@ -423,8 +445,9 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    context.user_data.clear()
     update.message.delete()
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
 
     uid = update.effective_user.id
 
@@ -464,8 +487,9 @@ def handle_group_view(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    context.user_data.clear()
     update.message.delete()
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
 
     uid = update.effective_user.id
     text = update.message.text
@@ -486,6 +510,7 @@ def handle_invite(update: Update, context: CallbackContext) -> None:
         return
 
     update.message.delete()
+    delete_old_chat_message(update, context)
     context.user_data.clear()
     uid = update.effective_user.id
 
@@ -567,37 +592,41 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
     title, options = context.user_data.get("title", ""), context.user_data.get("options", [])
 
     update.message.delete()
+    delete_old_chat_message(update, context)
 
     # Handle title
     if not title:
         if len(text) > MAX_TITLE_LENGTH:
-            update.message.reply_html(
+            reply_message = update.message.reply_html(
                 ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
             )
+            context.user_data.update({"del": reply_message.message_id})
             return
 
         bold_title = util.make_html_bold_first_line(text)
         response = NEW_OPTION.format(bold_title)
-        update.message.reply_html(response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET))
-
-        context.user_data["title"] = text
+        reply_message = update.message.reply_html(
+            response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+        )
+        context.user_data.update({"title": text, "del": reply_message.message_id})
         return
     # Handle option
     else:
         if len(text) > MAX_OPTION_TITLE_LENGTH:
-            update.message.reply_html(
+            reply_message = update.message.reply_html(
                 ERROR_OPTION_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
             )
+            context.user_data.update({"del": reply_message.message_id})
             return
 
         options.append(text)
 
         if len(options) < 10:
-            update.message.reply_html(
+            reply_message = update.message.reply_html(
                 NEXT_OPTION.format(util.make_html_bold(text)),
                 reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
             )
-            context.user_data["options"] = options
+            context.user_data.update({"options": options, "del": reply_message.message_id})
             return
 
         # Create poll
@@ -614,14 +643,11 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the user to vote a poll option."""
     poll_id = context.user_data.get("pid", "")
     opt_id = int(context.user_data.get("opt", -1))
-    from_mid = context.user_data.get("del", "")
-    link = context.user_data.get("link", "")
-    cid = update.effective_chat.id
     uid, user_profile = extract_user_data(update.effective_user)
 
-    context.user_data.clear()
     update.message.delete(),
-    context.bot.delete_message(cid, from_mid)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
 
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
@@ -659,13 +685,11 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
     """Handles the conversation between the bot and the user to comment a poll option."""
     poll_id = context.user_data.get("pid", "")
     opt_id = int(context.user_data.get("opt", -1))
-    from_mid = context.user_data.get("del", "")
-    cid = update.effective_chat.id
     uid, user_profile = extract_user_data(update.effective_user)
 
-    context.user_data.clear()
     update.message.delete(),
-    context.bot.delete_message(cid, from_mid)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
 
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
@@ -705,32 +729,37 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
     group_name, secret = context.user_data.get("name", ""), context.user_data.get("secret", "")
 
     update.message.delete()
+    delete_old_chat_message(update, context)
 
     # Handle group name
     if not group_name:
         group_name = text.replace("\n", " ")
         if len(group_name) > MAX_GROUP_NAME_LENGTH:
-            update.message.reply_html(
+            reply_message = update.message.reply_html(
                 ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
             )
+            context.user_data.update({"del": reply_message.message_id})
             return
 
         if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
-            update.message.reply_html(
+            reply_message = update.message.reply_html(
                 ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
             )
+            context.user_data.update({"del": reply_message.message_id})
             return
 
         response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
-        update.message.reply_html(response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET))
-
-        context.user_data["name"] = group_name
+        reply_message = update.message.reply_html(
+            response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+        )
+        context.user_data.update({"name": group_name, "del": reply_message.message_id})
         return
     # Handle secret
     if not re.match(r"^[A-Za-z0-9]{4,20}$", text):
-        update.message.reply_html(
+        reply_message = update.message.reply_html(
             ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
         )
+        context.user_data.update({"del": reply_message.message_id})
         return
 
     # Create group
@@ -755,23 +784,32 @@ def handle_change_secret_conversation(update: Update, context: CallbackContext) 
     """Handles the conversation between the bot and the user to change the group secret."""
     gid = context.user_data.get("gid", "")
 
+    update.message.delete()
+    delete_old_chat_message(update, context)
+
     group = Group.get_group_by_id(gid)
     if not group or group.get_owner() != update.effective_user.id:
-        update.message.reply_html(util.make_html_bold(ERROR_ILLEGAL_SECRET_CHANGE))
+        update.message.reply_html(
+            util.make_html_bold(ERROR_ILLEGAL_SECRET_CHANGE),
+            reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
         logger.warning("Illegal password change!")
         return
 
     new_secret = update.message.text.strip()
 
     if not re.match(r"^[A-Za-z0-9]{4,20}$", new_secret):
-        update.message.reply_html(ERROR_INVALID_GROUP_PASS_FORMAT)
+        reply_message = update.message.reply_html(
+            ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        context.user_data.update({"del": reply_message.message_id})
         return
-
-    update.message.delete()
 
     # Change password
     group.edit_password(new_secret)
-    update.message.reply_html("Group password changed!")
+    update.message.reply_html(
+        "Group password changed!", reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+    )
 
     # Clear user data
     context.user_data.clear()
@@ -1258,7 +1296,29 @@ def extract_user_data(user: TeleUser) -> tuple:
     return user.id, {"first_name": user.first_name, "last_name": user.last_name or "", "username": user.username or ""}
 
 
-def delete_message_with_timer(message: Message, countdown: int):
+def delete_old_chat_message(update: Update, context: CallbackContext) -> None:
+    """Deletes any old chat message."""
+    old_mid = context.user_data.get("del", "")
+    if not old_mid:
+        return
+    try:
+        context.bot.delete_message(update.effective_chat.id, old_mid)
+    except telegram.error.TelegramError:
+        logger.warning("Error deleting chat message!")
+    context.user_data.pop("del")
+    return
+
+
+def delete_chat_message(message_id: int, update: Update, context: CallbackContext) -> None:
+    """Deletes a chat message with the given message id."""
+    try:
+        context.bot.delete_message(update.effective_chat.id, message_id)
+    except telegram.error.TelegramError:
+        logger.warning("Error deleting chat message!")
+    return
+
+
+def delete_message_with_timer(message: Message, countdown: int) -> None:
     """Deletes a message after a given countdown"""
     updater.job_queue.run_once(delete_message, countdown, context=message)
 
@@ -1278,7 +1338,7 @@ def deliver_poll(update: Update, poll: Poll) -> None:
     return
 
 
-def refresh_polls(poll: Poll, context: CallbackContext, only_buttons=False):
+def refresh_polls(poll: Poll, context: CallbackContext, only_buttons=False) -> None:
     """Refreshes all polls to update changes."""
     if only_buttons:
         for mid in poll.get_message_details():
@@ -1308,13 +1368,17 @@ def try_join_group_through_invitation(update: Update, invitation_code: str):
 
         if group and group.get_password_hash() == invitation_code:
             response = group.add_member(update.effective_user.id)
-            update.message.reply_html(response)
+            update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
             return
         else:
-            update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
+            update.message.reply_html(
+                ERROR_INVALID_GROUP_INVITE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            )
         return
 
-    update.message.reply_html(ERROR_INVALID_GROUP_INVITE)
+    update.message.reply_html(
+        ERROR_INVALID_GROUP_INVITE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+    )
     return
 
 
