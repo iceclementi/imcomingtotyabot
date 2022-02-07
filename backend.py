@@ -233,7 +233,7 @@ class Group(object):
     def load(cls, gid: str, name: str, owner: int, password: str, member_ids: list,
              poll_ids: list, created_date: str) -> None:
         group = cls(gid, name, owner, password, set(member_ids), set(poll_ids), datetime.fromisoformat(created_date))
-        all_users[gid] = group
+        all_groups[gid] = group
         return
 
     def delete(self) -> None:
@@ -814,6 +814,10 @@ class Option(object):
 
 class BotManager(object):
     @staticmethod
+    def get_access_token_hash(token: str, name: str) -> str:
+        return util.simple_hash(token, name, 32)
+
+    @staticmethod
     def save_data() -> str:
         try:
             db.save(all_users, db.USER_SHEET)
@@ -865,4 +869,6 @@ class BotManager(object):
                 )
             return "Data loaded successfully."
         except (TypeError, json.JSONDecodeError) as error:
-            return f"Error loading data: {error} {tracer.title}"
+            return f"Error loading data: {error}"
+
+

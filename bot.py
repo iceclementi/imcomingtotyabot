@@ -1236,6 +1236,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     uid = update.effective_user.id
     user = User.get_user_by_id(uid)
     is_leader = user and user.is_leader()
+    is_sender = query.chat_type == "sender"
 
     results = []
 
@@ -1247,7 +1248,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
 
     # Display incomplete commands
     match = re.match(r"^/([a-z]*)$", text)
-    if match:
+    if match and is_sender:
         command = match.group(1)
         # Handle start query
         if "star".startswith(command):
@@ -1320,13 +1321,14 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             return
         # Handle polls query
         elif command == "polls" and user:
-            for poll in user.get_polls(details, limit=10):
-                query_result = InlineQueryResultArticle(
-                    id=f"poll_{poll.get_poll_id()}", title=poll.get_title(),
-                    description=poll.generate_options_summary(),
-                    input_message_content=InputTextMessageContent(f"/poll_{poll.get_poll_id()}")
-                )
-                results.append(query_result)
+            if is_sender:
+                for poll in user.get_polls(details, limit=10):
+                    query_result = InlineQueryResultArticle(
+                        id=f"poll_{poll.get_poll_id()}", title=poll.get_title(),
+                        description=poll.generate_options_summary(),
+                        input_message_content=InputTextMessageContent(f"/poll_{poll.get_poll_id()}")
+                    )
+                    results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your polls", switch_pm_parameter=command)
             return
         # Handle group query
@@ -1341,13 +1343,14 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             return
         # Handle groups query
         elif command == "groups" and is_leader:
-            for group in user.get_all_groups(details, limit=30):
-                query_result = InlineQueryResultArticle(
-                    id=f"group_{group.get_gid()}", title=group.get_name(),
-                    description=group.generate_group_description_summary(),
-                    input_message_content=InputTextMessageContent(f"/group_{group.get_gid()}")
-                )
-                results.append(query_result)
+            if is_sender:
+                for group in user.get_all_groups(details, limit=30):
+                    query_result = InlineQueryResultArticle(
+                        id=f"group_{group.get_gid()}", title=group.get_name(),
+                        description=group.generate_group_description_summary(),
+                        input_message_content=InputTextMessageContent(f"/group_{group.get_gid()}")
+                    )
+                    results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your joined groups", switch_pm_parameter=command)
             return
         # Handle invite query
