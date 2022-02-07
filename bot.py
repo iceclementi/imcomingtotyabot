@@ -1302,7 +1302,8 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     # Display complete commands as pm text
     match = re.match(r"^/(start|poll|polls|group|groups|invite|help)(\s+.+)?$", text)
     if match:
-        command, details = match.group(1), match.group(2).strip()
+        command, details = match.group(1), match.group(2)
+        details = details.strip() if details else ""
         # Handle start query
         if command == "start":
             query.answer(results, switch_pm_text="Click to view the bot's welcome message", switch_pm_parameter=command)
