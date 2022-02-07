@@ -280,7 +280,7 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    update.message.delete()
+    delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
     context.user_data.update({"action": "poll", "title": "", "options": []})
@@ -307,7 +307,7 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
     reply_message = update.message.reply_html(
         response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
     )
-    context.user_data.update({"title": text, "del": reply_message.message_id})
+    context.user_data.update({"title": title, "del": reply_message.message_id})
     return
 
 
@@ -317,7 +317,7 @@ def handle_done(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    update.message.delete()
+    delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
     action = context.user_data.setdefault("action", "")
@@ -382,7 +382,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    update.message.delete()
+    delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
@@ -398,6 +398,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
 
     response = "\n\n".join(header + body)
     update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    return
 
 
 def handle_poll_view(update: Update, context: CallbackContext) -> None:
@@ -406,7 +407,7 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    update.message.delete()
+    delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
@@ -422,9 +423,9 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
     if poll.get_creator_id() == uid or User.get_user_by_id(uid).has_group_poll(poll_id):
         deliver_poll(update, poll)
         return
-    else:
-        handle_help(update, context)
-        return
+
+    handle_help(update, context)
+    return
 
 
 def handle_group(update: Update, context: CallbackContext) -> None:
@@ -433,7 +434,7 @@ def handle_group(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    update.message.delete()
+    delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
     context.user_data.update({"action": "group", "name": "", "secret": ""})
@@ -476,7 +477,7 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    update.message.delete()
+    delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
@@ -510,6 +511,7 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
 
     response = "\n\n".join(header + body)
     update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    return
 
 
 def handle_group_view(update: Update, context: CallbackContext) -> None:
@@ -518,7 +520,7 @@ def handle_group_view(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    update.message.delete()
+    delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
@@ -540,7 +542,7 @@ def handle_invite(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(ACCESS_REQUEST)
         return
 
-    update.message.delete()
+    delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
     uid = update.effective_user.id
@@ -555,7 +557,7 @@ def handle_invite(update: Update, context: CallbackContext) -> None:
 
 def handle_help(update: Update, context: CallbackContext) -> None:
     """Displays a help message to explain available bot commands."""
-    update.message.delete()
+    delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
@@ -628,7 +630,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
     text = update.message.text.strip()
     title, options = context.user_data.get("title", ""), context.user_data.get("options", [])
 
-    update.message.delete()
+    delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
     # Handle title
@@ -682,7 +684,7 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
     opt_id = int(context.user_data.get("opt", -1))
     uid, user_profile = extract_user_data(update.effective_user)
 
-    update.message.delete(),
+    delete_chat_message(update.message),
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
@@ -724,7 +726,7 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
     opt_id = int(context.user_data.get("opt", -1))
     uid, user_profile = extract_user_data(update.effective_user)
 
-    update.message.delete(),
+    delete_chat_message(update.message),
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
@@ -765,7 +767,7 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
     text = update.message.text.strip()
     group_name, secret = context.user_data.get("name", ""), context.user_data.get("secret", "")
 
-    update.message.delete()
+    delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
     # Handle group name
@@ -821,7 +823,7 @@ def handle_change_secret_conversation(update: Update, context: CallbackContext) 
     """Handles the conversation between the bot and the user to change the group secret."""
     gid = context.user_data.get("gid", "")
 
-    update.message.delete()
+    delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
     group = Group.get_group_by_id(gid)
@@ -1298,9 +1300,9 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             results.append(query_result)
 
     # Display complete commands as pm text
-    match = re.match(r"^/(start|poll|polls|group|groups|invite|help)\s*(.*)$", text)
+    match = re.match(r"^/(start|poll|polls|group|groups|invite|help)(\s+.+)?$", text)
     if match:
-        command, details = match.group(1), match.group(2)
+        command, details = match.group(1), match.group(2).strip()
         # Handle start query
         if command == "start":
             query.answer(results, switch_pm_text="Click to view the bot's welcome message", switch_pm_parameter=command)
@@ -1481,21 +1483,21 @@ def delete_old_chat_message(update: Update, context: CallbackContext) -> None:
     return
 
 
-def delete_chat_message(message_id: int, update: Update, context: CallbackContext) -> None:
-    """Deletes a chat message with the given message id."""
+def delete_chat_message(message: Message) -> None:
+    """Deletes a chat message."""
     try:
-        context.bot.delete_message(update.effective_chat.id, message_id)
+        message.delete()
     except telegram.error.TelegramError:
-        logger.warning("Error deleting chat message!")
+        logger.info("Message already deleted!")
     return
 
 
 def delete_message_with_timer(message: Message, countdown: int) -> None:
     """Deletes a message after a given countdown"""
-    updater.job_queue.run_once(delete_message, countdown, context=message)
+    updater.job_queue.run_once(delete_message_from_job, countdown, context=message)
 
 
-def delete_message(context: CallbackContext) -> None:
+def delete_message_from_job(context: CallbackContext) -> None:
     """Deletes a message from the job queue."""
     try:
         message = context.job.context
