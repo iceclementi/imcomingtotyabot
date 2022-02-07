@@ -223,7 +223,7 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
         return
     elif command == "poll":
         title = context.user_data.get("title", "")
-        update.message = f"/{command} {title}"
+        update.message.text = f"/{command} {title}"
         handle_poll(update, context)
         return
     elif command == "polls":
@@ -231,7 +231,7 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
         return
     elif command == "group":
         name = context.user_data.get("name", "")
-        update.message = f"/{command} {name}"
+        update.message.text = f"/{command} {name}"
         handle_group(update, context)
         return
     elif command == "groups":
