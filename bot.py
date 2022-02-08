@@ -588,6 +588,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     action = context.user_data.get("action", "")
     if action == "bot_access":
         handle_bot_access_conversation(update, context)
+        return
     elif action == "poll":
         handle_poll_conversation(update, context)
         return
@@ -632,7 +633,8 @@ def handle_bot_access_conversation(update: Update, context: CallbackContext) -> 
         return
 
     response, buttons = BotManager.build_bot_access_invite_text_and_button(ACCESS_KEY, int(uid))
-    update.message.reply_html(response, buttons)
+    update.message.reply_html(response, reply_markup=buttons)
+    context.user_data.clear()
     return
 
 
