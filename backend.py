@@ -99,6 +99,9 @@ class User(object):
     def is_leader(self) -> bool:
         return self.leader
 
+    def promote_to_leader(self) -> None:
+        self.leader = True
+
     def get_owned_group_ids(self) -> set:
         return self.groups
 

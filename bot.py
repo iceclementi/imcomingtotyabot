@@ -40,10 +40,12 @@ ACCESS_REQUIRED = False  # Set to False if access is not required to access bot
 
 # region RESPONSES
 
-ACCESS_ENTER_USER_ID = "Enter the ID of the user you want to give access to."
-ACCESS_DECLINED = "Sorry, wrong access key."
-ACCESS_GRANTED = "Congratulations, you now have access to the bot! Use /start to begin building a poll."
 ACCESS_REQUEST = "To explore the full potential of this bot, please request for access from the creator \U0001f60e"
+ACCESS_ENTER_USER_ID = "Enter the ID of the user you want to give access to."
+ACCESS_DENIED = "Sorry, invalid or expired access key."
+ACCESS_GRANTED = "Congratulations, you now have access to the bot! \U0001f389\n\nUse /start to get started."
+LEADER_ACCESS_GRANTED = "Woohoo!! \U0001f973 You've been promoted to a bot leader and can now create groups!\n\n" \
+                        "Use /group to create start creating a new group."
 
 NEW_POLL = "Let's create a new poll! First, send me the title."
 NEW_OPTION = "{}\n\nNice! Now send me the first answer option."
@@ -63,8 +65,8 @@ REASON = "You've selected {}.\nPlease enter a reason/comment for your selected o
 START = "Welcome to the bot! \U0001f60a\n\nClick the button below to show available bot commands.\n\n" \
         "Use /help to check the description for each bot command."
 
-ERROR_ACCESS_FORMAT = "Invalid access request format. Please use <b>/access &lt;key&gt;</b>."
-ERROR_ACCESS_ALREADY_GRANTED = "You already have access to the bot! Use /poll to begin building a poll."
+ERROR_ACCESS_ALREADY_GRANTED = "You already have access to the bot! Use /start to get started."
+ERROR_LEADER_ACCESS_ALREADY_GRANTED = "You are already a bot leader! Use /group to create a new group."
 ERROR_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_TITLE_LENGTH} characters)."
 ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_OPTION_TITLE_LENGTH} characters)."
 ERROR_EARLY_DONE_TITLE = "Sorry, please add a title to the poll."
@@ -132,86 +134,17 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
     uid, user_profile = extract_user_data(update.effective_user)
 
-    action = match.group(1)
+    action, details = match.group(1), match.group(2)
     # Handle join
     if action == "join":
-        invitation_code = match.group(2)
-        try_join_group_through_invitation(update, invitation_code)
+        handle_join_pm(update, context, details)
         return
     # Handle comment
     elif action == "comment":
-        poll_details = match.group(2)
-        comment_match = re.match(r"^([^_\W]+_[^_\W]+)$", poll_details)
-        if not comment_match:
-            update.message.reply_html(
-                ERROR_INVALID_POLL_COMMENT_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
-            )
-            logger.warning("Invalid poll comment request!")
-            return
-
-        poll_hash = comment_match.group(1)
-        poll_id = poll_hash.split("_")[0]
-        poll = Poll.get_poll_by_id(poll_id)
-
-        if not poll or poll.get_poll_hash() != poll_hash:
-            update.message.reply_html(
-                ERROR_INVALID_POLL_COMMENT_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
-            )
-            logger.warning("Invalid poll comment request!")
-            return
-
-        response, buttons = poll.build_option_comment_text_and_buttons(update.effective_user.id)
-        reply_message = update.message.reply_html(response, reply_markup=buttons)
-        delete_message_with_timer(reply_message, 300)
-        return
+        handle_comment_pm(update, context, details)
     # Handle vote
     elif action == "vote":
-        poll_details = match.group(2)
-        vote_match = re.match(r"^([^_\W]+_[^_\W]+)_(\d+)$", poll_details)
-        if not vote_match:
-            update.message.reply_html(
-                ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
-            )
-            logger.warning("Invalid poll vote request!")
-            return
-
-        poll_hash, opt_id = vote_match.group(1), int(vote_match.group(2))
-        poll_id = poll_hash.split("_")[0]
-        poll = Poll.get_poll_by_id(poll_id)
-
-        if not poll or poll.get_poll_hash() != poll_hash:
-            update.message.reply_html(
-                ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
-            )
-            logger.warning("Invalid poll vote request!")
-            return
-
-        if opt_id >= len(poll.get_options()):
-            update.message.reply_html(
-                ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
-            )
-            logger.warning("Invalid option selected from poll vote!")
-            return
-
-        option = poll.get_options()[opt_id]
-
-        if option.is_voted_by_user(update.effective_user.id):
-            response = poll.toggle(opt_id, uid, user_profile)
-
-            reply_message = update.message.reply_html(
-                response, reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
-            )
-
-            reply_message.delete()
-            refresh_polls(poll, context)
-            return
-
-        reply_message = update.message.reply_html(
-            REASON.format(util.make_html_bold(option.get_title())),
-            reply_markup=util.build_single_button_markup("Close", backend.RESET),
-        )
-        context.user_data.update({"action": "vote", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
-        delete_message_with_timer(reply_message, 900)
+        handle_vote_pm(update, context, details)
         return
     # Handle others
     else:
@@ -220,6 +153,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
 
 def handle_pm_command(command: str, update: Update, context: CallbackContext) -> None:
+    """Manages standard commands in pm mode with the bot."""
     if command == "start":
         handle_start(update, context)
         return
@@ -245,6 +179,142 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
     elif command == "help":
         handle_help(update, context)
         return
+
+
+def handle_bot_access_pm(update: Update, context: CallbackContext, details: str) -> None:
+    """Handles user joining group through group invite code."""
+    invitation_code = details
+    uid, user_details = extract_user_data(update.effective_user)
+
+    user = User.get_user_by_id(uid)
+    if user:
+        update.message.reply_html(
+            ERROR_ACCESS_ALREADY_GRANTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        logger.info("Bot access already granted!")
+        return
+
+    if invitation_code == BotManager.get_bot_token_hash(ACCESS_KEY, uid):
+        User.register(uid, user_details["first_name"], user_details["last_name"], user_details["username"])
+        update.message.reply_html(ACCESS_GRANTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        return
+
+    update.message.reply_html(ACCESS_DENIED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    logger.warning("Invalid bot access attempt!!")
+    return
+
+
+def handle_leader_access_pm(update: Update, context: CallbackContext, details: str) -> None:
+    """Handles user joining group through group invite code."""
+    invitation_code = details
+    uid = update.effective_user.id
+    user = User.get_user_by_id(uid)
+
+    if not user:
+        handle_help(update, context)
+        return
+
+    if user.is_leader():
+        update.message.reply_html(
+            ERROR_LEADER_ACCESS_ALREADY_GRANTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        logger.info("Bot leader access already granted!")
+        return
+
+    if invitation_code == BotManager.get_leader_token_hash(ACCESS_KEY, uid, user.get_name()):
+        user.promote_to_leader()
+        update.message.reply_html(
+            LEADER_ACCESS_GRANTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        return
+
+    update.message.reply_html(ACCESS_DENIED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    logger.warning("Invalid bot access attempt!!")
+    return
+
+
+def handle_join_pm(update: Update, context: CallbackContext, details: str) -> None:
+    """Handles user joining group through group invite code."""
+    invitation_code = details
+    try_join_group_through_invitation(update, invitation_code)
+    return
+
+
+def handle_vote_pm(update: Update, context: CallbackContext, details: str) -> None:
+    """Handles user voting for poll option that requires comment."""
+    match = re.match(r"^([^_\W]+_[^_\W]+)$", details)
+    if not match:
+        update.message.reply_html(
+            ERROR_INVALID_POLL_COMMENT_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        logger.warning("Invalid poll comment request!")
+        return
+
+    poll_hash = match.group(1)
+    poll_id = poll_hash.split("_")[0]
+    poll = Poll.get_poll_by_id(poll_id)
+
+    if not poll or poll.get_poll_hash() != poll_hash:
+        update.message.reply_html(
+            ERROR_INVALID_POLL_COMMENT_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        logger.warning("Invalid poll comment request!")
+        return
+
+    response, buttons = poll.build_option_comment_text_and_buttons(update.effective_user.id)
+    reply_message = update.message.reply_html(response, reply_markup=buttons)
+    delete_message_with_timer(reply_message, 300)
+    return
+
+
+def handle_comment_pm(update: Update, context: CallbackContext, details: str) -> None:
+    """Handles user adding or changing comment for a poll option."""
+    match = re.match(r"^([^_\W]+_[^_\W]+)_(\d+)$", details)
+    if not match:
+        update.message.reply_html(
+            ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        logger.warning("Invalid poll vote request!")
+        return
+
+    poll_hash, opt_id = match.group(1), int(match.group(2))
+    poll_id = poll_hash.split("_")[0]
+    poll = Poll.get_poll_by_id(poll_id)
+
+    if not poll or poll.get_poll_hash() != poll_hash:
+        update.message.reply_html(
+            ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        logger.warning("Invalid poll vote request!")
+        return
+
+    if opt_id >= len(poll.get_options()):
+        update.message.reply_html(
+            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        logger.warning("Invalid option selected from poll vote!")
+        return
+
+    option = poll.get_options()[opt_id]
+
+    if option.is_voted_by_user(update.effective_user.id):
+        response = poll.toggle(opt_id, uid, user_profile)
+
+        reply_message = update.message.reply_html(
+            response, reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
+        )
+
+        reply_message.delete()
+        refresh_polls(poll, context)
+        return
+
+    reply_message = update.message.reply_html(
+        REASON.format(util.make_html_bold(option.get_title())),
+        reply_markup=util.build_single_button_markup("Close", backend.RESET),
+    )
+    context.user_data.update({"action": "vote", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
+    delete_message_with_timer(reply_message, 900)
+    return
 
 
 def handle_access(update: Update, context: CallbackContext) -> None:
@@ -1272,7 +1342,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     results = []
 
     # Handle vote and comment queries
-    match = re.match(r"^/(vote|comment|join)\s+(\w+)$", text)
+    match = re.match(r"^/(vote|comment|join|invite_bot|invite_leader)\s+(\w+)$", text)
     if match:
         handle_inline_pm_query(query, match.group(1), match.group(2))
         return
@@ -1427,6 +1497,10 @@ def handle_inline_pm_query(query: InlineQuery, action: str, details: str) -> Non
         text = "Click here to add a comment to the poll."
     elif action == "join":
         text = "Click here to join group"
+    elif action == "invite_bot":
+        text = "Click here to invite user to join bot"
+    elif action == "invite_leader":
+        text = "Click here to invite user to be a bot leader"
     else:
         text = ""
 
