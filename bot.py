@@ -329,7 +329,7 @@ def handle_promote(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    match = re.match(r"^/promote ([A-Za-z]+)$", text)
+    match = re.match(r"^/promote\s+(\w+)$", text)
     if not match:
         response, buttons = BotManager.build_leader_promote_invite_text_and_button()
         update.message.reply_html(response, reply_markup=buttons)
