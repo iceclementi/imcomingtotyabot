@@ -44,6 +44,8 @@ GROUP_SETTINGS = "set"
 CHANGE_SECRET = "pass"
 GROUP_INVITE = "invite"
 LEAVE_GROUP = "leave"
+BOT_ACCESS = "bot"
+LEADER_ACCESS = "leader"
 CLOSE = "close"
 RESET = "reset"
 
@@ -814,12 +816,16 @@ class Option(object):
 
 class BotManager(object):
     @staticmethod
-    def get_access_token_hash(token: str, name: str) -> str:
-        return util.simple_hash(token, name, 32)
+    def is_admin(uid: int, admin_keys: list) -> bool:
+        return util.encode(uid) in admin_keys
 
     @staticmethod
-    def get_leader_token_hash(token: str, uid: int) -> str:
-        return util.simple_hash(token, str(uid), 32)
+    def get_bot_token_hash(token: str, uid: int) -> str:
+        return util.simple_hash(token, util.encode(uid), 32)
+
+    @staticmethod
+    def get_leader_token_hash(token: str, uid: int, name: str) -> str:
+        return util.simple_hash(token, f"{util.encode(uid)}{name}", 32)
 
     @staticmethod
     def save_data() -> str:
@@ -875,4 +881,36 @@ class BotManager(object):
         except (TypeError, json.JSONDecodeError) as error:
             return f"Error loading data: {error}"
 
+    @staticmethod
+    def build_access_request_text_and_buttons() -> tuple:
+        response = f"Which access to you want to grant?"
+        buttons = util.build_multiple_buttons_markup(
+            util.generate_button_details("Bot Access", "bot"),
+            util.generate_button_details("Bot Leader Access", "leader"),
+            util.generate_button_details("Close", CLOSE)
+        )
+        return response, buttons
 
+    @staticmethod
+    def build_bot_access_invite_text_and_button(token: str, uid: int) -> tuple:
+        response = f"Click the button below to send a unique invitation to your friend to access the bot."
+        invite_code = BotManager.get_bot_token_hash(token, uid)
+        buttons = util.build_multiple_buttons_markup(
+            util.generate_button_details("Send Bot Invite", f"/invite_bot {invite_code}", True),
+            util.generate_button_details("Close", CLOSE)
+        )
+        return response, buttons
+
+    @staticmethod
+    def build_leader_promote_invite_text_and_button(token: str) -> tuple:
+        response = f"Who do you want to promote to a bot leader?"
+
+        buttons = []
+        for user in sorted(all_users.values(), key=lambda u: u.get_name().lower()):
+            if not user.is_leader():
+                invite_code = BotManager.get_leader_token_hash(token, user.get_uid(), user.get_name())
+                invite_button = util.build_switch_button(user.get_name(), f"/invite_leader {invite_code}")
+                buttons.append([invite_button])
+        close_button = InlineKeyboardButton("Close", callback_data=CLOSE)
+        buttons.append([close_button])
+        return response, InlineKeyboardMarkup(buttons)

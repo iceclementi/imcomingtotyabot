@@ -20,7 +20,8 @@ import telegram.error
 # Environment settings
 WEB_URL = os.environ["WEB_URL"]
 TOKEN = os.environ["TOKEN"]
-ACCESS_KEYS = os.environ["ACCESS_KEY"].split("_")
+ACCESS_KEY = os.environ["ACCESS_KEY"]
+ADMIN_KEYS = os.environ["ADMIN_KEYS"].split("_")
 PORT = int(os.environ.get("PORT", 8443))
 updater = Updater(TOKEN, use_context=True)
 
@@ -39,6 +40,7 @@ ACCESS_REQUIRED = False  # Set to False if access is not required to access bot
 
 # region RESPONSES
 
+ACCESS_ENTER_USER_ID = "Enter the id of the user you want to give access to."
 ACCESS_DECLINED = "Sorry, wrong access key."
 ACCESS_GRANTED = "Congratulations, you now have access to the bot! Use /start to begin building a poll."
 ACCESS_REQUEST = "To explore the full potential of this bot, please request for access from the creator \U0001f60e"
@@ -245,33 +247,16 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
         return
 
 
-# To be removed
 def handle_access(update: Update, context: CallbackContext) -> None:
     """Grants access to the user to build the poll."""
-    # Access command only work in private chat or when access is required
-    if not ACCESS_REQUIRED:
+    delete_chat_message(update.message)
+
+    if not BotManager.is_admin(update.effective_user.id, ADMIN_KEYS):
+        handle_help(update, context)
         return
 
-    context.user_data.clear()
-
-    uid, user_profile = extract_user_data(update.effective_user)
-
-    if User.get_user_by_id(uid):
-        update.message.reply_html(ERROR_ACCESS_ALREADY_GRANTED)
-        return
-
-    arguments = context.args
-    if not arguments:
-        update.message.reply_html(ERROR_ACCESS_FORMAT)
-        return
-
-    access_key = arguments[0]
-    if access_key in ACCESS_KEYS:
-        User.register(uid, user_profile["first_name"], user_profile["last_name"], user_profile["username"])
-        update.message.reply_html(ACCESS_GRANTED)
-        return
-    else:
-        update.message.reply_html(ACCESS_DECLINED)
+    response, buttons = BotManager.build_access_request_text_and_buttons()
+    update.message.reply_html(response, reply_markup=buttons)
 
 
 def handle_poll(update: Update, context: CallbackContext) -> None:
@@ -601,7 +586,9 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
     # Check if current action is poll
     action = context.user_data.get("action", "")
-    if action == "poll":
+    if action == "bot_access":
+        handle_bot_access_conversation(update, context)
+    elif action == "poll":
         handle_poll_conversation(update, context)
         return
     elif action == "vote":
@@ -623,6 +610,28 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if is_private_chat(update.message):
         handle_help(update, context)
         return
+
+
+def handle_bot_access_conversation(update: Update, context: CallbackContext) -> None:
+    """Handles the conversation between the bot and the admin user to generate a bot access invitation."""
+    delete_old_chat_message(update, context)
+    delete_chat_message(update.message)
+
+    if not BotManager.is_admin(update.effective_user.id, ADMIN_KEYS):
+        logger.warning("Illegal bot access callback")
+        handle_help(update, context)
+        return
+
+    uid = update.message.text.strip()
+    if not uid.isdigit():
+        response = "You've entered an invalid user id. Please enter again."
+        buttons = util.build_single_button_markup("Cancel", backend.RESET)
+        reply_message = update.message.reply_html(response, reply_markup=buttons)
+        context.user_data.update({"del": reply_message.message_id})
+
+    response, buttons = BotManager.build_bot_access_invite_text_and_button(ACCESS_KEY, int(uid))
+    update.message.reply_html(response, buttons)
+    return
 
 
 def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
@@ -883,8 +892,27 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
 def handle_general_callback_query(query: CallbackQuery, context: CallbackContext, action: str) -> None:
     """Handles a general callback query."""
+
+    is_admin = BotManager.is_admin(query.from_user.id, ADMIN_KEYS)
+
+    # Handle bot access button
+    if action == backend.BOT_ACCESS and is_admin:
+        query.answer(text=ACCESS_ENTER_USER_ID)
+        reply_message = query.edit_message_text(
+            ACCESS_ENTER_USER_ID, parse_mode=ParseMode.HTML,
+            reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+        )
+        context.user_data.update({"action": "bot_access", "del": reply_message.message_id})
+        return
+    # Handle leader access button
+    elif action == backend.LEADER_ACCESS and is_admin:
+        query.message.delete()
+        response, buttons = BotManager.build_leader_promote_invite_text_and_button(ACCESS_KEY)
+        query.answer(response)
+        query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
+        return
     # Handle close button
-    if action == backend.CLOSE:
+    elif action == backend.CLOSE:
         query.message.delete()
         query.answer(text=None)
         return
