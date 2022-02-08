@@ -296,7 +296,7 @@ def handle_access(update: Update, context: CallbackContext) -> None:
     """Manages different accesses in the bot."""
     delete_chat_message(update.message)
 
-    if not user_is_admin(update):
+    if not user_is_admin(update.effective_user.id):
         handle_help(update, context)
         return
 
@@ -308,7 +308,7 @@ def handle_enrol(update: Update, context: CallbackContext) -> None:
     """Creates an invitation to this bot for a user."""
     delete_chat_message(update.message)
 
-    if not user_is_admin(update):
+    if not user_is_admin(update.effective_user.id):
         handle_help(update, context)
         return
 
@@ -325,7 +325,7 @@ def handle_promote(update: Update, context: CallbackContext) -> None:
     text = update.message.text.strip()
     delete_chat_message(update.message)
 
-    if not user_is_admin(update):
+    if not user_is_admin(update.effective_user.id):
         handle_help(update, context)
         return
 
@@ -723,7 +723,7 @@ def handle_bot_access_conversation(update: Update, context: CallbackContext) -> 
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
-    if not user_is_admin(update):
+    if not user_is_admin(update.effective_user.id):
         logger.warning("Illegal bot access callback")
         handle_help(update, context)
         return
@@ -995,7 +995,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
 def handle_general_callback_query(query: CallbackQuery, context: CallbackContext, action: str) -> None:
     """Handles a general callback query."""
-    is_admin = user_is_admin(update)
+    is_admin = user_is_admin(query.from_user.id)
 
     # Handle bot access button
     if action == backend.BOT_ACCESS and is_admin:
@@ -1039,7 +1039,7 @@ def handle_user_callback_query(query: CallbackQuery, context: CallbackContext, a
 
     message = query.message
     is_pm = is_private_chat(message)
-    is_admin = user_is_admin(update)
+    is_admin = user_is_admin(query.from_user.id)
 
     # Handle promote button
     if action == backend.PROMOTE and is_pm and is_admin:
@@ -1394,7 +1394,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     user = User.get_user_by_id(uid)
     is_leader = user and user.is_leader()
     is_sender = query.chat_type == "sender"
-    is_admin = user_is_admin(update)
+    is_admin = user_is_admin(uid)
 
     results = []
 
@@ -1661,9 +1661,9 @@ def handle_load(update: Update, context: CallbackContext) -> None:
 
 # region HELPERS
 
-def user_is_admin(update: Update) -> bool:
+def user_is_admin(uid: int) -> bool:
     """Checks if the user is an admin."""
-    return BotManager.is_admin(update.effective_user.id, ADMIN_KEYS)
+    return BotManager.is_admin(uid, ADMIN_KEYS)
 
 
 def is_registered(user: TeleUser) -> bool:
