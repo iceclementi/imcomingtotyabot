@@ -34,7 +34,7 @@ MAX_OPTION_TITLE_LENGTH = 50
 MAX_GROUP_NAME_LENGTH = 50
 MIN_GROUP_PASS_LENGTH = 4
 MAX_GROUP_PASS_LENGTH = 20
-ACCESS_REQUIRED = False  # Set to False if access is not required to access bot
+ACCESS_REQUIRED = True  # Set to False if access is not required to access bot
 
 # endregion
 
@@ -105,10 +105,6 @@ HELP_GUIDE = "<b>/help</b>\nView this help message"
 
 def handle_start(update: Update, context: CallbackContext) -> None:
     """Displays welcome message to the bot and manages pm messages."""
-    if not validate_and_register_user(update.effective_user):
-        update.message.reply_html(ACCESS_REQUEST)
-        return
-
     update.message.delete()
     delete_old_chat_message(update, context)
 
@@ -192,7 +188,7 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
 def handle_bot_access_pm(update: Update, context: CallbackContext, details: str) -> None:
     """Handles user joining group through group invite code."""
     invitation_code = details
-    uid, user_details = extract_user_data(update.effective_user)
+    uid = update.effective_user.id
 
     user = User.get_user_by_id(uid)
     if user:
@@ -203,7 +199,7 @@ def handle_bot_access_pm(update: Update, context: CallbackContext, details: str)
         return
 
     if invitation_code == BotManager.get_bot_token_hash(ACCESS_KEY, uid):
-        User.register(uid, user_details["first_name"], user_details["last_name"], user_details["username"])
+        register_user(update.effective_user)
         update.message.reply_html(ACCESS_GRANTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
         return
 
@@ -363,13 +359,14 @@ def handle_promote(update: Update, context: CallbackContext) -> None:
 
 def handle_poll(update: Update, context: CallbackContext) -> None:
     """Begins building a new poll."""
-    if not validate_and_register_user(update.effective_user):
-        update.message.reply_html(ACCESS_REQUEST)
-        return
-
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
+
     context.user_data.update({"action": "poll", "title": "", "options": []})
 
     match = re.match(r"^\s*/poll\s+(.+)$", update.message.text.strip())
@@ -400,12 +397,12 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
 
 def handle_done(update: Update, context: CallbackContext) -> None:
     """Finishes building the poll."""
-    if not validate_and_register_user(update.effective_user):
-        update.message.reply_html(ACCESS_REQUEST)
-        return
-
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
 
     action = context.user_data.setdefault("action", "")
     # Handle poll
@@ -465,13 +462,13 @@ def handle_done(update: Update, context: CallbackContext) -> None:
 
 def handle_polls(update: Update, context: CallbackContext) -> None:
     """Displays all recent polls created by user."""
-    if not validate_and_register_user(update.effective_user):
-        update.message.reply_html(ACCESS_REQUEST)
-        return
-
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
 
     uid = update.effective_user.id
 
@@ -490,13 +487,13 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
 
 def handle_poll_view(update: Update, context: CallbackContext) -> None:
     """Displays the master poll identified by its poll id"""
-    if not validate_and_register_user(update.effective_user):
-        update.message.reply_html(ACCESS_REQUEST)
-        return
-
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
 
     uid = update.effective_user.id
     text = update.message.text
@@ -517,12 +514,18 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
 
 def handle_group(update: Update, context: CallbackContext) -> None:
     """Begins creating a new group."""
-    if not validate_and_register_user(update.effective_user):
-        update.message.reply_html(ACCESS_REQUEST)
-        return
-
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
+
+    user = User.get_user_by_id(update.effective_user.id)
+    if not user.is_leader():
+        handle_help(update, context)
+        return
+
     context.user_data.clear()
     context.user_data.update({"action": "group", "name": "", "secret": ""})
 
@@ -560,13 +563,13 @@ def handle_group(update: Update, context: CallbackContext) -> None:
 
 def handle_groups(update: Update, context: CallbackContext) -> None:
     """Views all the user's groups."""
-    if not validate_and_register_user(update.effective_user):
-        update.message.reply_html(ACCESS_REQUEST)
-        return
-
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
 
     uid = update.effective_user.id
 
@@ -603,13 +606,13 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
 
 def handle_group_view(update: Update, context: CallbackContext) -> None:
     """Views details of a group."""
-    if not validate_and_register_user(update.effective_user):
-        update.message.reply_html(ACCESS_REQUEST)
-        return
-
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
 
     uid = update.effective_user.id
     text = update.message.text
@@ -625,13 +628,14 @@ def handle_group_view(update: Update, context: CallbackContext) -> None:
 
 def handle_invite(update: Update, context: CallbackContext) -> None:
     """Sends group invitation code."""
-    if not validate_and_register_user(update.effective_user):
-        update.message.reply_html(ACCESS_REQUEST)
-        return
-
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
+
     uid = update.effective_user.id
 
     response, buttons = User.get_user_by_id(uid).build_invite_text_and_buttons()
@@ -655,9 +659,10 @@ def handle_help(update: Update, context: CallbackContext) -> None:
 
     body = [START_GUIDE]
     if user:
-        body += [POLL_GUIDE, POLLS_GUIDE]
         if user.is_leader():
-            body += [GROUP_GUIDE, GROUPS_GUIDE, INVITE_GUIDE]
+            body += [POLL_GUIDE, POLLS_GUIDE, GROUP_GUIDE, GROUPS_GUIDE, INVITE_GUIDE]
+        else:
+            body += [POLL_GUIDE, POLLS_GUIDE, GROUPS_GUIDE, INVITE_GUIDE]
     body += [HELP_GUIDE]
 
     if not user:
@@ -682,9 +687,13 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if not text:
         return
 
-    if not validate_and_register_user(update.effective_user):
+    user = User.get_user_by_id(update.effective_user.id)
+
+    if not is_registered(update.effective_user):
         update.message.reply_html(ACCESS_REQUEST)
         return
+
+    is_leader = user.is_leader()
 
     # Check if current action is poll
     action = context.user_data.get("action", "")
@@ -700,13 +709,10 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     elif action == "comment":
         handle_comment_conversation(update, context)
         return
-    elif action == "group":
+    elif action == "group" and is_leader:
         handle_group_conversation(update, context)
         return
-    elif action == "join":
-        handle_join_conversation(update, context)
-        return
-    elif action == "pass":
+    elif action == "pass" and is_leader:
         handle_change_secret_conversation(update, context)
         return
 
@@ -924,13 +930,6 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
 
     # Clear user data
     context.user_data.clear()
-    return
-
-
-def handle_join_conversation(update: Update, context: CallbackContext) -> None:
-    """Handles the conversation between the bot and the user to join a group."""
-    invitation_code = update.message.text.strip()
-    try_join_group_through_invitation(update, invitation_code)
     return
 
 
@@ -1662,7 +1661,7 @@ def handle_load(update: Update, context: CallbackContext) -> None:
 # region HELPERS
 
 
-def validate_and_register_user(user: TeleUser) -> bool:
+def is_registered(user: TeleUser) -> bool:
     """Validates if user has access to the bot and registers user if required."""
     if User.get_user_by_id(user.id):
         return True
