@@ -1589,14 +1589,15 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             return
 
     # Handle poll query
-    polls = user.get_polls(text, limit=10)
-    for poll in polls:
-        query_result = InlineQueryResultArticle(
-            id=f"poll {poll.get_poll_id()}", title=poll.get_title(), description=poll.generate_options_summary(),
-            input_message_content=InputTextMessageContent(poll.render_text(), parse_mode=ParseMode.HTML),
-            reply_markup=poll.build_option_buttons(),
-        )
-        results.append(query_result)
+    if user:
+        polls = user.get_polls(text, limit=10)
+        for poll in polls:
+            query_result = InlineQueryResultArticle(
+                id=f"poll {poll.get_poll_id()}", title=poll.get_title(), description=poll.generate_options_summary(),
+                input_message_content=InputTextMessageContent(poll.render_text(), parse_mode=ParseMode.HTML),
+                reply_markup=poll.build_option_buttons(),
+            )
+            results.append(query_result)
 
     query.answer(results)
     return
