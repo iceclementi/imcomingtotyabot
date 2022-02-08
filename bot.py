@@ -734,7 +734,7 @@ def handle_bot_access_conversation(update: Update, context: CallbackContext) -> 
         context.user_data.update({"del": reply_message.message_id})
         return
 
-    response, buttons = BotManager.build_bot_access_enrol_text_and_button(ACCESS_KEY, int(uid))
+    response, buttons = BotManager.build_bot_access_enrol_text_and_button(int(uid))
     update.message.reply_html(response, reply_markup=buttons)
     context.user_data.clear()
     return

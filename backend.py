@@ -903,11 +903,10 @@ class BotManager(object):
         return response, buttons
 
     @staticmethod
-    def build_bot_access_enrol_text_and_button(token: str, uid: int) -> tuple:
+    def build_bot_access_enrol_text_and_button(uid: int) -> tuple:
         response = f"Click the button below to send a unique invitation to your friend to access the bot."
-        invite_code = BotManager.get_bot_token_hash(token, uid)
         buttons = util.build_multiple_buttons_markup(
-            util.generate_button_details("Send Bot Invite", f"/enrol {invite_code}", True),
+            util.generate_button_details("Send Bot Invite", f"/enrol {uid}", True),
             util.generate_button_details("Close", CLOSE)
         )
         return response, buttons
