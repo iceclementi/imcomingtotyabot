@@ -921,13 +921,13 @@ class BotManager(object):
         return invitation, InlineKeyboardMarkup.from_button(access_button)
 
     @staticmethod
-    def build_leader_promote_invite_text_and_button(token: str) -> tuple:
+    def build_leader_promote_invite_text_and_button() -> tuple:
         response = f"Who do you want to promote to a bot leader?"
 
         buttons = []
         for user in sorted(all_users.values(), key=lambda u: u.get_name().lower()):
             if not user.is_leader():
-                invite_button = util.build_button(user.get_name(), USER_SUBJECT, PROMOTE, user.get_uid())
+                invite_button = util.build_button(user.get_name(), USER_SUBJECT, PROMOTE, util.encode(user.get_uid()))
                 buttons.append([invite_button])
         close_button = InlineKeyboardButton("Close", callback_data=CLOSE)
         buttons.append([close_button])

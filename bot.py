@@ -44,8 +44,7 @@ ACCESS_REQUEST = "To explore the full potential of this bot, please request for 
 ACCESS_ENTER_USER_ID = "Enter the ID of the user you want to give access to."
 ACCESS_DENIED = "Sorry, invalid or expired access key."
 ACCESS_GRANTED = "Woohoo!! \U0001f973 You now have access to the bot!\n\nUse /start to get started."
-LEADER_ACCESS_GRANTED = "Woohoo!! \U0001f973 You've been promoted to a bot leader and can now create groups!\n\n" \
-                        "Use /group to create start creating a new group."
+USER_PROMOTED = "Yay!! \U0001f389 {} is now a bot leader!!"
 
 NEW_POLL = "Let's create a new poll! First, send me the title."
 NEW_OPTION = "{}\n\nNice! Now send me the first answer option."
@@ -66,7 +65,7 @@ START = "Welcome to the bot! \U0001f60a\n\nClick the button below to show availa
         "Use /help to check the description for each bot command."
 
 ERROR_ACCESS_ALREADY_GRANTED = "You already have access to the bot! Use /start to get started."
-ERROR_LEADER_ACCESS_ALREADY_GRANTED = "You are already a bot leader! Use /group to create a new group."
+ERROR_ALREADY_PROMOTED = "The user is already a bot leader!"
 ERROR_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_TITLE_LENGTH} characters)."
 ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_OPTION_TITLE_LENGTH} characters)."
 ERROR_EARLY_DONE_TITLE = "Sorry, please add a title to the poll."
@@ -85,6 +84,7 @@ ERROR_INVALID_POLL_VOTE_REQUEST = "Sorry, invalid poll vote request."
 ERROR_INVALID_POLL_OPTION_REQUEST = "Sorry, invalid poll option request."
 ERROR_ALREADY_VOTED = "You've already voted for this option in the poll!"
 ERROR_NOT_VOTED = "Sorry, you've not voted for this option in the poll."
+ERROR_USER_NOT_FOUND = "Sorry, the user does not exist."
 
 # endregion
 
@@ -325,7 +325,40 @@ def handle_enrol(update: Update, context: CallbackContext) -> None:
 
 
 def handle_promote(update: Update, context: CallbackContext) -> None:
-    pass
+    """Promotes a user to a bot leader if uid is given, otherwise shows list of users to promote."""
+    text = update.message.text.strip()
+    delete_chat_message(update.message)
+
+    if not BotManager.is_admin(update.effective_user.id, ADMIN_KEYS):
+        handle_help(update, context)
+        return
+
+    match = re.match(r"^/promote ([A-Za-z]+)$", text)
+    if not match:
+        response, buttons = BotManager.build_leader_promote_invite_text_and_button()
+        update.message.reply_html(response, reply_markup=buttons)
+        return
+
+    uid = util.decode(match.group(1))
+    user = User.get_user_by_id(uid)
+    if not user:
+        update.message.reply_html(
+            ERROR_USER_NOT_FOUND, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        return
+
+    if user.is_leader():
+        update.message.reply_html(
+            ERROR_ALREADY_PROMOTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        return
+
+    user.promote_to_leader()
+    update.message.reply_html(
+        USER_PROMOTED.format(util.make_html_bold(user.get_name())),
+        reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+    )
+    return
 
 
 def handle_poll(update: Update, context: CallbackContext) -> None:
@@ -953,6 +986,8 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     subject, action, identifier = match.group(1), match.group(2), match.group(3)
 
+    if subject == backend.USER_SUBJECT:
+        handle_user_callback_query(query, context, action, identifier)
     if subject == backend.POLL_SUBJECT:
         handle_poll_callback_query(query, context, action, identifier)
     elif subject == backend.GROUP_SUBJECT:
@@ -960,7 +995,8 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
-        return
+
+    return
 
 
 def handle_general_callback_query(query: CallbackQuery, context: CallbackContext, action: str) -> None:
@@ -979,7 +1015,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         return
     # Handle leader access button
     elif action == backend.PROMOTE and is_admin:
-        response, buttons = BotManager.build_leader_promote_invite_text_and_button(ACCESS_KEY)
+        response, buttons = BotManager.build_leader_promote_invite_text_and_button()
         query.answer(response)
         query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
         return
@@ -997,6 +1033,34 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
     else:
         query.answer(text="Invalid callback query data!")
         logger.warning("Invalid callback query data.")
+        return
+
+
+def handle_user_callback_query(query: CallbackQuery, context: CallbackContext, action: str, uid_string: str) -> None:
+    """Handles a user callback query."""
+    user = User.get_user_by_id(util.decode(uid_string))
+
+    if not user:
+        query.answer(text=ERROR_USER_NOT_FOUND)
+        return
+
+    message = query.message
+    is_pm = is_private_chat(message)
+    is_admin = BotManager.is_admin(query.from_user.id, ADMIN_KEYS)
+
+    # Handle promote button
+    if action == backend.PROMOTE and is_pm and is_admin:
+        if user.is_leader():
+            query.answer(text=ERROR_ALREADY_PROMOTED)
+            return
+
+        user.promote_to_leader()
+        _, buttons = BotManager.build_leader_promote_invite_text_and_button()
+        query.edit_message_reply_markup(buttons)
+        query.answer(text=USER_PROMOTED.format(user.get_name()))
+        return
+    else:
+        query.answer(text=None)
         return
 
 
@@ -1509,7 +1573,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 if not user.is_leader():
                     query_result = InlineQueryResultArticle(
                         id=user.get_uid(), title=user.get_name(), description=f"@{user.get_username()}",
-                        input_message_content=InputTextMessageContent(f"/promote {user.get_uid()}"),
+                        input_message_content=InputTextMessageContent(f"/promote {util.encode(user.get_uid())}"),
                     )
                     results.append(query_result)
             query.answer(
