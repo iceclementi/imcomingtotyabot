@@ -1641,7 +1641,7 @@ def handle_error(update: Update, context: CallbackContext) -> None:
 
 def handle_save(update: Update, context: CallbackContext) -> None:
     """Saves data to database (Temporary)."""
-    if not is_admin(update):
+    if not user_is_admin(update.effective_user.id):
         handle_help(update, context)
         return
     status = BotManager.save_data()
@@ -1651,7 +1651,7 @@ def handle_save(update: Update, context: CallbackContext) -> None:
 
 def handle_load(update: Update, context: CallbackContext) -> None:
     """Loads data from database (Temporary)."""
-    if not is_admin(update):
+    if not user_is_admin(update.effective_user.id):
         handle_help(update, context)
         return
     status = BotManager.load_data()
