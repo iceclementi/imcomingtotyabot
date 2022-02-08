@@ -689,10 +689,6 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
     user = User.get_user_by_id(update.effective_user.id)
 
-    if not is_registered(update.effective_user):
-        update.message.reply_html(ACCESS_REQUEST)
-        return
-
     is_leader = user.is_leader()
 
     # Check if current action is poll
