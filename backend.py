@@ -19,8 +19,10 @@ EMOJI_CROWN = "\U0001f451"
 EMOJI_HAPPY = "\U0001f60a"
 SESSION_EXPIRY = 1  # In hours
 POLL_EXPIRY = 720
+BOT_NAME = "imcomingtotyabot"
 
 # Button Actions
+USER_SUBJECT = "u"
 POLL_SUBJECT = "p"
 GROUP_SUBJECT = "g"
 PUBLISH = "publish"
@@ -45,7 +47,7 @@ CHANGE_SECRET = "pass"
 GROUP_INVITE = "invite"
 LEAVE_GROUP = "leave"
 BOT_ACCESS = "bot"
-LEADER_ACCESS = "leader"
+PROMOTE = "promote"
 CLOSE = "close"
 RESET = "reset"
 
@@ -70,6 +72,12 @@ class User(object):
     @staticmethod
     def get_user_by_id(uid: int):
         return all_users.get(uid, None)
+
+    @staticmethod
+    def get_users_by_name(name="") -> list:
+        sorted_users = sorted(all_users.values(), key=lambda user: user.get_name().lower())
+        filtered_users = [user for user in sorted_users if name in user.get_name()]
+        return filtered_users
 
     @classmethod
     def register(cls, uid: int, first_name: str, last_name="", username=""):
@@ -387,7 +395,7 @@ class Group(object):
         return "\n\n".join(header + body + footer)
 
     def build_invite_text_and_button(self, owner_name: str) -> tuple:
-        invitation = f"You are invited to join {owner_name}'s \"{self.name}\" group!"
+        invitation = f"You are invited to join {owner_name}'s <b>{self.name}</b> group!"
         join_button = util.build_switch_button("Join Group", f"/join {self.get_password_hash()}", to_self=True)
         return invitation, InlineKeyboardMarkup([[join_button]])
 
@@ -888,21 +896,29 @@ class BotManager(object):
     def build_access_request_text_and_buttons() -> tuple:
         response = f"Which access to you want to grant?"
         buttons = util.build_multiple_buttons_markup(
-            util.generate_button_details("Bot Access", "bot"),
-            util.generate_button_details("Bot Leader Access", "leader"),
+            util.generate_button_details("Bot Access", BOT_ACCESS),
+            util.generate_button_details("Bot Leader Access", PROMOTE),
             util.generate_button_details("Close", CLOSE)
         )
         return response, buttons
 
     @staticmethod
-    def build_bot_access_invite_text_and_button(token: str, uid: int) -> tuple:
+    def build_bot_access_enrol_text_and_button(token: str, uid: int) -> tuple:
         response = f"Click the button below to send a unique invitation to your friend to access the bot."
         invite_code = BotManager.get_bot_token_hash(token, uid)
         buttons = util.build_multiple_buttons_markup(
-            util.generate_button_details("Send Bot Invite", f"/invite_bot {invite_code}", True),
+            util.generate_button_details("Send Bot Invite", f"/enrol {invite_code}", True),
             util.generate_button_details("Close", CLOSE)
         )
         return response, buttons
+
+    @staticmethod
+    def build_invite_text_and_button(token: str, uid: int) -> tuple:
+        invitation = f"You are invited to have access to <b>@{BOT_NAME}</b>!"
+        access_button = util.build_switch_button(
+            "Get Access",  f"/access {BotManager.get_bot_token_hash(token, uid)}", to_self=True
+        )
+        return invitation, InlineKeyboardMarkup.from_button(access_button)
 
     @staticmethod
     def build_leader_promote_invite_text_and_button(token: str) -> tuple:
@@ -911,8 +927,7 @@ class BotManager(object):
         buttons = []
         for user in sorted(all_users.values(), key=lambda u: u.get_name().lower()):
             if not user.is_leader():
-                invite_code = BotManager.get_leader_token_hash(token, user.get_uid(), user.get_name())
-                invite_button = util.build_switch_button(user.get_name(), f"/invite_leader {invite_code}")
+                invite_button = util.build_button(user.get_name(), USER_SUBJECT, PROMOTE, user.get_uid())
                 buttons.append([invite_button])
         close_button = InlineKeyboardButton("Close", callback_data=CLOSE)
         buttons.append([close_button])

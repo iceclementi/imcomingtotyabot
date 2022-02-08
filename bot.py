@@ -43,7 +43,7 @@ ACCESS_REQUIRED = False  # Set to False if access is not required to access bot
 ACCESS_REQUEST = "To explore the full potential of this bot, please request for access from the creator \U0001f60e"
 ACCESS_ENTER_USER_ID = "Enter the ID of the user you want to give access to."
 ACCESS_DENIED = "Sorry, invalid or expired access key."
-ACCESS_GRANTED = "Congratulations, you now have access to the bot! \U0001f389\n\nUse /start to get started."
+ACCESS_GRANTED = "Woohoo!! \U0001f973 You now have access to the bot!\n\nUse /start to get started."
 LEADER_ACCESS_GRANTED = "Woohoo!! \U0001f973 You've been promoted to a bot leader and can now create groups!\n\n" \
                         "Use /group to create start creating a new group."
 
@@ -132,11 +132,13 @@ def handle_start(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    uid, user_profile = extract_user_data(update.effective_user)
-
     action, details = match.group(1), match.group(2)
+    # Handle access
+    if action == "access":
+        handle_bot_access_pm(update, context, details)
+        return
     # Handle join
-    if action == "join":
+    elif action == "join":
         handle_join_pm(update, context, details)
         return
     # Handle comment
@@ -176,6 +178,12 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
     elif command == "invite":
         handle_invite(update, context)
         return
+    elif command == "enrol":
+        handle_enrol(update, context)
+        return
+    elif command == "promote":
+        handle_promote(update, context)
+        return
     elif command == "help":
         handle_help(update, context)
         return
@@ -197,35 +205,6 @@ def handle_bot_access_pm(update: Update, context: CallbackContext, details: str)
     if invitation_code == BotManager.get_bot_token_hash(ACCESS_KEY, uid):
         User.register(uid, user_details["first_name"], user_details["last_name"], user_details["username"])
         update.message.reply_html(ACCESS_GRANTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
-        return
-
-    update.message.reply_html(ACCESS_DENIED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
-    logger.warning("Invalid bot access attempt!!")
-    return
-
-
-def handle_leader_access_pm(update: Update, context: CallbackContext, details: str) -> None:
-    """Handles user joining group through group invite code."""
-    invitation_code = details
-    uid = update.effective_user.id
-    user = User.get_user_by_id(uid)
-
-    if not user:
-        handle_help(update, context)
-        return
-
-    if user.is_leader():
-        update.message.reply_html(
-            ERROR_LEADER_ACCESS_ALREADY_GRANTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
-        )
-        logger.info("Bot leader access already granted!")
-        return
-
-    if invitation_code == BotManager.get_leader_token_hash(ACCESS_KEY, uid, user.get_name()):
-        user.promote_to_leader()
-        update.message.reply_html(
-            LEADER_ACCESS_GRANTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
-        )
         return
 
     update.message.reply_html(ACCESS_DENIED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
@@ -318,7 +297,7 @@ def handle_comment_pm(update: Update, context: CallbackContext, details: str) ->
 
 
 def handle_access(update: Update, context: CallbackContext) -> None:
-    """Grants access to the user to build the poll."""
+    """Manages different accesses in the bot."""
     delete_chat_message(update.message)
 
     if not BotManager.is_admin(update.effective_user.id, ADMIN_KEYS):
@@ -327,6 +306,26 @@ def handle_access(update: Update, context: CallbackContext) -> None:
 
     response, buttons = BotManager.build_access_request_text_and_buttons()
     update.message.reply_html(response, reply_markup=buttons)
+
+
+def handle_enrol(update: Update, context: CallbackContext) -> None:
+    """Creates an invitation to this bot for a user."""
+    delete_chat_message(update.message)
+
+    if not BotManager.is_admin(update.effective_user.id, ADMIN_KEYS):
+        handle_help(update, context)
+        return
+
+    reply_message = update.message.reply_html(
+        ACCESS_ENTER_USER_ID,
+        reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+    )
+    context.user_data.update({"action": "bot_access", "del": reply_message.message_id})
+    return
+
+
+def handle_promote(update: Update, context: CallbackContext) -> None:
+    pass
 
 
 def handle_poll(update: Update, context: CallbackContext) -> None:
@@ -702,7 +701,7 @@ def handle_bot_access_conversation(update: Update, context: CallbackContext) -> 
         context.user_data.update({"del": reply_message.message_id})
         return
 
-    response, buttons = BotManager.build_bot_access_invite_text_and_button(ACCESS_KEY, int(uid))
+    response, buttons = BotManager.build_bot_access_enrol_text_and_button(ACCESS_KEY, int(uid))
     update.message.reply_html(response, reply_markup=buttons)
     context.user_data.clear()
     return
@@ -979,7 +978,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         context.user_data.update({"action": "bot_access", "del": reply_message.message_id})
         return
     # Handle leader access button
-    elif action == backend.LEADER_ACCESS and is_admin:
+    elif action == backend.PROMOTE and is_admin:
         response, buttons = BotManager.build_leader_promote_invite_text_and_button(ACCESS_KEY)
         query.answer(response)
         query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
@@ -1338,11 +1337,12 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     user = User.get_user_by_id(uid)
     is_leader = user and user.is_leader()
     is_sender = query.chat_type == "sender"
+    is_admin = BotManager.is_admin(update.effective_user.id, ADMIN_KEYS)
 
     results = []
 
     # Handle vote and comment queries
-    match = re.match(r"^/(vote|comment|join|invite_bot|invite_leader)\s+(\w+)$", text)
+    match = re.match(r"^/(vote|comment|join|access)\s+(\w+)$", text)
     if match:
         handle_inline_pm_query(query, match.group(1), match.group(2))
         return
@@ -1380,17 +1380,38 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             )
             results.append(query_result)
         # Handle groups query
-        if "group".startswith(command) and is_leader:
+        if "group".startswith(command) and user:
             query_result = InlineQueryResultArticle(
                 id="groupscom", title="/groups", description="View all the groups you are in",
                 input_message_content=InputTextMessageContent("/groups")
             )
             results.append(query_result)
         # Handle invite query
-        if "invit".startswith(command) and is_leader:
+        if "invit".startswith(command) and user:
             query_result = InlineQueryResultArticle(
-                id="invitecom", title="/invite", description="Send a group invite link to your friends",
+                id="invitecom", title="/invite", description="Send a group invite to your friends",
                 input_message_content=InputTextMessageContent("/invite")
+            )
+            results.append(query_result)
+        # Handle access query
+        if "acces".startswith(command) and is_admin:
+            query_result = InlineQueryResultArticle(
+                id="accesscom", title="/access", description="Manage access rights",
+                input_message_content=InputTextMessageContent("/access")
+            )
+            results.append(query_result)
+        # Handle invite access query
+        if "enro".startswith(command) and is_admin:
+            query_result = InlineQueryResultArticle(
+                id="enrolcom", title="/enrol", description="Send a bot access invite to your friends",
+                input_message_content=InputTextMessageContent("/enrol")
+            )
+            results.append(query_result)
+        # Handle promote query
+        if "promot".startswith(command) and is_admin:
+            query_result = InlineQueryResultArticle(
+                id="promotecom", title="/promote", description="Promote users to be bot leaders",
+                input_message_content=InputTextMessageContent("/promote")
             )
             results.append(query_result)
         # Handle help query
@@ -1402,16 +1423,16 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             results.append(query_result)
 
     # Display complete commands as pm text
-    match = re.match(r"^/(start|poll|polls|group|groups|invite|help)(\s+.+)?$", text)
+    match = re.match(r"^/(start|poll|polls|group|groups|invite|enrol|promote|help)(\s+.+)?$", text)
     if match:
         command, details = match.group(1), match.group(2)
         details = details.strip() if details else ""
         # Handle start query
-        if command == "start":
+        if command == "start" and is_sender:
             query.answer(results, switch_pm_text="Click to view the bot's welcome message", switch_pm_parameter=command)
             return
         # Handle poll query
-        elif command == "poll" and user:
+        elif command == "poll" and user and is_sender:
             if details:
                 context.user_data.update({"title": details})
                 query.answer(
@@ -1421,19 +1442,18 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 query.answer(results, switch_pm_text="Click to build a new poll", switch_pm_parameter=command)
             return
         # Handle polls query
-        elif command == "polls" and user:
-            if is_sender:
-                for poll in user.get_polls(details, limit=10):
-                    query_result = InlineQueryResultArticle(
-                        id=f"poll_{poll.get_poll_id()}", title=poll.get_title(),
-                        description=poll.generate_options_summary(),
-                        input_message_content=InputTextMessageContent(f"/poll_{poll.get_poll_id()}")
-                    )
-                    results.append(query_result)
+        elif command == "polls" and user and is_sender:
+            for poll in user.get_polls(details, limit=10):
+                query_result = InlineQueryResultArticle(
+                    id=f"poll_{poll.get_poll_id()}", title=poll.get_title(),
+                    description=poll.generate_options_summary(),
+                    input_message_content=InputTextMessageContent(f"/poll_{poll.get_poll_id()}")
+                )
+                results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your polls", switch_pm_parameter=command)
             return
         # Handle group query
-        elif command == "group" and is_leader:
+        elif command == "group" and is_leader and is_sender:
             if details:
                 context.user_data.update({"name": details})
                 query.answer(
@@ -1443,31 +1463,61 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 query.answer(results, switch_pm_text="Click to create a new group", switch_pm_parameter=command)
             return
         # Handle groups query
-        elif command == "groups" and is_leader:
-            if is_sender:
-                for group in user.get_all_groups(details, limit=30):
-                    query_result = InlineQueryResultArticle(
-                        id=f"group_{group.get_gid()}", title=group.get_name(),
-                        description=group.generate_group_description_summary(),
-                        input_message_content=InputTextMessageContent(f"/group_{group.get_gid()}")
-                    )
-                    results.append(query_result)
+        elif command == "groups" and user and is_sender:
+            for group in user.get_all_groups(details, limit=30):
+                query_result = InlineQueryResultArticle(
+                    id=f"group_{group.get_gid()}", title=group.get_name(),
+                    description=group.generate_group_description_summary(),
+                    input_message_content=InputTextMessageContent(f"/group_{group.get_gid()}")
+                )
+                results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your joined groups", switch_pm_parameter=command)
             return
         # Handle invite query
-        elif command == "invite" and is_leader:
+        elif command == "invite" and user:
+            if is_sender:
+                query.answer(results, switch_pm_text="Click to send a group invite", switch_pm_parameter=command)
+                return
             for group in user.get_owned_groups(details, limit=10):
                 invitation, join_button = group.build_invite_text_and_button(update.effective_user.first_name)
                 query_result = InlineQueryResultArticle(
-                    id=group.get_gid(), title=group.get_name(), description="Send group invitation",
+                    id=group.get_gid(), title=group.get_name(), description=group.generate_group_description_summary(),
                     input_message_content=InputTextMessageContent(invitation, parse_mode=ParseMode.HTML),
                     reply_markup=join_button
                 )
                 results.append(query_result)
-            query.answer(results, switch_pm_text="Click to send a group invite link", switch_pm_parameter=command)
+            query.answer(results)
+            return
+        # Handle enrol query
+        elif command == "enrol" and is_admin:
+            if is_sender:
+                query.answer(results, switch_pm_text="Click to send a bot access invite", switch_pm_parameter=command)
+                return
+            if details.isdigit():
+                invitation, access_button = BotManager.build_invite_text_and_button(ACCESS_KEY, int(details))
+                query_result = InlineQueryResultArticle(
+                    id=details, title="Invite user with ID to access bot", description=details,
+                    input_message_content=InputTextMessageContent(invitation, parse_mode=ParseMode.HTML),
+                    reply_markup=access_button
+                )
+                results.append(query_result)
+            query.answer(results)
+            return
+        # Handle promote query
+        elif command == "promote" and is_admin and is_sender:
+            for user in User.get_users_by_name(details):
+                if not user.is_leader():
+                    query_result = InlineQueryResultArticle(
+                        id=user.get_uid(), title=user.get_name(), description=f"@{user.get_username()}",
+                        input_message_content=InputTextMessageContent(f"/promote {user.get_uid()}"),
+                    )
+                    results.append(query_result)
+            query.answer(
+                results[:20], switch_pm_text="Click to promote a user to a bot leader", switch_pm_parameter=command
+            )
             return
         # Handle help query
-        elif command == "help":
+        elif command == "help" and is_sender:
             query.answer(results, switch_pm_text="Click to view the help message", switch_pm_parameter=command)
             return
         # Handle other query
@@ -1497,10 +1547,8 @@ def handle_inline_pm_query(query: InlineQuery, action: str, details: str) -> Non
         text = "Click here to add a comment to the poll."
     elif action == "join":
         text = "Click here to join group"
-    elif action == "invite_bot":
-        text = "Click here to invite user to join bot"
-    elif action == "invite_leader":
-        text = "Click here to invite user to be a bot leader"
+    elif action == "access":
+        text = "Click here to have access to the bot"
     else:
         text = ""
 
@@ -1684,6 +1732,8 @@ def main() -> None:
 
     # Command handlers
     dispatcher.add_handler(CommandHandler("access", handle_access, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("enrol", handle_enrol, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("promote", handle_promote, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("start", handle_start, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("poll", handle_poll, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("group", handle_group, filters=Filters.chat_type.private))
