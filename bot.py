@@ -40,7 +40,7 @@ ACCESS_REQUIRED = False  # Set to False if access is not required to access bot
 
 # region RESPONSES
 
-ACCESS_ENTER_USER_ID = "Enter the id of the user you want to give access to."
+ACCESS_ENTER_USER_ID = "Enter the ID of the user you want to give access to."
 ACCESS_DECLINED = "Sorry, wrong access key."
 ACCESS_GRANTED = "Congratulations, you now have access to the bot! Use /start to begin building a poll."
 ACCESS_REQUEST = "To explore the full potential of this bot, please request for access from the creator \U0001f60e"
@@ -614,20 +614,22 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
 def handle_bot_access_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the admin user to generate a bot access invitation."""
-    delete_old_chat_message(update, context)
+    uid = update.message.text.strip()
+
     delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
 
     if not BotManager.is_admin(update.effective_user.id, ADMIN_KEYS):
         logger.warning("Illegal bot access callback")
         handle_help(update, context)
         return
 
-    uid = update.message.text.strip()
     if not uid.isdigit():
         response = "You've entered an invalid user id. Please enter again."
         buttons = util.build_single_button_markup("Cancel", backend.RESET)
         reply_message = update.message.reply_html(response, reply_markup=buttons)
         context.user_data.update({"del": reply_message.message_id})
+        return
 
     response, buttons = BotManager.build_bot_access_invite_text_and_button(ACCESS_KEY, int(uid))
     update.message.reply_html(response, buttons)
@@ -906,7 +908,6 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         return
     # Handle leader access button
     elif action == backend.LEADER_ACCESS and is_admin:
-        query.message.delete()
         response, buttons = BotManager.build_leader_promote_invite_text_and_button(ACCESS_KEY)
         query.answer(response)
         query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
