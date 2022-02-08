@@ -688,8 +688,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         return
 
     user = User.get_user_by_id(update.effective_user.id)
-
-    is_leader = user.is_leader()
+    is_leader = user and user.is_leader()
 
     # Check if current action is poll
     action = context.user_data.get("action", "")
