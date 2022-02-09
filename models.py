@@ -211,7 +211,7 @@ class User(object):
         return any(poll_id in group.get_poll_ids() for group in self.get_all_groups())
 
     def render_poll_list(self) -> str:
-        header = [util.make_html_bold("Your Polls")]
+        header = [util.make_html_bold("Your Group Polls")]
 
         user_polls = self.get_polls()
         if user_polls:
@@ -238,7 +238,7 @@ class User(object):
 
         return "\n\n".join(header + body + footer)
 
-    def render_groups_list(self) -> str:
+    def render_group_list(self) -> str:
         header = [util.make_html_bold("Your Groups")]
 
         owned_groups_list = self.render_owned_groups_list()
@@ -251,7 +251,7 @@ class User(object):
         return "\n\n".join(header + body + footer)
 
     def render_owned_groups_list(self) -> str:
-        owned_groups_title = util.make_html_bold(f"Owned Groups ({len(self.owned_group_ids)} {EMOJI_CROWN})")
+        owned_groups_title = util.make_html_bold("Owned Groups") + f" ({len(self.owned_group_ids)} {EMOJI_CROWN})"
         owned_groups = self.get_owned_groups()
         if owned_groups:
             owned_groups_list = "\n\n".join(
@@ -262,7 +262,7 @@ class User(object):
         return f"{owned_groups_title}\n{owned_groups_list}"
 
     def render_joined_groups_list(self) -> str:
-        joined_groups_title = util.make_html_bold(f"Joined Groups ({len(self.owned_group_ids)} {EMOJI_GROUP})")
+        joined_groups_title = util.make_html_bold("Joined Groups") + f" ({len(self.owned_group_ids)} {EMOJI_GROUP})"
         joined_groups = self.get_joined_groups()
         if joined_groups:
             joined_groups_list = "\n\n".join(

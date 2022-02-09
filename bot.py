@@ -512,7 +512,7 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
     user = User.get_user_by_id(update.effective_user.id)
 
     update.message.reply_html(
-        user.render_groups_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+        user.render_group_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
     )
     return
 
