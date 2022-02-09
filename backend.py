@@ -50,6 +50,8 @@ BOT_ACCESS = "bot"
 PROMOTE = "promote"
 CLOSE = "close"
 RESET = "reset"
+DONE = "done"
+SKIP = "skip"
 
 
 all_users = dict()
@@ -173,8 +175,8 @@ class User(object):
         filtered_polls = [poll for poll in user_polls if filters.lower() in poll.get_title().lower()]
         return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)[:limit]
 
-    def create_poll(self, title: str, options: list) -> tuple:
-        poll = Poll.create_new(title, self.uid, options)
+    def create_poll(self, title: str, description: str, options: list) -> tuple:
+        poll = Poll.create_new(title, self.uid, description, options)
         self.poll_ids.add(poll.get_poll_id())
         return poll, f"Poll {util.make_html_bold(title)} created!"
 
@@ -492,11 +494,12 @@ class Group(object):
 
 
 class Poll(object):
-    def __init__(self, poll_id: str, title: str, uid: int, options: list, single_response: bool, message_details: set,
-                 expiry: int, created_date: datetime) -> None:
+    def __init__(self, poll_id: str, title: str, uid: int, description: str, options: list, single_response: bool,
+                 message_details: set, expiry: int, created_date: datetime) -> None:
         self.poll_id = poll_id
         self.title = title
         self.creator_id = uid
+        self.description = description
         self.options = options
         self.single_response = single_response
         self.message_details = message_details
@@ -508,9 +511,9 @@ class Poll(object):
         return all_polls.get(poll_id, None)
 
     @classmethod
-    def create_new(cls, title: str, uid: int, option_titles: list):
+    def create_new(cls, title: str, uid: int, description: str, option_titles: list):
         poll_id = util.generate_random_id(POLL_ID_LENGTH, set(all_polls.keys()))
-        poll = cls(poll_id, title, uid, list(), True, set(), POLL_EXPIRY, datetime.now())
+        poll = cls(poll_id, title, uid, description, list(), True, set(), POLL_EXPIRY, datetime.now())
 
         for option_title in option_titles:
             poll.add_option(Option.create_new(option_title))
@@ -519,9 +522,9 @@ class Poll(object):
         return poll
 
     @classmethod
-    def load(cls, poll_id: str, title: str, uid: int, options: list, single_response: bool, message_details: list,
-             expiry: int, created_date: str) -> None:
-        poll = cls(poll_id, title, uid, list(), single_response, set(message_details),
+    def load(cls, poll_id: str, title: str, uid: int, description: str, options: list, single_response: bool,
+             message_details: list, expiry: int, created_date: str) -> None:
+        poll = cls(poll_id, title, uid, description, list(), single_response, set(message_details),
                    expiry, datetime.fromisoformat(created_date))
 
         for option_data in options:
@@ -548,6 +551,12 @@ class Poll(object):
 
     def set_title(self, title: str) -> None:
         self.title = title
+
+    def get_description(self) -> str:
+        return self.description
+
+    def set_description(self, description: str) -> None:
+        self.description = description
 
     def get_options(self) -> list:
         return self.options
@@ -732,6 +741,7 @@ class Poll(object):
             db.POLL_ID: self.poll_id,
             db.POLL_TITLE: self.title,
             db.POLL_CREATOR_ID: self.creator_id,
+            db.POLL_DESCRIPTION: self.description,
             db.POLL_OPTIONS: [option.to_json() for option in self.options],
             db.POLL_SINGLE_RESPONSE: self.single_response,
             db.POLL_MESSAGE_DETAILS: list(self.message_details),
@@ -882,6 +892,7 @@ class BotManager(object):
                     poll_data[db.POLL_ID],
                     poll_data[db.POLL_TITLE],
                     poll_data[db.POLL_CREATOR_ID],
+                    poll_data[db.POLL_DESCRIPTION],
                     poll_data[db.POLL_OPTIONS],
                     poll_data[db.POLL_SINGLE_RESPONSE],
                     poll_data[db.POLL_MESSAGE_DETAILS],

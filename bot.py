@@ -47,14 +47,14 @@ ACCESS_GRANTED = "Woohoo!! \U0001f973 You now have access to the bot!\n\nUse /st
 USER_PROMOTED = "Yay!! \U0001f389 {} is now a bot leader!!"
 
 NEW_POLL = "Let's create a new poll! First, send me the title."
-NEW_OPTION = "{}\n\nNice! Now send me the first answer option."
-NEXT_OPTION = "Nice! {} added!\n\nNow send me another answer option, or /done to finish."
+NEW_POLL_DESCRIPTION = "{}\n\nNice! Now send me a poll description or skip this step."
+NEW_OPTION = "{}\n\nAlright, now send me your very first option."
+NEXT_OPTION = "Nice! {} added!\n\nNow send me another answer option or press <b>Done</b> to finish."
 POLL_DONE = "\U0001f44d Poll created! You may now publish it to a group or send it to your friends."
 DELETED_POLL = "Sorry, the poll has been deleted."
 
 NEW_GROUP = "Let's create a new group! To begin, send me the group name."
-GROUP_PASSWORD_REQUEST = "{}\n\nGreat! Now enter a secret password for your group. " \
-                         "Alternatively, enter /done to skip this step."
+GROUP_PASSWORD_REQUEST = "{}\n\nGreat! Now enter a secret password for your group or skip this step."
 GROUP_DONE = "\U0001f44d Group created! You are now the owner of this group. " \
              "Use /invite to invite your friends to join the group."
 DELETED_GROUP = "Sorry, the group has been deleted."
@@ -296,7 +296,9 @@ def handle_access(update: Update, context: CallbackContext) -> None:
     """Manages different accesses in the bot."""
     delete_chat_message(update.message)
 
-    if not user_is_admin(update.effective_user.id):
+    _, _, is_admin = get_user_permissions(update.effective_user.id)
+
+    if not is_admin:
         handle_help(update, context)
         return
 
@@ -308,7 +310,9 @@ def handle_enrol(update: Update, context: CallbackContext) -> None:
     """Creates an invitation to this bot for a user."""
     delete_chat_message(update.message)
 
-    if not user_is_admin(update.effective_user.id):
+    _, _, is_admin = get_user_permissions(update.effective_user.id)
+
+    if not is_admin:
         handle_help(update, context)
         return
 
@@ -325,7 +329,9 @@ def handle_promote(update: Update, context: CallbackContext) -> None:
     text = update.message.text.strip()
     delete_chat_message(update.message)
 
-    if not user_is_admin(update.effective_user.id):
+    _, _, is_admin = get_user_permissions(update.effective_user.id)
+
+    if not is_admin:
         handle_help(update, context)
         return
 
@@ -367,7 +373,7 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    context.user_data.update({"action": "poll", "title": "", "options": []})
+    context.user_data.update({"action": "poll", "title": "", "descr": "", "options": []})
 
     match = re.match(r"^\s*/poll\s+(.+)$", update.message.text.strip())
     if not match:
@@ -381,83 +387,21 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
 
     if len(title) > MAX_TITLE_LENGTH:
         reply_message = update.message.reply_html(
-            ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
         )
         context.user_data.update({"del": reply_message.message_id})
         return
 
     bold_title = util.make_html_bold_first_line(title)
-    response = NEW_OPTION.format(bold_title)
+    response = NEW_POLL_DESCRIPTION.format(bold_title)
     reply_message = update.message.reply_html(
-        response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+        response, reply_markup=util.build_multiple_buttons_markup(
+            util.generate_button_details("Skip", backend.SKIP),
+            util.generate_button_details("Cancel", backend.RESET)
+        )
     )
     context.user_data.update({"title": title, "del": reply_message.message_id})
     return
-
-
-def handle_done(update: Update, context: CallbackContext) -> None:
-    """Finishes building the poll."""
-    delete_chat_message(update.message)
-    delete_old_chat_message(update, context)
-
-    if not is_registered(update.effective_user):
-        handle_help(update, context)
-        return
-
-    action = context.user_data.setdefault("action", "")
-    # Handle poll
-    if action == "poll":
-        title, options = context.user_data.setdefault("title", ""), context.user_data.setdefault("options", [])
-
-        # Check if there is a title
-        if not title:
-            reply_message = update.message.reply_html(
-                ERROR_EARLY_DONE_TITLE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
-            )
-            context.user_data.update({"del": reply_message.message_id})
-            return
-
-        # Check if there are options
-        if not options:
-            reply_message = update.message.reply_html(
-                ERROR_EARLY_DONE_OPTION, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
-            )
-            context.user_data.update({"del": reply_message.message_id})
-            return
-
-        # Create poll
-        poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, options)
-
-        update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
-        deliver_poll(update, poll)
-
-        # Clear user data
-        context.user_data.clear()
-        return
-    # Handle group
-    elif action == "group":
-        group_name = context.user_data.setdefault("name", "")
-
-        # Check if there is a group name
-        if not group_name:
-            reply_message = update.message.reply_html(
-                ERROR_EARLY_DONE_GROUP_NAME, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
-            )
-            context.user_data.update({"del": reply_message.message_id})
-            return
-
-        # Create group
-        group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, "")
-
-        update.message.reply_html(GROUP_DONE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
-        deliver_group(update, group)
-
-        # Clear user data
-        context.user_data.clear()
-        return
-    else:
-        handle_help(update, context)
-        return
 
 
 def handle_polls(update: Update, context: CallbackContext) -> None:
@@ -687,8 +631,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if not text:
         return
 
-    user = User.get_user_by_id(update.effective_user.id)
-    is_leader = user and user.is_leader()
+    user, is_leader, _ = get_user_permissions(update.effective_user.id)
 
     # Check if current action is poll
     action = context.user_data.get("action", "")
@@ -723,7 +666,9 @@ def handle_bot_access_conversation(update: Update, context: CallbackContext) -> 
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
-    if not user_is_admin(update.effective_user.id):
+    _, _, is_admin = get_user_permissions(update.effective_user.id)
+
+    if not is_admin:
         logger.warning("Illegal bot access callback")
         handle_help(update, context)
         return
@@ -744,7 +689,8 @@ def handle_bot_access_conversation(update: Update, context: CallbackContext) -> 
 def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the user to build a poll."""
     text = update.message.text.strip()
-    title, options = context.user_data.get("title", ""), context.user_data.get("options", [])
+    title, description, options = \
+        context.user_data.get("title", ""), context.user_data.get("descr", ""), context.user_data.get("options", [])
 
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
@@ -753,24 +699,43 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
     if not title:
         if len(text) > MAX_TITLE_LENGTH:
             reply_message = update.message.reply_html(
-                ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+                ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
             return
 
         bold_title = util.make_html_bold_first_line(text)
-        response = NEW_OPTION.format(bold_title)
+        response = NEW_POLL_DESCRIPTION.format(bold_title)
         reply_message = update.message.reply_html(
-            response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+            response, reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("Skip", backend.SKIP),
+                util.generate_button_details("Cancel", backend.RESET)
+            )
         )
         context.user_data.update({"title": text, "del": reply_message.message_id})
         return
+    if not description:
+        response = NEW_OPTION.format("Awesome! Description added!")
+        reply_message = update.message.reply_html(
+            response, reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("Cancel", backend.RESET)
+            )
+        )
+        context.user_data.update({"descr": text, "del": reply_message.message_id})
+        return
+
     # Handle option
     else:
-        if len(text) > MAX_OPTION_TITLE_LENGTH:
-            reply_message = update.message.reply_html(
-                ERROR_OPTION_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        if not options:
+            buttons = util.build_single_button_markup("Cancel", backend.RESET)
+        else:
+            buttons = util.build_multiple_buttons_markup(
+                util.generate_button_details("Done", backend.DONE),
+                util.generate_button_details("Cancel", backend.RESET)
             )
+
+        if len(text) > MAX_OPTION_TITLE_LENGTH:
+            reply_message = update.message.reply_html(ERROR_OPTION_TITLE_TOO_LONG, reply_markup=buttons)
             context.user_data.update({"del": reply_message.message_id})
             return
 
@@ -778,14 +743,13 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
 
         if len(options) < 10:
             reply_message = update.message.reply_html(
-                NEXT_OPTION.format(util.make_html_bold(text)),
-                reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+                NEXT_OPTION.format(util.make_html_bold(text)), reply_markup=buttons
             )
             context.user_data.update({"options": options, "del": reply_message.message_id})
             return
 
         # Create poll
-        poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, options)
+        poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, description.strip(), options)
 
         update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
         deliver_poll(update, poll)
@@ -886,6 +850,8 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
+
+
     # Handle group name
     if not group_name:
         group_name = text.replace("\n", " ")
@@ -975,7 +941,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     match = re.match(r"^(\w+)\s+(\w+)\s+(\w+)$", query.data)
     if not match:
-        handle_general_callback_query(query, context, query.data)
+        handle_general_callback_query(query, update, context, query.data)
         return
 
     subject, action, identifier = match.group(1), match.group(2), match.group(3)
@@ -993,9 +959,9 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     return
 
 
-def handle_general_callback_query(query: CallbackQuery, context: CallbackContext, action: str) -> None:
+def handle_general_callback_query(query: CallbackQuery, update: Update, context: CallbackContext, action: str) -> None:
     """Handles a general callback query."""
-    is_admin = user_is_admin(query.from_user.id)
+    user, is_leader, is_admin = get_user_permissions(query.from_user.id)
 
     # Handle bot access button
     if action == backend.BOT_ACCESS and is_admin:
@@ -1011,6 +977,30 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         response, buttons = BotManager.build_leader_promote_invite_text_and_button()
         query.answer(response)
         query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
+        return
+    # Handle skip button
+    elif action == backend.SKIP:
+        user_action = context.user_data.get("action", "")
+        if user_action == "poll":
+            response = NEW_OPTION.format("")
+            reply_message = query.edit_message_text(
+                response, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_buttons_markup(
+                    util.generate_button_details("Cancel", backend.RESET)
+                )
+            )
+            context.user_data.update({"descr": " ", "del": reply_message.message_id})
+            return
+        elif user_action == "group":
+            pass
+        else:
+            query.answer(text="Invalid callback query data!")
+            logger.warning("Invalid callback query data.")
+            return
+        return
+    # Handle done button
+    elif action == backend.DONE:
+        user_action = context.user_data.get("action", "")
+        handle_done_callback_query(query, update, context, user_action)
         return
     # Handle close button
     elif action == backend.CLOSE:
@@ -1029,6 +1019,75 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         return
 
 
+def handle_done_callback_query(query: CallbackQuery, update: Update, context: CallbackContext, action: str) -> None:
+    """Handles done button callbacks."""
+    if not is_registered(update.effective_user):
+        query.message.delete()
+        query.answer(text="Invalid callback query data!")
+        logger.warning("Invalid callback query data.")
+        return
+
+    # Handle poll
+    if action == "poll":
+        title, description, options = \
+            context.user_data.get("title", ""), context.user_data.get("descr", ""), context.user_data.get("options", [])
+
+        # Check if there is a title
+        if not title:
+            reply_message = query.edit_message_text(
+                ERROR_EARLY_DONE_TITLE, parse_mode=ParseMode.HTML,
+                reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        # Check if there are options
+        if not options:
+            reply_message = query.edit_message_text(
+                ERROR_EARLY_DONE_OPTION, parse_mode=ParseMode.HTML,
+                reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        # Create poll
+        poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, description.strip(), options)
+
+        query.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        deliver_poll(update, poll)
+
+        # Clear user data
+        context.user_data.clear()
+        return
+    # Handle group
+    elif action == "group":
+        group_name = context.user_data.setdefault("name", "")
+
+        # Check if there is a group name
+        if not group_name:
+            reply_message = query.edit_message_text(
+                ERROR_EARLY_DONE_GROUP_NAME, parse_mode=ParseMode.HTML,
+                reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        # Create group
+        group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, "")
+
+        query.message.reply_html(GROUP_DONE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        deliver_group(update, group)
+
+        # Clear user data
+        context.user_data.clear()
+        return
+    else:
+        query.message.delete()
+        query.answer(text="Invalid callback query data!")
+        logger.warning("Invalid callback query data.")
+        return
+
+
 def handle_user_callback_query(query: CallbackQuery, context: CallbackContext, action: str, uid_string: str) -> None:
     """Handles a user callback query."""
     user = User.get_user_by_id(util.decode(uid_string))
@@ -1039,7 +1098,7 @@ def handle_user_callback_query(query: CallbackQuery, context: CallbackContext, a
 
     message = query.message
     is_pm = is_private_chat(message)
-    is_admin = user_is_admin(query.from_user.id)
+    _, _, is_admin = get_user_permissions(query.from_user.id)
 
     # Handle promote button
     if action == backend.PROMOTE and is_pm and is_admin:
@@ -1391,10 +1450,8 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     query = update.inline_query
     text = query.query.strip()
     uid = update.effective_user.id
-    user = User.get_user_by_id(uid)
-    is_leader = user and user.is_leader()
+    user, is_leader, is_admin = get_user_permissions(uid)
     is_sender = query.chat_type == "sender"
-    is_admin = user_is_admin(uid)
 
     results = []
 
@@ -1641,7 +1698,8 @@ def handle_error(update: Update, context: CallbackContext) -> None:
 
 def handle_save(update: Update, context: CallbackContext) -> None:
     """Saves data to database (Temporary)."""
-    if not user_is_admin(update.effective_user.id):
+    _, _, is_admin = get_user_permissions(update.effective_user.id)
+    if not is_admin:
         handle_help(update, context)
         return
     status = BotManager.save_data()
@@ -1651,7 +1709,8 @@ def handle_save(update: Update, context: CallbackContext) -> None:
 
 def handle_load(update: Update, context: CallbackContext) -> None:
     """Loads data from database (Temporary)."""
-    if not user_is_admin(update.effective_user.id):
+    _, _, is_admin = get_user_permissions(update.effective_user.id)
+    if not is_admin:
         handle_help(update, context)
         return
     status = BotManager.load_data()
@@ -1661,9 +1720,12 @@ def handle_load(update: Update, context: CallbackContext) -> None:
 
 # region HELPERS
 
-def user_is_admin(uid: int) -> bool:
-    """Checks if the user is an admin."""
-    return BotManager.is_admin(uid, ADMIN_KEYS)
+def get_user_permissions(uid: int) -> tuple:
+    """Checks the user's permissions."""
+    user = User.get_user_by_id(uid)
+    is_leader = user and user.is_leader()
+    is_admin = BotManager.is_admin(uid, ADMIN_KEYS)
+    return user, is_leader, is_admin
 
 
 def is_registered(user: TeleUser) -> bool:
