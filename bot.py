@@ -115,7 +115,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
             START,
             reply_markup=util.build_multiple_buttons_markup(
                 util.generate_button_details("View Commands", "/", True, True),
-                util.generate_button_details("Close", backend.CLOSE)
+                util.generate_button_details("Close", models.CLOSE)
             )
         )
         return
@@ -194,17 +194,17 @@ def handle_bot_access_pm(update: Update, context: CallbackContext, details: str)
     user = User.get_user_by_id(uid)
     if user:
         update.message.reply_html(
-            ERROR_ACCESS_ALREADY_GRANTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_ACCESS_ALREADY_GRANTED, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         logger.info("Bot access already granted!")
         return
 
     if invitation_code == BotManager.get_bot_token_hash(ACCESS_KEY, uid):
         register_user(update.effective_user)
-        update.message.reply_html(ACCESS_GRANTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        update.message.reply_html(ACCESS_GRANTED, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
         return
 
-    update.message.reply_html(ACCESS_DENIED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    update.message.reply_html(ACCESS_DENIED, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
     logger.warning("Invalid bot access attempt!!")
     return
 
@@ -221,7 +221,7 @@ def handle_vote_pm(update: Update, context: CallbackContext, details: str) -> No
     match = re.match(r"^([^_\W]+_[^_\W]+)$", details)
     if not match:
         update.message.reply_html(
-            ERROR_INVALID_POLL_COMMENT_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_INVALID_POLL_COMMENT_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         logger.warning("Invalid poll comment request!")
         return
@@ -232,7 +232,7 @@ def handle_vote_pm(update: Update, context: CallbackContext, details: str) -> No
 
     if not poll or poll.get_poll_hash() != poll_hash:
         update.message.reply_html(
-            ERROR_INVALID_POLL_COMMENT_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_INVALID_POLL_COMMENT_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         logger.warning("Invalid poll comment request!")
         return
@@ -248,7 +248,7 @@ def handle_comment_pm(update: Update, context: CallbackContext, details: str) ->
     match = re.match(r"^([^_\W]+_[^_\W]+)_(\d+)$", details)
     if not match:
         update.message.reply_html(
-            ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         logger.warning("Invalid poll vote request!")
         return
@@ -259,14 +259,14 @@ def handle_comment_pm(update: Update, context: CallbackContext, details: str) ->
 
     if not poll or poll.get_poll_hash() != poll_hash:
         update.message.reply_html(
-            ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         logger.warning("Invalid poll vote request!")
         return
 
     if opt_id >= len(poll.get_options()):
         update.message.reply_html(
-            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         logger.warning("Invalid option selected from poll vote!")
         return
@@ -286,7 +286,7 @@ def handle_comment_pm(update: Update, context: CallbackContext, details: str) ->
 
     reply_message = update.message.reply_html(
         REASON.format(util.make_html_bold(option.get_title())),
-        reply_markup=util.build_single_button_markup("Close", backend.RESET),
+        reply_markup=util.build_single_button_markup("Close", models.RESET),
     )
     context.user_data.update({"action": "vote", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
     delete_message_with_timer(reply_message, 900)
@@ -319,7 +319,7 @@ def handle_enrol(update: Update, context: CallbackContext) -> None:
 
     reply_message = update.message.reply_html(
         ACCESS_ENTER_USER_ID,
-        reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+        reply_markup=util.build_single_button_markup("Cancel", models.RESET)
     )
     context.user_data.update({"action": "bot_access", "del": reply_message.message_id})
     return
@@ -346,20 +346,20 @@ def handle_promote(update: Update, context: CallbackContext) -> None:
     user = User.get_user_by_id(uid)
     if not user:
         update.message.reply_html(
-            ERROR_USER_NOT_FOUND, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_USER_NOT_FOUND, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         return
 
     if user.is_leader():
         update.message.reply_html(
-            ERROR_ALREADY_PROMOTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_ALREADY_PROMOTED, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         return
 
     user.promote_to_leader()
     update.message.reply_html(
         USER_PROMOTED.format(util.make_html_bold(user.get_name())),
-        reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        reply_markup=util.build_single_button_markup("Close", models.CLOSE)
     )
     return
 
@@ -379,7 +379,7 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
     match = re.match(r"^\s*/poll\s+(.+)$", update.message.text.strip())
     if not match:
         reply_message = update.message.reply_html(
-            NEW_POLL, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+            NEW_POLL, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
         )
         context.user_data.update({"del": reply_message.message_id})
         return
@@ -388,7 +388,7 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
 
     if len(title) > MAX_TITLE_LENGTH:
         reply_message = update.message.reply_html(
-            ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+            ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
         )
         context.user_data.update({"del": reply_message.message_id})
         return
@@ -397,8 +397,8 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
     response = NEW_POLL_DESCRIPTION.format(bold_title)
     reply_message = update.message.reply_html(
         response, reply_markup=util.build_multiple_buttons_markup(
-            util.generate_button_details("Skip", backend.SKIP),
-            util.generate_button_details("Cancel", backend.RESET)
+            util.generate_button_details("Skip", models.SKIP),
+            util.generate_button_details("Cancel", models.RESET)
         )
     )
     context.user_data.update({"title": title, "del": reply_message.message_id})
@@ -418,7 +418,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
     user = User.get_user_by_id(update.effective_user.id)
 
     update.message.reply_html(
-        user.render_poll_list(), reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        user.render_poll_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
     )
     return
 
@@ -467,7 +467,7 @@ def handle_group(update: Update, context: CallbackContext) -> None:
     match = re.match(r"^\s*/group\s+(.+)$", update.message.text.strip())
     if not match:
         reply_message = update.message.reply_html(
-            NEW_GROUP, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+            NEW_GROUP, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
         )
         context.user_data.update({"del": reply_message.message_id})
         return
@@ -476,14 +476,14 @@ def handle_group(update: Update, context: CallbackContext) -> None:
 
     if len(group_name) > MAX_GROUP_NAME_LENGTH:
         reply_message = update.message.reply_html(
-            ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+            ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
         )
         context.user_data.update({"del": reply_message.message_id})
         return
 
     if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
         reply_message = update.message.reply_html(
-            ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cance;", backend.RESET)
+            ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cance;", models.RESET)
         )
         context.user_data.update({"del": reply_message.message_id})
         return
@@ -491,8 +491,8 @@ def handle_group(update: Update, context: CallbackContext) -> None:
     response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
     reply_message = update.message.reply_html(
         response, reply_markup=util.build_multiple_buttons_markup(
-            util.generate_button_details("Skip", backend.DONE),
-            util.generate_button_details("Cancel", backend.RESET)
+            util.generate_button_details("Skip", models.DONE),
+            util.generate_button_details("Cancel", models.RESET)
         )
     )
     context.user_data.update({"name": group_name, "del": reply_message.message_id})
@@ -512,7 +512,7 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
     user = User.get_user_by_id(update.effective_user.id)
 
     update.message.reply_html(
-        user.render_groups_list(), reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        user.render_groups_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
     )
     return
 
@@ -552,7 +552,7 @@ def handle_group_polls(update: Update, context: CallbackContext) -> None:
     user = User.get_user_by_id(update.effective_user.id)
 
     update.message.reply_html(
-        user.render_group_poll_list(), reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        user.render_group_poll_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
     )
     return
 
@@ -600,7 +600,7 @@ def handle_help(update: Update, context: CallbackContext) -> None:
         body += [util.make_html_italic(ACCESS_REQUEST)]
 
     response = "\n\n".join(header + body)
-    update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
     return
 
 
@@ -662,7 +662,7 @@ def handle_bot_access_conversation(update: Update, context: CallbackContext) -> 
 
     if not uid.isdigit():
         response = "You've entered an invalid user id. Please enter again."
-        buttons = util.build_single_button_markup("Cancel", backend.RESET)
+        buttons = util.build_single_button_markup("Cancel", models.RESET)
         reply_message = update.message.reply_html(response, reply_markup=buttons)
         context.user_data.update({"del": reply_message.message_id})
         return
@@ -686,7 +686,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
     if not title:
         if len(text) > MAX_TITLE_LENGTH:
             reply_message = update.message.reply_html(
-                ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+                ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
             return
@@ -695,8 +695,8 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         response = NEW_POLL_DESCRIPTION.format(bold_title)
         reply_message = update.message.reply_html(
             response, reply_markup=util.build_multiple_buttons_markup(
-                util.generate_button_details("Skip", backend.SKIP),
-                util.generate_button_details("Cancel", backend.RESET)
+                util.generate_button_details("Skip", models.SKIP),
+                util.generate_button_details("Cancel", models.RESET)
             )
         )
         context.user_data.update({"title": text, "del": reply_message.message_id})
@@ -707,7 +707,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         response = NEW_OPTION.format("Awesome! Description added!")
         reply_message = update.message.reply_html(
             response, reply_markup=util.build_multiple_buttons_markup(
-                util.generate_button_details("Cancel", backend.RESET)
+                util.generate_button_details("Cancel", models.RESET)
             )
         )
         context.user_data.update({"descr": text, "del": reply_message.message_id})
@@ -716,11 +716,11 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
     # Handle option
     else:
         if not options:
-            error_buttons = util.build_single_button_markup("Cancel", backend.RESET)
+            error_buttons = util.build_single_button_markup("Cancel", models.RESET)
         else:
             error_buttons = util.build_multiple_buttons_markup(
-                util.generate_button_details("Done", backend.DONE),
-                util.generate_button_details("Cancel", backend.RESET)
+                util.generate_button_details("Done", models.DONE),
+                util.generate_button_details("Cancel", models.RESET)
             )
 
         if len(text) > MAX_OPTION_TITLE_LENGTH:
@@ -735,8 +735,8 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         if len(options) < 10:
             reply_message = update.message.reply_html(
                 NEXT_OPTION.format(util.make_html_bold(text)), reply_markup=util.build_multiple_buttons_markup(
-                    util.generate_button_details("Done", backend.DONE),
-                    util.generate_button_details("Cancel", backend.RESET)
+                    util.generate_button_details("Done", models.DONE),
+                    util.generate_button_details("Cancel", models.RESET)
                 )
             )
             context.user_data.update({"options": options, "del": reply_message.message_id})
@@ -745,7 +745,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         # Create poll
         poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, description.strip(), options)
 
-        update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
         deliver_poll(update, poll)
 
         # Clear user data
@@ -765,20 +765,20 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
 
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
-        update.message.reply_html(DELETED_POLL, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        update.message.reply_html(DELETED_POLL, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
         logger.warning("Poll deleted before vote.")
         return
 
     if opt_id >= len(poll.get_options()) or opt_id < 0:
         update.message.reply_html(
-            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         logger.warning("Invalid option selected from poll vote!")
         return
 
     if poll.get_options()[opt_id].is_voted_by_user(uid):
         update.message.reply_html(
-            ERROR_ALREADY_VOTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_ALREADY_VOTED, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         logger.warning("Poll option already voted by user!")
         return
@@ -786,7 +786,7 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
     response = poll.toggle(opt_id, uid, user_profile, update.message.text)
 
     reply_message = update.message.reply_html(
-        util.make_html_bold(f"{response} {backend.EMOJI_HAPPY}"),
+        util.make_html_bold(f"{response} {models.EMOJI_HAPPY}"),
         reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
     )
 
@@ -807,20 +807,20 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
 
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
-        update.message.reply_html(DELETED_POLL, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+        update.message.reply_html(DELETED_POLL, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
         logger.warning("Poll deleted before vote.")
         return
 
     if opt_id >= len(poll.get_options()) or opt_id < 0:
         update.message.reply_html(
-            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         logger.warning("Invalid option selected from poll vote!")
         return
 
     if not poll.get_options()[opt_id].is_voted_by_user(uid):
         update.message.reply_html(
-            ERROR_NOT_VOTED, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_NOT_VOTED, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         logger.warning("Poll option not voted by user!")
         return
@@ -828,7 +828,7 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
     poll.edit_user_comment(opt_id, uid, update.message.text)
 
     reply_message = update.message.reply_html(
-        util.make_html_bold(f"Comment updated successfully! {backend.EMOJI_HAPPY}"),
+        util.make_html_bold(f"Comment updated successfully! {models.EMOJI_HAPPY}"),
         reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
     )
 
@@ -850,28 +850,28 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
         group_name = text.replace("\n", " ")
         if len(group_name) > MAX_GROUP_NAME_LENGTH:
             reply_message = update.message.reply_html(
-                ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+                ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
             return
 
         if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
             reply_message = update.message.reply_html(
-                ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+                ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
             return
 
         response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
         reply_message = update.message.reply_html(
-            response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+            response, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
         )
         context.user_data.update({"name": group_name, "del": reply_message.message_id})
         return
     # Handle secret
     if not re.match(r"^[A-Za-z0-9]{4,20}$", text):
         reply_message = update.message.reply_html(
-            ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+            ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
         )
         context.user_data.update({"del": reply_message.message_id})
         return
@@ -879,7 +879,7 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
     # Create group
     group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, text)
 
-    update.message.reply_html(GROUP_DONE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    update.message.reply_html(GROUP_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
     deliver_group(update, group)
 
     # Clear user data
@@ -898,7 +898,7 @@ def handle_change_secret_conversation(update: Update, context: CallbackContext) 
     if not group or group.get_owner() != update.effective_user.id:
         update.message.reply_html(
             util.make_html_bold(ERROR_ILLEGAL_SECRET_CHANGE),
-            reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         logger.warning("Illegal password change!")
         return
@@ -907,7 +907,7 @@ def handle_change_secret_conversation(update: Update, context: CallbackContext) 
 
     if not re.match(r"^[A-Za-z0-9]{4,20}$", new_secret):
         reply_message = update.message.reply_html(
-            ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         context.user_data.update({"del": reply_message.message_id})
         return
@@ -915,7 +915,7 @@ def handle_change_secret_conversation(update: Update, context: CallbackContext) 
     # Change password
     group.edit_password(new_secret)
     update.message.reply_html(
-        "Group password changed!", reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        "Group password changed!", reply_markup=util.build_single_button_markup("Close", models.CLOSE)
     )
 
     # Clear user data
@@ -939,11 +939,11 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     subject, action, identifier = match.group(1), match.group(2), match.group(3)
 
-    if subject == backend.USER_SUBJECT:
+    if subject == models.USER_SUBJECT:
         handle_user_callback_query(query, context, action, identifier)
-    if subject == backend.POLL_SUBJECT:
+    if subject == models.POLL_SUBJECT:
         handle_poll_callback_query(query, context, action, identifier)
-    elif subject == backend.GROUP_SUBJECT:
+    elif subject == models.GROUP_SUBJECT:
         handle_group_callback_query(query, context, action, identifier)
     else:
         logger.warning("Invalid callback query data.")
@@ -957,28 +957,28 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
     user, is_leader, is_admin = get_user_permissions(query.from_user.id)
 
     # Handle bot access button
-    if action == backend.BOT_ACCESS and is_admin:
+    if action == models.BOT_ACCESS and is_admin:
         query.answer(text=ACCESS_ENTER_USER_ID)
         reply_message = query.edit_message_text(
             ACCESS_ENTER_USER_ID, parse_mode=ParseMode.HTML,
-            reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+            reply_markup=util.build_single_button_markup("Cancel", models.RESET)
         )
         context.user_data.update({"action": "bot_access", "del": reply_message.message_id})
         return
     # Handle leader access button
-    elif action == backend.PROMOTE and is_admin:
+    elif action == models.PROMOTE and is_admin:
         response, buttons = BotManager.build_leader_promote_invite_text_and_button()
         query.answer(response)
         query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
         return
     # Handle skip button
-    elif action == backend.SKIP:
+    elif action == models.SKIP:
         user_action = context.user_data.get("action", "")
         if user_action == "poll":
             response = NEW_OPTION.format("")
             reply_message = query.edit_message_text(
                 response, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_buttons_markup(
-                    util.generate_button_details("Cancel", backend.RESET)
+                    util.generate_button_details("Cancel", models.RESET)
                 )
             )
             context.user_data.update({"descr": " ", "del": reply_message.message_id})
@@ -989,17 +989,17 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
             return
         return
     # Handle done button
-    elif action == backend.DONE:
+    elif action == models.DONE:
         user_action = context.user_data.get("action", "")
         handle_done_callback_query(query, context, user_action)
         return
     # Handle close button
-    elif action == backend.CLOSE:
+    elif action == models.CLOSE:
         query.message.delete()
         query.answer(text=None)
         return
     # Handle reset button
-    elif action == backend.RESET:
+    elif action == models.RESET:
         query.message.delete()
         query.answer(text=None)
         context.user_data.clear()
@@ -1027,7 +1027,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
         if not title:
             reply_message = query.edit_message_text(
                 ERROR_EARLY_DONE_TITLE, parse_mode=ParseMode.HTML,
-                reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+                reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
             return
@@ -1036,7 +1036,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
         if not options:
             reply_message = query.edit_message_text(
                 ERROR_EARLY_DONE_OPTION, parse_mode=ParseMode.HTML,
-                reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+                reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
             return
@@ -1046,7 +1046,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
 
         query.edit_message_text(
             POLL_DONE, parse_mode=ParseMode.HTML,
-            reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         query.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(query.from_user.id))
 
@@ -1061,7 +1061,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
         if not group_name:
             reply_message = query.edit_message_text(
                 ERROR_EARLY_DONE_GROUP_NAME, parse_mode=ParseMode.HTML,
-                reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+                reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
             return
@@ -1071,7 +1071,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
 
         query.edit_message_text(
             GROUP_DONE, parse_mode=ParseMode.HTML,
-            reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         query.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_buttons())
 
@@ -1099,7 +1099,7 @@ def handle_user_callback_query(query: CallbackQuery, context: CallbackContext, a
     _, _, is_admin = get_user_permissions(query.from_user.id)
 
     # Handle promote button
-    if action == backend.PROMOTE and is_pm and is_admin:
+    if action == models.PROMOTE and is_pm and is_admin:
         if user.is_leader():
             query.answer(text=ERROR_ALREADY_PROMOTED)
             return
@@ -1136,35 +1136,35 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         refresh_polls(poll, context)
         return
     # Handle refresh option button
-    elif action == backend.REFRESH_OPT:
+    elif action == models.REFRESH_OPT:
         query.answer(text="Results updated!")
         query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
         return
     # Handle refresh button
-    elif action == backend.REFRESH and is_pm:
+    elif action == models.REFRESH and is_pm:
         query.answer(text="Results updated!")
         query.edit_message_text(
             poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons(uid)
         )
         return
     # Handle customise button
-    elif action == backend.CUSTOMISE and is_pm:
+    elif action == models.CUSTOMISE and is_pm:
         query.edit_message_reply_markup(poll.build_customise_buttons())
         query.answer(text=None)
         return
     # Handle toggle response button
-    elif action == backend.RESPONSE and is_pm:
+    elif action == models.RESPONSE and is_pm:
         status = poll.toggle_response_type()
         query.answer(text=status)
         query.edit_message_reply_markup(poll.build_customise_buttons())
         return
     # Handle enforce comments button
-    elif action == backend.COMMENT and is_pm:
+    elif action == models.COMMENT and is_pm:
         query.edit_message_reply_markup(poll.build_option_comment_required_buttons())
         query.answer(text=None)
         return
     # Handle toggle comments required button
-    elif action.startswith(f"{backend.COMMENT}_") and is_pm:
+    elif action.startswith(f"{models.COMMENT}_") and is_pm:
         _, opt_id = action.rsplit("_", 1)
         if not opt_id.isdigit():
             logger.warning("Invalid callback query data.")
@@ -1176,12 +1176,12 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         refresh_polls(poll, context, only_buttons=True)
         return
     # Handle vote button
-    elif action == backend.VOTE and is_pm:
+    elif action == models.VOTE and is_pm:
         query.edit_message_reply_markup(poll.build_option_buttons())
         query.answer(text="You may now vote!")
         return
     # Handle edit comment button
-    elif action.startswith(f"{backend.EDIT_COMMENT}_") and is_pm:
+    elif action.startswith(f"{models.EDIT_COMMENT}_") and is_pm:
         _, opt_id = action.rsplit("_", 1)
         if not opt_id.isdigit():
             logger.warning("Invalid callback query data.")
@@ -1199,7 +1199,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
 
         reply_message = message.reply_html(
             REASON.format(util.make_html_bold(option.get_title())),
-            reply_markup=util.build_single_button_markup("Close", backend.RESET),
+            reply_markup=util.build_single_button_markup("Close", models.RESET),
         )
         context.user_data.update({"action": "comment", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
         message.delete()
@@ -1207,12 +1207,12 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         query.answer(text="Please enter a reason/comment for your selected option.")
         return
     # Handle delete button
-    elif action == backend.DELETE and is_pm:
+    elif action == models.DELETE and is_pm:
         query.edit_message_reply_markup(poll.build_delete_confirmation_buttons())
         query.answer(text="Confirm delete?")
         return
     # Handle delete confirmation button
-    elif action == backend.DELETE_YES and is_pm:
+    elif action == models.DELETE_YES and is_pm:
         User.get_user_by_id(uid).delete_poll(poll_id)
         message.delete()
         query.answer(text="Poll deleted!")
@@ -1222,12 +1222,12 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
             )
         return
     # Handle back button
-    elif action == backend.BACK and is_pm:
+    elif action == models.BACK and is_pm:
         query.edit_message_reply_markup(poll.build_admin_buttons(uid))
         query.answer(text=None)
         return
     # Handle close button
-    elif action == backend.CLOSE:
+    elif action == models.CLOSE:
         message.delete()
         query.answer(text=None)
         return
@@ -1263,33 +1263,33 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         return
 
     # Handle view members button
-    if action == backend.VIEW_MEMBERS:
+    if action == models.VIEW_MEMBERS:
         query.edit_message_text(
             group.render_group_members_text(), parse_mode=ParseMode.HTML,
-            reply_markup=group.build_members_view_buttons(back_action=backend.BACK, is_owner=is_owner)
+            reply_markup=group.build_members_view_buttons(back_action=models.BACK, is_owner=is_owner)
         )
         query.answer(text=None)
         return
     # Handle remove member button
-    elif action == backend.REMOVE_MEMBER and is_owner:
+    elif action == models.REMOVE_MEMBER and is_owner:
         query.edit_message_reply_markup(
-            group.build_members_buttons(backend.REMOVE_MEMBER, back_action=backend.VIEW_MEMBERS)
+            group.build_members_buttons(models.REMOVE_MEMBER, back_action=models.VIEW_MEMBERS)
         )
         query.answer(text="Select a member to remove.")
         return
     # Handle remove member choice button
-    elif action.startswith(f"{backend.REMOVE_MEMBER}_") and is_owner:
+    elif action.startswith(f"{models.REMOVE_MEMBER}_") and is_owner:
         _, uid = action.rsplit("_", 1)
         member_name = User.get_user_by_id(uid).get_name()
         query.edit_message_reply_markup(
             group.build_delete_confirmation_buttons(
-                delete_text="Remove", delete_action=action, back_action=backend.REMOVE_MEMBER
+                delete_text="Remove", delete_action=action, back_action=models.REMOVE_MEMBER
             )
         )
         query.answer(text=f"Confirm remove {member_name} from the group?")
         return
     # Handle delete confirmation button
-    elif action.startswith(f"{backend.DELETE_YES}_"):
+    elif action.startswith(f"{models.DELETE_YES}_"):
         match = re.match(r"^([^_\W]+)_([^_\W]+)_?([^_\W]+)?$", action)
         if not match:
             logger.warning("Invalid callback query data.")
@@ -1298,18 +1298,18 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
                                     reply_markup=group.build_group_details_buttons())
 
         sub_action, identifier = match.group(2), match.group(3)
-        if sub_action == backend.REMOVE_MEMBER and is_owner:
+        if sub_action == models.REMOVE_MEMBER and is_owner:
             status = group.remove_member(identifier)
             query.answer(text=status)
             query.edit_message_text(group.render_group_members_text(), parse_mode=ParseMode.HTML,
-                                    reply_markup=group.build_members_view_buttons(back_action=backend.BACK))
+                                    reply_markup=group.build_members_view_buttons(back_action=models.BACK))
             return
-        elif sub_action == backend.DELETE and is_owner:
+        elif sub_action == models.DELETE and is_owner:
             status = User.get_user_by_id(uid).delete_group(gid)
             query.answer(text=status)
             query.message.delete()
             return
-        elif sub_action == backend.LEAVE_GROUP:
+        elif sub_action == models.LEAVE_GROUP:
             group.remove_member(uid)
             query.answer("You have left the group.")
             query.edit_message_reply_markup(None)
@@ -1321,13 +1321,13 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
                                     reply_markup=group.build_group_details_buttons())
             return
     # Handle view group polls button
-    elif action == backend.VIEW_GROUP_POLLS:
+    elif action == models.VIEW_GROUP_POLLS:
         query.edit_message_text(group.render_group_polls_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=group.build_polls_view_buttons(back_action=backend.BACK))
+                                reply_markup=group.build_polls_view_buttons(back_action=models.BACK))
         query.answer(text=None)
         return
     # Handle add poll button and add poll choice button
-    elif action.startswith(backend.ADD_POLL):
+    elif action.startswith(models.ADD_POLL):
         answered = False
         if "_" in action:
             _, poll_id = action.rsplit("_", 1)
@@ -1341,7 +1341,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
 
         user = User.get_user_by_id(uid)
         response, buttons = group.build_polls_text_and_buttons(
-            user.get_polls(), filter_out=True, action=backend.ADD_POLL, back_action=backend.VIEW_GROUP_POLLS
+            user.get_polls(), filter_out=True, action=models.ADD_POLL, back_action=models.VIEW_GROUP_POLLS
         )
 
         if not response:
@@ -1361,7 +1361,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             query.answer(text="Select a poll you wish to add.")
         return
     # Handle remove poll button an remove poll choice button
-    elif action.startswith(backend.REMOVE_POLL):
+    elif action.startswith(models.REMOVE_POLL):
         answered = False
         if "_" in action:
             _, poll_id = action.rsplit("_", 1)
@@ -1376,7 +1376,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         user = User.get_user_by_id(uid)
         filters = group.get_polls() if is_owner else user.get_polls()
         response, buttons = group.build_polls_text_and_buttons(
-            filters, filter_out=False, action=backend.REMOVE_POLL, back_action=backend.VIEW_GROUP_POLLS
+            filters, filter_out=False, action=models.REMOVE_POLL, back_action=models.VIEW_GROUP_POLLS
         )
 
         if not response:
@@ -1396,37 +1396,37 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             query.answer(text="Select a poll you wish to remove.")
         return
     # Handle settings button
-    elif action == backend.GROUP_SETTINGS:
+    elif action == models.GROUP_SETTINGS:
         query.edit_message_reply_markup(group.build_settings_buttons(is_owner=is_owner))
         query.answer(text=None)
         return
     # Handle delete group button
-    elif action == backend.DELETE and is_owner:
+    elif action == models.DELETE and is_owner:
         query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
-            delete_text="Delete", delete_action=action, back_action=backend.GROUP_SETTINGS)
+            delete_text="Delete", delete_action=action, back_action=models.GROUP_SETTINGS)
         )
         query.answer(text="Confirm delete group?")
     # Handle leave group button
-    elif action == backend.LEAVE_GROUP:
+    elif action == models.LEAVE_GROUP:
         query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
-            delete_text="Leave", delete_action=action, back_action=backend.GROUP_SETTINGS)
+            delete_text="Leave", delete_action=action, back_action=models.GROUP_SETTINGS)
         )
         query.answer(text="Confirm leave group?")
     # Handle change password button
-    elif action == backend.CHANGE_SECRET and is_owner:
+    elif action == models.CHANGE_SECRET and is_owner:
         query.message.reply_html("Enter a new secret password for your group.")
         query.answer(text="Enter a new secret password.")
         context.user_data.clear()
         context.user_data.update({"action": "pass", "gid": gid})
         return
     # Handle back button
-    elif action == backend.BACK:
+    elif action == models.BACK:
         query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
                                 reply_markup=group.build_group_details_buttons())
         query.answer(text=None)
         return
     # Handle close button
-    elif action == backend.CLOSE:
+    elif action == models.CLOSE:
         message.delete()
         query.answer(text=None)
         return
@@ -1703,7 +1703,7 @@ def handle_save(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
     status = BotManager.save_data()
-    update.message.reply_html(status, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    update.message.reply_html(status, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
     return
 
 
@@ -1716,7 +1716,7 @@ def handle_load(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
     status = BotManager.load_data()
-    update.message.reply_html(status, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    update.message.reply_html(status, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
     return
 
 
@@ -1827,16 +1827,16 @@ def try_join_group_through_invitation(update: Update, invitation_code: str):
 
         if group and group.get_password_hash() == invitation_code:
             response = group.add_member(update.effective_user.id)
-            update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+            update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
             return
         else:
             update.message.reply_html(
-                ERROR_INVALID_GROUP_INVITE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+                ERROR_INVALID_GROUP_INVITE, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
             )
         return
 
     update.message.reply_html(
-        ERROR_INVALID_GROUP_INVITE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        ERROR_INVALID_GROUP_INVITE, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
     )
     return
 
