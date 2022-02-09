@@ -392,7 +392,7 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
         context.user_data.update({"del": reply_message.message_id})
         return
 
-    bold_title = util.make_html_bold_first_line(title)
+    bold_title = util.make_html_bold(title)
     response = NEW_POLL_DESCRIPTION.format(bold_title)
     reply_message = update.message.reply_html(
         response, reply_markup=util.build_multiple_buttons_markup(
@@ -704,7 +704,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
             context.user_data.update({"del": reply_message.message_id})
             return
 
-        bold_title = util.make_html_bold_first_line(text)
+        bold_title = util.make_html_bold(text)
         response = NEW_POLL_DESCRIPTION.format(bold_title)
         reply_message = update.message.reply_html(
             response, reply_markup=util.build_multiple_buttons_markup(
@@ -1706,6 +1706,8 @@ def handle_error(update: Update, context: CallbackContext) -> None:
 
 def handle_save(update: Update, context: CallbackContext) -> None:
     """Saves data to database (Temporary)."""
+    delete_chat_message(update.message)
+
     _, _, is_admin = get_user_permissions(update.effective_user.id)
     if not is_admin:
         handle_help(update, context)
@@ -1717,6 +1719,8 @@ def handle_save(update: Update, context: CallbackContext) -> None:
 
 def handle_load(update: Update, context: CallbackContext) -> None:
     """Loads data from database (Temporary)."""
+    delete_chat_message(update.message)
+
     _, _, is_admin = get_user_permissions(update.effective_user.id)
     if not is_admin:
         handle_help(update, context)
