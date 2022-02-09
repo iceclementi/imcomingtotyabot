@@ -220,7 +220,7 @@ class User(object):
             body = [util.make_html_italic("You have no polls! Use /poll to build a new poll.")]
 
         poll_count = len(user_polls)
-        footer = [f"{EMOJI_POLL} {poll_count} poll{'s' if poll_count == 1 else ''} in total"]
+        footer = [f"{EMOJI_POLL} {poll_count} poll{'' if poll_count == 1 else 's'} in total"]
 
         return "\n\n".join(header + body + footer)
 
@@ -234,7 +234,7 @@ class User(object):
             body = [util.make_html_italic("You have no group polls!")]
 
         poll_count = len(group_polls)
-        footer = [f"{EMOJI_POLL} {poll_count} group poll{'s' if poll_count == 1 else ''} in total"]
+        footer = [f"{EMOJI_POLL} {poll_count} group poll{'' if poll_count == 1 else 's'} in total"]
 
         return "\n\n".join(header + body + footer)
 
@@ -246,7 +246,7 @@ class User(object):
         body = [owned_groups_list] + [joined_groups_list]
 
         group_count = len(self.owned_group_ids) + len(self.joined_group_ids)
-        footer = [f"{EMOJI_GROUP} {group_count} group{'s' if group_count == 1 else ''} in total"]
+        footer = [f"{EMOJI_GROUP} {group_count} group{'' if group_count == 1 else 's'} in total"]
 
         return "\n\n".join(header + body + footer)
 
@@ -523,7 +523,7 @@ class Group(object):
         else:
             polls = [poll for poll in filters if poll.get_poll_id() in self.get_poll_ids()]
 
-        back_button = util.build_button("Back", backend.GROUP_SUBJECT, back_action, self.gid)
+        back_button = util.build_button("Back", GROUP_SUBJECT, back_action, self.gid)
 
         if not polls:
             return "", InlineKeyboardMarkup([[back_button]])
