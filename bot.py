@@ -727,15 +727,17 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
     # Handle option
     else:
         if not options:
-            buttons = util.build_single_button_markup("Cancel", backend.RESET)
+            error_buttons = util.build_single_button_markup("Cancel", backend.RESET)
         else:
-            buttons = util.build_multiple_buttons_markup(
+            error_buttons = util.build_multiple_buttons_markup(
                 util.generate_button_details("Done", backend.DONE),
                 util.generate_button_details("Cancel", backend.RESET)
             )
 
         if len(text) > MAX_OPTION_TITLE_LENGTH:
-            reply_message = update.message.reply_html(ERROR_OPTION_TITLE_TOO_LONG, reply_markup=buttons)
+            reply_message = update.message.reply_html(
+                ERROR_OPTION_TITLE_TOO_LONG, reply_markup=error_buttons
+            )
             context.user_data.update({"del": reply_message.message_id})
             return
 
@@ -743,7 +745,10 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
 
         if len(options) < 10:
             reply_message = update.message.reply_html(
-                NEXT_OPTION.format(util.make_html_bold(text)), reply_markup=buttons
+                NEXT_OPTION.format(util.make_html_bold(text)), reply_markup=util.build_multiple_buttons_markup(
+                    util.generate_button_details("Done", backend.DONE),
+                    util.generate_button_details("Cancel", backend.RESET)
+                )
             )
             context.user_data.update({"options": options, "del": reply_message.message_id})
             return
@@ -756,6 +761,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
 
         # Clear user data
         context.user_data.clear()
+    return
 
 
 def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
@@ -939,7 +945,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     match = re.match(r"^(\w+)\s+(\w+)\s+(\w+)$", query.data)
     if not match:
-        handle_general_callback_query(query, update, context, query.data)
+        handle_general_callback_query(query, context, query.data)
         return
 
     subject, action, identifier = match.group(1), match.group(2), match.group(3)
@@ -957,7 +963,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     return
 
 
-def handle_general_callback_query(query: CallbackQuery, update: Update, context: CallbackContext, action: str) -> None:
+def handle_general_callback_query(query: CallbackQuery, context: CallbackContext, action: str) -> None:
     """Handles a general callback query."""
     user, is_leader, is_admin = get_user_permissions(query.from_user.id)
 
@@ -996,7 +1002,7 @@ def handle_general_callback_query(query: CallbackQuery, update: Update, context:
     # Handle done button
     elif action == backend.DONE:
         user_action = context.user_data.get("action", "")
-        handle_done_callback_query(query, update, context, user_action)
+        handle_done_callback_query(query, context, user_action)
         return
     # Handle close button
     elif action == backend.CLOSE:
@@ -1015,7 +1021,7 @@ def handle_general_callback_query(query: CallbackQuery, update: Update, context:
         return
 
 
-def handle_done_callback_query(query: CallbackQuery, update: Update, context: CallbackContext, action: str) -> None:
+def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, action: str) -> None:
     """Handles done button callbacks."""
     if not is_registered(update.effective_user):
         query.message.delete()
@@ -1049,8 +1055,11 @@ def handle_done_callback_query(query: CallbackQuery, update: Update, context: Ca
         # Create poll
         poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, description.strip(), options)
 
-        query.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
-        deliver_poll(update, poll)
+        query.edit_message_text(
+            POLL_DONE, parse_mode=ParseMode.HTML,
+            reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        query.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(query.from_user.id))
 
         # Clear user data
         context.user_data.clear()
@@ -1071,8 +1080,11 @@ def handle_done_callback_query(query: CallbackQuery, update: Update, context: Ca
         # Create group
         group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, "")
 
-        query.message.reply_html(GROUP_DONE, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
-        deliver_group(update, group)
+        query.edit_message_text(
+            GROUP_DONE, parse_mode=ParseMode.HTML,
+            reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+        )
+        query.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_buttons())
 
         # Clear user data
         context.user_data.clear()

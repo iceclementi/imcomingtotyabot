@@ -655,9 +655,10 @@ class Poll(object):
 
     def render_text(self) -> str:
         header = [util.make_html_bold_first_line(self.title)]
+        description = [util.make_html_italic(self.description)] if self.description else []
         body = [option.render_text() for option in self.options]
         footer = [f"{EMOJI_PEOPLE} {self.generate_respondents_summary()}"]
-        return "\n\n".join(header + body + footer)
+        return "\n\n".join(header + description + body + footer)
 
     def build_option_buttons(self) -> InlineKeyboardMarkup:
         buttons = []
