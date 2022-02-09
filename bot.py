@@ -1023,7 +1023,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
 
 def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, action: str) -> None:
     """Handles done button callbacks."""
-    if not is_registered(update.effective_user):
+    if not is_registered(query.from_user.id):
         query.message.delete()
         query.answer(text="Invalid callback query data!")
         logger.warning("Invalid callback query data.")
@@ -1053,7 +1053,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             return
 
         # Create poll
-        poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, description.strip(), options)
+        poll, _ = User.get_user_by_id(query.from_user.id).create_poll(title, description.strip(), options)
 
         query.edit_message_text(
             POLL_DONE, parse_mode=ParseMode.HTML,
@@ -1078,7 +1078,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             return
 
         # Create group
-        group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, "")
+        group, _ = User.get_user_by_id(query.from_user.id).create_group(group_name, "")
 
         query.edit_message_text(
             GROUP_DONE, parse_mode=ParseMode.HTML,
