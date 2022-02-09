@@ -16,6 +16,7 @@ MAX_GROUPS_PER_USER = 10
 MAX_JOINED_GROUPS_PER_USER = 30
 MAX_GROUP_SIZE = 50
 EMOJI_PEOPLE = "\U0001f465"
+EMOJI_GROUP = "\U0001fac2"
 EMOJI_POLL = "\U0001f4ca"
 EMOJI_CROWN = "\U0001f451"
 EMOJI_HAPPY = "\U0001f60a"
@@ -208,6 +209,68 @@ class User(object):
 
     def has_group_poll(self, poll_id: str) -> bool:
         return any(poll_id in group.get_poll_ids() for group in self.get_all_groups())
+
+    def render_poll_list(self) -> str:
+        header = [util.make_html_bold("Your Polls")]
+
+        user_polls = self.get_polls()
+        if user_polls:
+            body = [f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(user_polls, 1)]
+        else:
+            body = [util.make_html_italic("You have no polls! Use /poll to build a new poll.")]
+
+        poll_count = len(user_polls)
+        footer = [f"{EMOJI_POLL} {poll_count} poll{'s' if poll_count == 1 else ''} in total"]
+
+        return "\n\n".join(header + body + footer)
+
+    def render_group_poll_list(self) -> str:
+        header = [util.make_html_bold("Your Polls")]
+
+        group_polls = self.get_group_polls()
+        if group_polls:
+            body = [f"{i}. {poll.generate_linked_summary(True)}" for i, poll in enumerate(group_polls, 1)]
+        else:
+            body = [util.make_html_italic("You have no group polls!")]
+
+        poll_count = len(group_polls)
+        footer = [f"{EMOJI_POLL} {poll_count} group poll{'s' if poll_count == 1 else ''} in total"]
+
+        return "\n\n".join(header + body + footer)
+
+    def render_groups_list(self) -> str:
+        header = [util.make_html_bold("Your Groups")]
+
+        owned_groups_list = self.render_owned_groups_list()
+        joined_groups_list = self.render_joined_groups_list()
+        body = [owned_groups_list] + [joined_groups_list]
+
+        group_count = len(self.owned_group_ids) + len(self.joined_group_ids)
+        footer = [f"{EMOJI_GROUP} {group_count} group{'s' if group_count == 1 else ''} in total"]
+
+        return "\n\n".join(header + body + footer)
+
+    def render_owned_groups_list(self) -> str:
+        owned_groups_title = util.make_html_bold(f"Owned Groups ({len(self.owned_group_ids)} {EMOJI_CROWN})")
+        owned_groups = self.get_owned_groups()
+        if owned_groups:
+            owned_groups_list = "\n\n".join(
+                f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(owned_groups, 1)
+            )
+        else:
+            owned_groups_list = util.make_html_italic("You do not own any group!")
+        return f"{owned_groups_title}\n{owned_groups_list}"
+
+    def render_joined_groups_list(self) -> str:
+        joined_groups_title = util.make_html_bold(f"Joined Groups ({len(self.owned_group_ids)} {EMOJI_GROUP})")
+        joined_groups = self.get_joined_groups()
+        if joined_groups:
+            joined_groups_list = "\n\n".join(
+                f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(joined_groups, 1)
+            )
+        else:
+            joined_groups_list = util.make_html_italic("You have not joined any group!")
+        return f"{joined_groups_title}\n{joined_groups_list}"
 
     def build_invite_text_and_buttons(self) -> tuple:
         close_button = InlineKeyboardButton("Close", callback_data=CLOSE)

@@ -415,18 +415,11 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    uid = update.effective_user.id
+    user = User.get_user_by_id(update.effective_user.id)
 
-    header = [util.make_html_bold("Your Polls")]
-
-    recent_polls = User.get_user_by_id(uid).get_polls()
-    if recent_polls:
-        body = [f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(recent_polls, 1)]
-    else:
-        body = [util.make_html_italic("You have no polls! Use /poll to build a new poll.")]
-
-    response = "\n\n".join(header + body)
-    update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    update.message.reply_html(
+        user.render_poll_list(), reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+    )
     return
 
 
@@ -516,36 +509,11 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    uid = update.effective_user.id
+    user = User.get_user_by_id(update.effective_user.id)
 
-    header = [util.make_html_bold("Your Groups")]
-
-    user = User.get_user_by_id(uid)
-
-    owned_groups_title = util.make_html_bold(f"Owned Groups {backend.EMOJI_CROWN}")
-    owned_groups = user.get_owned_groups()
-    if owned_groups:
-        owned_groups_list = "\n\n".join(
-            f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(owned_groups, 1)
-        )
-    else:
-        owned_groups_list = util.make_html_italic("You do not own any group!")
-    owned_groups_summary = f"{owned_groups_title}\n{owned_groups_list}"
-
-    joined_groups_title = util.make_html_bold(f"Joined Groups")
-    joined_groups = user.get_joined_groups()
-    if joined_groups:
-        joined_groups_list = "\n\n".join(
-            f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(joined_groups, 1)
-        )
-    else:
-        joined_groups_list = util.make_html_italic("You have not joined any group!")
-    joined_groups_summary = f"{joined_groups_title}\n{joined_groups_list}"
-
-    body = [owned_groups_summary] + [joined_groups_summary]
-
-    response = "\n\n".join(header + body)
-    update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    update.message.reply_html(
+        user.render_groups_list(), reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+    )
     return
 
 
@@ -581,18 +549,11 @@ def handle_group_polls(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    uid = update.effective_user.id
+    user = User.get_user_by_id(update.effective_user.id)
 
-    header = [util.make_html_bold("Your Group Polls")]
-
-    recent_group_polls = User.get_user_by_id(uid).get_polls()
-    if recent_group_polls:
-        body = [f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(recent_group_polls, 1)]
-    else:
-        body = [util.make_html_italic("You have no polls! Use /poll to build a new poll.")]
-
-    response = "\n\n".join(header + body)
-    update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    update.message.reply_html(
+        user.render_group_poll_list(), reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+    )
     return
 
 
