@@ -1023,7 +1023,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
 
 def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, action: str) -> None:
     """Handles done button callbacks."""
-    if not is_registered(query.from_user.id):
+    if not is_registered(query.from_user):
         query.message.delete()
         query.answer(text="Invalid callback query data!")
         logger.warning("Invalid callback query data.")
