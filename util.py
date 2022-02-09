@@ -118,3 +118,7 @@ def build_single_link_button_markup(text: str, link: str) -> InlineKeyboardMarku
 
 def format_date(date: datetime, date_format="%B %d, %Y") -> str:
     return date.strftime(date_format)
+
+
+def list_to_dict(_list: list) -> dict:
+    return {i: item for i, item in enumerate(_list)}

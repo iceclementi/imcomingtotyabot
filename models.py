@@ -11,6 +11,7 @@ import util
 
 # Settings
 POLL_ID_LENGTH = 4
+LIST_ID_LENGTH = 4
 GROUP_ID_LENGTH = 3
 MAX_GROUPS_PER_USER = 10
 MAX_JOINED_GROUPS_PER_USER = 30
@@ -21,15 +22,18 @@ EMOJI_POLL = "\U0001f4ca"
 EMOJI_CROWN = "\U0001f451"
 EMOJI_HAPPY = "\U0001f60a"
 SESSION_EXPIRY = 1  # In hours
-POLL_EXPIRY = 720
+EXPIRY = 720
 BOT_NAME = "imcomingtotyabot"
 
 # Button Actions
 USER_SUBJECT = "u"
 POLL_SUBJECT = "p"
+LIST_SUBJECT = "l"
 GROUP_SUBJECT = "g"
 PUBLISH = "publish"
 REFRESH = "refresh"
+OPTION = "opt"
+OPTIONS = "opts"
 USER_REFRESH = "userRefresh"
 REFRESH_OPT = "refreshOpt"
 CUSTOMISE = "custom"
@@ -61,6 +65,7 @@ SKIP = "skip"
 all_users = dict()
 all_groups = dict()
 all_polls = dict()
+all_lists = dict()
 
 
 class User(object):
@@ -586,7 +591,7 @@ class Poll(object):
     @classmethod
     def create_new(cls, title: str, uid: int, description: str, option_titles: list):
         poll_id = util.generate_random_id(POLL_ID_LENGTH, set(all_polls.keys()))
-        poll = cls(poll_id, title, uid, description, list(), True, set(), POLL_EXPIRY, datetime.now())
+        poll = cls(poll_id, title, uid, description, list(), True, set(), EXPIRY, datetime.now())
 
         for option_title in option_titles:
             poll.add_option(Option.create_new(option_title))
@@ -644,7 +649,7 @@ class Poll(object):
         self.message_details.add(mid)
 
     def has_message_details(self, mid: str) -> bool:
-        return any(mid == message_id for message_id in self.message_details)
+        return mid in self.message_details
 
     def is_single_response(self) -> bool:
         return self.single_response
@@ -703,7 +708,7 @@ class Poll(object):
         return self.options[opt_id].is_user_comment_required(uid)
 
     def get_respondent_count(self) -> int:
-        all_respondents_uid = set(uid for option in self.options for uid in option.respondents)
+        all_respondents_uid = set(uid for option in self.options for uid in option.get_respondents())
         return len(all_respondents_uid)
 
     def generate_respondents_summary(self) -> str:
@@ -724,7 +729,7 @@ class Poll(object):
         return "\n".join(header + creator + link) if include_creator else "\n".join(header + link)
 
     def generate_options_summary(self) -> str:
-        return " / ".join(option.title for option in self.options)
+        return " / ".join(option.get_title() for option in self.options)
 
     def render_text(self) -> str:
         title = util.make_html_bold(self.title)
@@ -836,7 +841,7 @@ class Option(object):
         return cls(title, is_comment_required, list())
 
     @classmethod
-    def load(cls, title:str, is_comment_required: bool, respondents: list):
+    def load(cls, title: str, is_comment_required: bool, respondents: list):
         return cls(title, is_comment_required, respondents)
 
     def get_title(self) -> str:
@@ -851,12 +856,11 @@ class Option(object):
     def is_voted_by_user(self, uid: int) -> bool:
         return uid in self.respondents
 
+    def get_respondents(self) -> list:
+        return self.respondents
+
     def has_votes(self) -> bool:
         return len(self.respondents) > 0
-
-    def remove_user(self, uid: int) -> None:
-        if uid in self.respondents:
-            self.respondents.pop(uid)
 
     def get_user_comment(self, uid: int) -> str:
         if uid not in self.respondents:
@@ -878,6 +882,10 @@ class Option(object):
             self.respondents[uid] = user_profile.get("first_name", ""), user_profile.get("last_name", ""), comment
             action = "added to"
         return f"You are {action} {self.title}!"
+    
+    def remove_user(self, uid: int) -> None:
+        if uid in self.respondents:
+            self.respondents.pop(uid)
 
     def toggle_comment_requirement(self) -> str:
         self.comment_required = not self.comment_required
@@ -907,6 +915,282 @@ class Option(object):
             db.OPTION_TITLE: self.title,
             db.OPTION_COMMENT_REQUIRED: self.comment_required,
             db.OPTION_RESPONDENTS: list(self.respondents.items())
+        }
+
+
+class List(object):
+    def __init__(self, list_id: str, title: str, uid: int, description: str, options: list, choices: list,
+                 single_response: bool, message_details: set, expiry: int, created_date: datetime) -> None:
+        self.list_id = list_id
+        self.title = title
+        self.creator_id = uid
+        self.description = description
+        self.options = options
+        self.choices = choices
+        self.single_response = single_response
+        self.message_details = message_details
+        self.expiry = expiry
+        self.created_date = created_date
+
+    @staticmethod
+    def get_list_by_id(list_id: str):
+        return all_lists.get(list_id, None)
+
+    @classmethod
+    def create_new(cls, title: str, uid: int, description: str, option_titles: list, choices: list):
+        list_id = util.generate_random_id(LIST_ID_LENGTH, set(all_lists.keys()))
+        _list = cls(list_id, title, uid, description, list(), choices, True, set(), EXPIRY, datetime.now())
+
+        for option_title in option_titles:
+            _list.add_option(ListOption.create_new(option_title))
+
+        all_lists[list_id] = _list
+        return _list
+
+    @classmethod
+    def load(cls, list_id: str, title: str, uid: int, description: str, options: list, choices: list,
+             single_response: bool, message_details: list, expiry: int, created_date: str) -> None:
+        _list = cls(list_id, title, uid, description, list(), choices, single_response, set(message_details),
+                    expiry, datetime.fromisoformat(created_date))
+
+        for option_data in options:
+            _list.add_option(ListOption.load(
+                option_data.get(db.LIST_OPTION_TITLE, ""),
+                option_data.get(db.LIST_OPTION_ALLOCATIONS, [])
+            ))
+
+        all_lists[list_id] = _list
+        return
+
+    def delete(self) -> None:
+        all_lists.pop(self.list_id, None)
+
+    def get_creator_id(self) -> int:
+        return self.creator_id
+
+    def get_list_id(self) -> str:
+        return self.list_id
+
+    def get_title(self) -> str:
+        return self.title
+
+    def set_title(self, title: str) -> None:
+        self.title = title
+
+    def get_description(self) -> str:
+        return self.description
+
+    def set_description(self, description: str) -> None:
+        self.description = description
+
+    def get_options(self) -> list:
+        return self.options
+
+    def add_option(self, option) -> None:
+        self.options.append(option)
+
+    def is_valid_option(self, opt_id: int) -> bool:
+        return 0 <= opt_id < len(self.options)
+
+    def get_choices(self) -> list:
+        return self.choices
+
+    def is_valid_choice(self, choice_id: int) -> bool:
+        return 0 <= choice_id < len(self.choices)
+
+    def get_message_details(self) -> set:
+        return self.message_details
+
+    def add_message_details(self, mid: str) -> None:
+        self.message_details.add(mid)
+
+    def has_message_details(self, mid: str) -> bool:
+        return mid in self.message_details
+
+    def is_single_response(self) -> bool:
+        return self.single_response
+
+    def toggle_response_type(self) -> str:
+        # if any(option.has_votes() for option in self.options):
+        #     return "Cannot change response type for non-empty poll."
+        self.single_response = not self.single_response
+        status = "single response" if self.single_response else "multi-response"
+        return f"Response type is changed to {status}."
+
+    def get_created_date(self) -> datetime:
+        return self.created_date
+
+    def get_expiry(self) -> int:
+        return self.expiry
+
+    def set_expiry(self, expiry: int) -> None:
+        self.expiry = expiry
+
+    def get_list_hash(self) -> str:
+        return f"{self.list_id}_{util.simple_hash(self.title, self.list_id, variance=False)}"
+
+    def toggle(self, opt_id: int, choice_id: int, choice_name: str) -> str:
+        if opt_id >= len(self.options):
+            return "Sorry, invalid option."
+
+        if self.single_response:
+            for i, option in enumerate(self.options):
+                if i != opt_id:
+                    option.remove_allocation(uid)
+        return self.options[opt_id].toggle(choice_id, choice_name)
+
+    def contains(self, opt_id: int, choice_id: int):
+        if opt_id < len(self.options):
+            return self.options[opt_id].contains(choice_id)
+        return False
+
+    def get_allocation_count(self) -> int:
+        all_allocations_id = set(choice_id for option in self.options for choice_id in option.get_allocations())
+        return len(all_allocations_id)
+
+    def generate_allocations_summary(self) -> str:
+        allocation_count = self.get_allocation_count()
+        if allocation_count == 0:
+            summary = "Nobody allocated"
+        elif allocation_count == 1:
+            summary = "1 person allocated"
+        else:
+            summary = f"{allocation_count} people allocated"
+        return summary
+
+    def generate_linked_summary(self, include_creator=False) -> str:
+        short_bold_title = util.make_html_bold(self.title)[:60]
+        header = [f"{short_bold_title} ({self.get_allocation_count()} {EMOJI_PEOPLE})"]
+        creator = [f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"]
+        link = [f"/list_{self.list_id}"]
+        return "\n".join(header + creator + link) if include_creator else "\n".join(header + link)
+
+    def generate_options_summary(self) -> str:
+        return " / ".join(option.get_title() for option in self.options)
+
+    def render_text(self) -> str:
+        title = util.make_html_bold(self.title)
+        description = util.make_html_italic(self.description)
+        header = [f"{title}\n{description}" if description else title]
+        body = [option.render_text() for option in self.options]
+        footer = [f"{EMOJI_PEOPLE} {self.generate_allocations_summary()}"]
+        return "\n\n".join(header + body + footer)
+
+    def build_option_buttons(self) -> InlineKeyboardMarkup:
+        buttons = []
+        for i, option in enumerate(self.options):
+            option_button = util.build_button(option.get_title(), LIST_SUBJECT, f"{OPTION}_{i}", self.list_id)
+            buttons.append([option_button])
+        refresh_button = util.build_button("Refresh", LIST_SUBJECT, REFRESH_OPT, self.list_id)
+        buttons.append([refresh_button])
+        return InlineKeyboardMarkup(buttons)
+
+    def build_admin_buttons(self, uid: int) -> InlineKeyboardMarkup:
+        publish_button = util.build_switch_button("Publish", self.title)
+        customise_button = util.build_button("Customise", LIST_SUBJECT, CUSTOMISE, self.list_id)
+        refresh_button = util.build_button("Refresh", LIST_SUBJECT, REFRESH, self.list_id)
+        close_button = util.build_button("Close", LIST_SUBJECT, CLOSE, self.list_id)
+
+        if uid == self.creator_id:
+            delete_button = util.build_button("Delete", LIST_SUBJECT, DELETE, self.list_id)
+            buttons = [[publish_button], [customise_button], [delete_button], [refresh_button, close_button]]
+        else:
+            buttons = [[publish_button], [customise_button], [refresh_button, close_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_customise_buttons(self) -> InlineKeyboardMarkup:
+        response_text = "Multi-Response" if self.single_response else "Single Response"
+        toggle_response_button = util.build_button(f"Change to {response_text}", LIST_SUBJECT, RESPONSE, self.list_id)
+        back_button = util.build_button("Back", LIST_SUBJECT, BACK, self.list_id)
+        buttons = [[toggle_response_button], [back_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_choices_buttons(self) -> InlineKeyboardMarkup:
+        buttons = []
+        for i, choice in enumerate(self.choices):
+            choice_button = util.build_button(choice, LIST_SUBJECT, f"{i}", self.list_id)
+            buttons.append([choice_button])
+        back_button = util.build_button("Back", LIST_SUBJECT, OPTIONS, self.list_id)
+        buttons.append([back_button])
+        return InlineKeyboardMarkup(buttons)
+
+    def build_delete_confirmation_buttons(self) -> InlineKeyboardMarkup:
+        yes_button = util.build_button("Delete", LIST_SUBJECT, DELETE_YES, self.list_id)
+        no_button = util.build_button("No", LIST_SUBJECT, BACK, self.list_id)
+        buttons = [[yes_button, no_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_single_button(self, text: str, action: str):
+        button = util.build_button(text, LIST_SUBJECT, action, self.list_id)
+        return InlineKeyboardMarkup([[button]])
+
+    def to_json(self) -> dict:
+        return {
+            db.LIST_ID: self.list_id,
+            db.LIST_TITLE: self.title,
+            db.LIST_CREATOR_ID: self.creator_id,
+            db.LIST_DESCRIPTION: self.description,
+            db.LIST_OPTIONS: [option.to_json() for option in self.options],
+            db.LIST_CHOICES: self.choices,
+            db.LIST_SINGLE_RESPONSE: self.single_response,
+            db.LIST_MESSAGE_DETAILS: list(self.message_details),
+            db.LIST_EXPIRY: self.expiry,
+            db.LIST_CREATED_DATE: self.created_date.isoformat()
+        }
+
+
+class ListOption(object):
+    def __init__(self, title: str, allocations: list) -> None:
+        self.title = title
+        self.allocations = util.list_to_dict(allocations)
+
+    @classmethod
+    def create_new(cls, title: str):
+        return cls(title, list())
+
+    @classmethod
+    def load(cls, title: str, allocations: list):
+        return cls(title, allocations)
+
+    def get_title(self) -> str:
+        return self.title
+
+    def contains(self, choice_id: int) -> bool:
+        return choice_id in self.allocations
+
+    def get_allocations(self) -> list:
+        return self.allocations
+
+    def is_allocated(self) -> bool:
+        return len(self.allocations) > 0
+
+    def remove_allocation(self, choice_id: int) -> None:
+        if choice_id in self.allocations:
+            self.allocations.pop(choice_id)
+
+    def toggle(self, choice_id: int, choice_name: str) -> str:
+        if choice_id in self.allocations:
+            self.allocations.pop(choice_id, None)
+            action = "removed from"
+        else:
+            self.allocations[choice_id] = choice_name
+            action = "added to"
+        return f"{choice_name} is {action} {self.title}!"
+
+    def generate_namelist(self) -> str:
+        return "\n".join(self.allocations.values())
+
+    def render_text(self) -> str:
+        title = util.make_html_bold(self.title)
+        if self.allocations:
+            title += f" ({len(self.allocations)} {EMOJI_PEOPLE})"
+        namelist = util.strip_html_symbols(self.generate_namelist())
+        return f"{title}\n{namelist}"
+
+    def to_json(self) -> dict:
+        return {
+            db.OPTION_TITLE: self.title,
+            db.OPTION_RESPONDENTS: list(self.allocations.values())
         }
 
 

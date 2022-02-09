@@ -450,6 +450,18 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
     return
 
 
+def handle_attend(update: Update, context: CallbackContext) -> None:
+    pass
+
+
+def handle_attends(update: Update, context: CallbackContext) -> None:
+    pass
+
+
+def handle_attend_view(update: Update, context: CallbackContext) -> None:
+    pass
+
+
 def handle_group(update: Update, context: CallbackContext) -> None:
     """Begins creating a new group."""
     delete_chat_message(update.message)
@@ -987,7 +999,6 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
             query.answer(text="Invalid callback query data!")
             logger.warning("Invalid callback query data.")
             return
-        return
     # Handle done button
     elif action == models.DONE:
         user_action = context.user_data.get("action", "")
@@ -1706,6 +1717,8 @@ def handle_chosen_poll_result(update: Update, context: CallbackContext) -> None:
 
 # endregion
 
+# region OTHER HANDLERS
+
 
 def handle_error(update: Update, context: CallbackContext) -> None:
     """Logs errors caused by Updates."""
@@ -1737,6 +1750,7 @@ def handle_load(update: Update, context: CallbackContext) -> None:
     update.message.reply_html(status, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
     return
 
+# endregion
 
 # region HELPERS
 
@@ -1918,7 +1932,7 @@ def main() -> None:
 
     # Start database operations
     updater.job_queue.run_once(load_data, 0)
-    updater.job_queue.run_repeating(save_data, 300, first=60)
+    updater.job_queue.run_repeating(save_data, 600, first=60)
 
     # Start the bot
     updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=WEB_URL + TOKEN)

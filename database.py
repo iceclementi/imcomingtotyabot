@@ -61,7 +61,7 @@ POLL_TITLE = "title"
 POLL_CREATOR_ID = "creator_id"
 POLL_DESCRIPTION = "description"
 POLL_OPTIONS = "options"
-POLL_SINGLE_RESPONSE = "single_response"
+POLL_SINGLE_RESPONSE = "is_single_response"
 POLL_MESSAGE_DETAILS = "message_details"
 POLL_EXPIRY = "expiry"
 POLL_CREATED_DATE = "created_date"
@@ -75,6 +75,29 @@ OPTION_TITLE = "title"
 OPTION_COMMENT_REQUIRED = "comment_required"
 OPTION_RESPONDENTS = "respondents"
 OPTION_FIELDS = [OPTION_TITLE, OPTION_COMMENT_REQUIRED, OPTION_RESPONDENTS]
+
+# List database fields
+LIST_SHEET = "list"
+LIST_ID = "list_id"
+LIST_TITLE = "title"
+LIST_CREATOR_ID = "creator_id"
+LIST_DESCRIPTION = "description"
+LIST_OPTIONS = "options"
+LIST_CHOICES = "choices"
+LIST_SINGLE_RESPONSE = "is_single_response"
+LIST_MESSAGE_DETAILS = "message_details"
+LIST_EXPIRY = "expiry"
+LIST_CREATED_DATE = "created_date"
+LIST_FIELDS = [
+    LIST_ID, LIST_TITLE, LIST_CREATOR_ID, LIST_DESCRIPTION, LIST_OPTIONS, LIST_CHOICES,
+    LIST_SINGLE_RESPONSE, LIST_MESSAGE_DETAILS, LIST_EXPIRY, LIST_CREATED_DATE
+]
+
+# List option fields
+LIST_OPTION_TITLE = "title"
+LIST_OPTION_ALLOCATIONS = "allocations"
+LIST_OPTION_FIELDS = [LIST_OPTION_TITLE, LIST_OPTION_ALLOCATIONS]
+
 
 # endregion
 
