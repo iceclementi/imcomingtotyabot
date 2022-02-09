@@ -461,12 +461,9 @@ def handle_group(update: Update, context: CallbackContext) -> None:
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
-    if not is_registered(update.effective_user):
-        handle_help(update, context)
-        return
+    user, is_leader, _ = get_user_permissions(update.effective_user.id)
 
-    user = User.get_user_by_id(update.effective_user.id)
-    if not user.is_leader():
+    if not user or not is_leader:
         handle_help(update, context)
         return
 
@@ -485,21 +482,24 @@ def handle_group(update: Update, context: CallbackContext) -> None:
 
     if len(group_name) > MAX_GROUP_NAME_LENGTH:
         reply_message = update.message.reply_html(
-            ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
         )
         context.user_data.update({"del": reply_message.message_id})
         return
 
     if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
         reply_message = update.message.reply_html(
-            ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cance;", backend.RESET)
         )
         context.user_data.update({"del": reply_message.message_id})
         return
 
     response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
     reply_message = update.message.reply_html(
-        response, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
+        response, reply_markup=util.build_multiple_buttons_markup(
+            util.generate_button_details("Skip", backend.DONE),
+            util.generate_button_details("Cancel", backend.RESET)
+        )
     )
     context.user_data.update({"name": group_name, "del": reply_message.message_id})
     return
@@ -850,21 +850,19 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
-
-
     # Handle group name
     if not group_name:
         group_name = text.replace("\n", " ")
         if len(group_name) > MAX_GROUP_NAME_LENGTH:
             reply_message = update.message.reply_html(
-                ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+                ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
             return
 
         if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
             reply_message = update.message.reply_html(
-                ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+                ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
             return
@@ -878,7 +876,7 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
     # Handle secret
     if not re.match(r"^[A-Za-z0-9]{4,20}$", text):
         reply_message = update.message.reply_html(
-            ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Close", backend.CLOSE)
+            ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Cancel", backend.RESET)
         )
         context.user_data.update({"del": reply_message.message_id})
         return
@@ -990,8 +988,6 @@ def handle_general_callback_query(query: CallbackQuery, update: Update, context:
             )
             context.user_data.update({"descr": " ", "del": reply_message.message_id})
             return
-        elif user_action == "group":
-            pass
         else:
             query.answer(text="Invalid callback query data!")
             logger.warning("Invalid callback query data.")
@@ -1867,7 +1863,6 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler("start", handle_start, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("poll", handle_poll, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("group", handle_group, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("done", handle_done, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("polls", handle_polls, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("groups", handle_groups, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("invite", handle_invite, filters=Filters.chat_type.private))
