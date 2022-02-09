@@ -1498,6 +1498,13 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 input_message_content=InputTextMessageContent("/groups")
             )
             results.append(query_result)
+        # Handle group polls query
+        if "gpoll".startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id="grouppollscom", title="/gpolls", description="View all the polls in your groups",
+                input_message_content=InputTextMessageContent("/gpolls")
+            )
+            results.append(query_result)
         # Handle invite query
         if "invit".startswith(command) and user:
             query_result = InlineQueryResultArticle(
@@ -1535,7 +1542,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             results.append(query_result)
 
     # Display complete commands as pm text
-    match = re.match(r"^/(start|poll|polls|group|groups|invite|enrol|promote|help)(\s+.+)?$", text)
+    match = re.match(r"^/(start|poll|polls|group|groups|gpolls|invite|enrol|promote|help)(\s+.+)?$", text)
     if match:
         command, details = match.group(1), match.group(2)
         details = details.strip() if details else ""
@@ -1584,6 +1591,17 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 )
                 results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your joined groups", switch_pm_parameter=command)
+            return
+        # Handle group polls query
+        elif command == "gpolls" and user and is_sender:
+            for poll in user.get_group_polls(details)[:QUERY_RESULTS_LIMIT]:
+                query_result = InlineQueryResultArticle(
+                    id=f"gpoll_{poll.get_poll_id()}", title=poll.get_title(),
+                    description=poll.generate_options_summary(),
+                    input_message_content=InputTextMessageContent(f"/poll_{poll.get_poll_id()}")
+                )
+                results.append(query_result)
+            query.answer(results, switch_pm_text="Click to view all your group polls", switch_pm_parameter=command)
             return
         # Handle invite query
         elif command == "invite" and user:
