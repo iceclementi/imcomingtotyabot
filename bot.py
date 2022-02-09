@@ -35,6 +35,7 @@ MAX_GROUP_NAME_LENGTH = 50
 MIN_GROUP_PASS_LENGTH = 4
 MAX_GROUP_PASS_LENGTH = 20
 ACCESS_REQUIRED = True  # Set to False if access is not required to access bot
+QUERY_RESULTS_LIMIT = 20
 
 # endregion
 
@@ -418,7 +419,7 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
 
     header = [util.make_html_bold("Your Polls")]
 
-    recent_polls = User.get_user_by_id(uid).get_polls(limit=20)
+    recent_polls = User.get_user_by_id(uid).get_polls()
     if recent_polls:
         body = [f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(recent_polls, 1)]
     else:
@@ -570,6 +571,31 @@ def handle_group_view(update: Update, context: CallbackContext) -> None:
     return
 
 
+def handle_group_polls(update: Update, context: CallbackContext) -> None:
+    """Displays all recent group polls to the user."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
+
+    uid = update.effective_user.id
+
+    header = [util.make_html_bold("Your Group Polls")]
+
+    recent_group_polls = User.get_user_by_id(uid).get_polls()
+    if recent_group_polls:
+        body = [f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(recent_group_polls, 1)]
+    else:
+        body = [util.make_html_italic("You have no polls! Use /poll to build a new poll.")]
+
+    response = "\n\n".join(header + body)
+    update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", backend.CLOSE))
+    return
+
+
 def handle_invite(update: Update, context: CallbackContext) -> None:
     """Sends group invitation code."""
     delete_chat_message(update.message)
@@ -714,6 +740,8 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         )
         context.user_data.update({"title": text, "del": reply_message.message_id})
         return
+
+    # Handle description
     if not description:
         response = NEW_OPTION.format("Awesome! Description added!")
         reply_message = update.message.reply_html(
@@ -1089,6 +1117,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
         # Clear user data
         context.user_data.clear()
         return
+    # Handle other cases
     else:
         query.message.delete()
         query.answer(text="Invalid callback query data!")
@@ -1351,7 +1380,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
 
         user = User.get_user_by_id(uid)
         response, buttons = group.build_polls_text_and_buttons(
-            user.get_polls(), filter_out=True, limit=30, action=backend.ADD_POLL, back_action=backend.VIEW_GROUP_POLLS
+            user.get_polls(), filter_out=True, action=backend.ADD_POLL, back_action=backend.VIEW_GROUP_POLLS
         )
 
         if not response:
@@ -1386,7 +1415,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         user = User.get_user_by_id(uid)
         filters = group.get_polls() if is_owner else user.get_polls()
         response, buttons = group.build_polls_text_and_buttons(
-            filters, filter_out=False, limit=30, action=backend.REMOVE_POLL, back_action=backend.VIEW_GROUP_POLLS
+            filters, filter_out=False, action=backend.REMOVE_POLL, back_action=backend.VIEW_GROUP_POLLS
         )
 
         if not response:
@@ -1565,7 +1594,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             return
         # Handle polls query
         elif command == "polls" and user and is_sender:
-            for poll in user.get_polls(details, limit=10):
+            for poll in user.get_polls(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
                     id=f"poll_{poll.get_poll_id()}", title=poll.get_title(),
                     description=poll.generate_options_summary(),
@@ -1586,7 +1615,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             return
         # Handle groups query
         elif command == "groups" and user and is_sender:
-            for group in user.get_all_groups(details, limit=30):
+            for group in user.get_all_groups(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
                     id=f"group_{group.get_gid()}", title=group.get_name(),
                     description=group.generate_group_description_summary(),
@@ -1600,7 +1629,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             if is_sender:
                 query.answer(results, switch_pm_text="Click to send a group invite", switch_pm_parameter=command)
                 return
-            for group in user.get_owned_groups(details, limit=10):
+            for group in user.get_owned_groups(details)[:QUERY_RESULTS_LIMIT]:
                 invitation, join_button = group.build_invite_text_and_button(update.effective_user.first_name)
                 query_result = InlineQueryResultArticle(
                     id=group.get_gid(), title=group.get_name(), description=group.generate_group_description_summary(),
@@ -1627,7 +1656,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             return
         # Handle promote query
         elif command == "promote" and is_admin and is_sender:
-            for user in User.get_users_by_name(details):
+            for user in User.get_users_by_name(details)[:QUERY_RESULTS_LIMIT]:
                 if not user.is_leader():
                     query_result = InlineQueryResultArticle(
                         id=user.get_uid(), title=user.get_name(), description=f"@{user.get_username()}",
@@ -1649,7 +1678,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
 
     # Handle poll query
     if user:
-        polls = user.get_polls(text, limit=10)
+        polls = user.get_polls(text)[:QUERY_RESULTS_LIMIT]
         for poll in polls:
             query_result = InlineQueryResultArticle(
                 id=f"poll {poll.get_poll_id()}", title=poll.get_title(), description=poll.generate_options_summary(),
@@ -1880,6 +1909,7 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler("poll", handle_poll, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("group", handle_group, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("polls", handle_polls, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("gpolls", handle_group_polls, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("groups", handle_groups, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("invite", handle_invite, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("help", handle_help, filters=Filters.chat_type.private))

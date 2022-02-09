@@ -7,6 +7,8 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 import database as db
 import util
 
+# region SETTINGS
+
 # Settings
 POLL_ID_LENGTH = 4
 GROUP_ID_LENGTH = 3
@@ -53,6 +55,7 @@ RESET = "reset"
 DONE = "done"
 SKIP = "skip"
 
+# endregion
 
 all_users = dict()
 all_groups = dict()
@@ -115,13 +118,13 @@ class User(object):
     def get_owned_group_ids(self) -> set:
         return self.groups
 
-    def get_owned_groups(self, filters="", limit=MAX_GROUPS_PER_USER) -> list:
+    def get_owned_groups(self, filters="") -> list:
         user_groups = [Group.get_group_by_id(gid) for gid in self.owned_group_ids]
         filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
-        return sorted(filtered_groups, key=lambda group: group.get_name().lower())[:limit]
+        return sorted(filtered_groups, key=lambda group: group.get_name().lower())
 
     def has_group_with_name(self, name: str) -> bool:
-        return any(group.get_name() == name for group in self.get_owned_groups(limit=MAX_GROUPS_PER_USER))
+        return any(group.get_name() == name for group in self.get_owned_groups())
 
     def create_group(self, name: str, password="") -> tuple:
         if self.has_group_with_name(name):
@@ -143,10 +146,10 @@ class User(object):
     def get_joined_group_ids(self) -> set:
         return self.joined_group_ids
 
-    def get_joined_groups(self, filters="", limit=MAX_JOINED_GROUPS_PER_USER) -> list:
+    def get_joined_groups(self, filters="") -> list:
         user_groups = [Group.get_group_by_id(gid) for gid in self.joined_group_ids]
         filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
-        return sorted(filtered_groups, key=lambda group: group.get_name().lower())[:limit]
+        return sorted(filtered_groups, key=lambda group: group.get_name().lower())
 
     def join_group(self, gid: str) -> str:
         if len(self.joined_group_ids) >= MAX_JOINED_GROUPS_PER_USER:
@@ -162,18 +165,25 @@ class User(object):
     def get_all_group_ids(self) -> set:
         return set.union(self.owned_group_ids, self.joined_group_ids)
 
-    def get_all_groups(self, filters="", limit=50) -> list:
+    def get_all_groups(self, filters="") -> list:
         user_groups = [Group.get_group_by_id(gid) for gid in self.get_all_group_ids()]
         filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
-        return sorted(filtered_groups, key=lambda group: group.get_name().lower())[:limit]
+        return sorted(filtered_groups, key=lambda group: group.get_name().lower())
 
     def get_poll_ids(self) -> set:
         return self.poll_ids
 
-    def get_polls(self, filters="", limit=50) -> list:
+    def get_polls(self, filters="") -> list:
         user_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
         filtered_polls = [poll for poll in user_polls if filters.lower() in poll.get_title().lower()]
-        return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)[:limit]
+        return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)
+
+    def get_group_polls(self, filters="") -> list:
+        group_poll_ids = set()
+        for group in self.get_all_groups()
+        group_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
+        filtered_polls = [poll for poll in user_polls if filters.lower() in poll.get_title().lower()]
+        return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)
 
     def create_poll(self, title: str, description: str, options: list) -> tuple:
         poll = Poll.create_new(title, self.uid, description, options)
@@ -304,10 +314,10 @@ class Group(object):
     def get_poll_ids(self) -> set:
         return self.poll_ids
 
-    def get_polls(self, filters="", limit=50) -> list:
+    def get_polls(self, filters="") -> list:
         group_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
         filtered_polls = [poll for poll in group_polls if filters.lower() in poll.get_title().lower()]
-        return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)[:limit]
+        return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)
 
     def add_poll(self, poll_id: str) -> str:
         if poll_id in self.poll_ids:
@@ -342,11 +352,11 @@ class Group(object):
 
         return "\n".join(members_list)
 
-    def generate_group_polls_list(self, limit=50) -> str:
+    def generate_group_polls_list(self) -> str:
         if not self.poll_ids:
             return util.make_html_italic("You have no group polls. Go ahead and add a poll into the group!")
 
-        return "\n\n".join(poll.generate_linked_summary(include_creator=True) for poll in self.get_polls(limit=limit))
+        return "\n\n".join(poll.generate_linked_summary(include_creator=True) for poll in self.get_polls())
 
     def generate_group_description_summary(self) -> str:
         owner = [f"{EMOJI_CROWN} {User.get_user_by_id(self.owner).get_name()}"]
@@ -443,12 +453,11 @@ class Group(object):
             buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_polls_text_and_buttons(self, filters: list, filter_out=False, limit=30,
-                                     action="", back_action="") -> tuple:
+    def build_polls_text_and_buttons(self, filters: list, filter_out=False, action="", back_action="") -> tuple:
         if filter_out:
-            polls = [poll for poll in filters if poll.get_poll_id() not in self.get_poll_ids()][:limit]
+            polls = [poll for poll in filters if poll.get_poll_id() not in self.get_poll_ids()]
         else:
-            polls = [poll for poll in filters if poll.get_poll_id() in self.get_poll_ids()][:limit]
+            polls = [poll for poll in filters if poll.get_poll_id() in self.get_poll_ids()]
 
         back_button = util.build_button("Back", backend.GROUP_SUBJECT, back_action, self.gid)
 
