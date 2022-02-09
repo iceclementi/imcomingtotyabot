@@ -2,8 +2,8 @@
 import os
 import logging
 import re
-import backend
-from backend import User, Group, Poll, Option, BotManager
+import models
+from models import User, Group, Poll, Option, BotManager
 import util
 from telegram import (
     Update, ParseMode, User as TeleUser, Message, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup,

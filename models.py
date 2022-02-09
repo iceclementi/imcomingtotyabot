@@ -180,9 +180,10 @@ class User(object):
 
     def get_group_polls(self, filters="") -> list:
         group_poll_ids = set()
-        for group in self.get_all_groups()
-        group_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
-        filtered_polls = [poll for poll in user_polls if filters.lower() in poll.get_title().lower()]
+        for group in self.get_all_groups():
+            group_poll_ids.update(group.get_poll_ids())
+        group_polls = [Poll.get_poll_by_id(poll_id) for poll_id in group_poll_ids]
+        filtered_polls = [poll for poll in group_polls if filters.lower() in poll.get_title().lower()]
         return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)
 
     def create_poll(self, title: str, description: str, options: list) -> tuple:
