@@ -19,6 +19,7 @@ MAX_GROUP_SIZE = 50
 EMOJI_PEOPLE = "\U0001f465"
 EMOJI_GROUP = "\U0001fac2"
 EMOJI_POLL = "\U0001f4ca"
+EMOJI_LIST = "\U0001f4dd"
 EMOJI_CROWN = "\U0001f451"
 EMOJI_HAPPY = "\U0001f60a"
 SESSION_EXPIRY = 1  # In hours
@@ -69,8 +70,8 @@ all_lists = dict()
 
 
 class User(object):
-    def __init__(self, uid: int, first_name: str, last_name: str, username: str,
-                 is_leader: bool, owned_group_ids: set, joined_group_ids: set, poll_ids: set) -> None:
+    def __init__(self, uid: int, first_name: str, last_name: str, username: str, is_leader: bool,
+                 owned_group_ids: set, joined_group_ids: set, poll_ids: set, list_ids: set) -> None:
         self.uid = uid
         self.first_name = first_name
         self.last_name = last_name
@@ -79,6 +80,7 @@ class User(object):
         self.owned_group_ids = owned_group_ids
         self.joined_group_ids = joined_group_ids
         self.poll_ids = poll_ids
+        self.list_ids = list_ids
 
     @staticmethod
     def get_user_by_id(uid: int):
@@ -92,15 +94,15 @@ class User(object):
 
     @classmethod
     def register(cls, uid: int, first_name: str, last_name="", username=""):
-        user = cls(uid, first_name, last_name, username, False, set(), set(), set())
+        user = cls(uid, first_name, last_name, username, False, set(), set(), set(), set())
         all_users[uid] = user
         return user
 
     @classmethod
-    def load(cls, uid: int, first_name: str, last_name: str, username: str,
-             is_leader: bool, owned_group_ids: list, joined_group_ids: list, poll_ids: list) -> None:
+    def load(cls, uid: int, first_name: str, last_name: str, username: str, is_leader: bool,
+             owned_group_ids: list, joined_group_ids: list, poll_ids: list, list_ids: list) -> None:
         user = cls(uid, first_name, last_name, username, is_leader,
-                   set(owned_group_ids), set(joined_group_ids), set(poll_ids))
+                   set(owned_group_ids), set(joined_group_ids), set(poll_ids), set(list_ids))
         all_users[uid] = user
         return
 
@@ -215,8 +217,47 @@ class User(object):
     def has_group_poll(self, poll_id: str) -> bool:
         return any(poll_id in group.get_poll_ids() for group in self.get_all_groups())
 
+    def get_list_ids(self) -> set:
+        return self.list_ids
+
+    def get_lists(self, filters="") -> list:
+        user_lists = [List.get_list_by_id(list_id) for list_id in self.list_ids]
+        filtered_lists = [_list for _list in user_lists if filters.lower() in _list.get_title().lower()]
+        return sorted(filtered_lists, key=lambda _list: _list.get_created_date(), reverse=True)
+
+    def get_group_lists(self, filters="") -> list:
+        group_list_ids = set()
+        for group in self.get_all_groups():
+            group_list_ids.update(group.get_list_ids())
+        group_lists = [List.get_list_by_id(list_id) for list_id in group_list_ids]
+        filtered_lists = [_list for _list in group_lists if filters.lower() in _list.get_title().lower()]
+        return sorted(filtered_lists, key=lambda _list: _list.get_created_date(), reverse=True)
+
+    def create_list(self, title: str, description: str, options: list, choices: list) -> tuple:
+        _list = List.create_new(title, self.uid, description, options, choices)
+        self.list_ids.add(_list.get_list_id())
+        return _list, f"List {util.make_html_bold(title)} created!"
+
+    def delete_list(self, list_id: str) -> str:
+        if list_id not in self.list_ids:
+            return "No such list exists."
+        self.list_ids.remove(list_id)
+
+        # Delete list from all user groups
+        for group in self.get_all_groups():
+            if list_id in group.get_list_ids():
+                group.remove_list(list_id)
+
+        list = List.get_list_by_id(list_id)
+        list.delete()
+
+        return f"Poll {util.make_html_bold(list.get_title())} has been deleted."
+
+    def has_group_list(self, list_id: str) -> bool:
+        return any(list_id in group.get_list_ids() for group in self.get_all_groups())
+
     def render_poll_list(self) -> str:
-        header = [util.make_html_bold("Your Group Polls")]
+        header = [util.make_html_bold("Your Polls")]
 
         user_polls = self.get_polls()
         if user_polls:
@@ -229,8 +270,22 @@ class User(object):
 
         return "\n\n".join(header + body + footer)
 
+    def render_list_list(self) -> str:
+        header = [util.make_html_bold("Your Lists")]
+
+        user_lists = self.get_lists()
+        if user_lists:
+            body = [f"{i}. {_list.generate_linked_summary()}" for i, _list in enumerate(user_lists, 1)]
+        else:
+            body = [util.make_html_italic("You have no lists! Use /list to build a new list.")]
+
+        list_count = len(user_lists)
+        footer = [f"{EMOJI_LIST} {list_count} list{'' if list_count == 1 else 's'} in total"]
+
+        return "\n\n".join(header + body + footer)
+
     def render_group_poll_list(self) -> str:
-        header = [util.make_html_bold("Your Polls")]
+        header = [util.make_html_bold("Your Group Polls")]
 
         group_polls = self.get_group_polls()
         if group_polls:
@@ -240,6 +295,20 @@ class User(object):
 
         poll_count = len(group_polls)
         footer = [f"{EMOJI_POLL} {poll_count} group poll{'' if poll_count == 1 else 's'} in total"]
+
+        return "\n\n".join(header + body + footer)
+
+    def render_group_list_list(self) -> str:
+        header = [util.make_html_bold("Your Group Lists")]
+
+        group_lists = self.get_group_lists()
+        if group_lists:
+            body = [f"{i}. {_list.generate_linked_summary(True)}" for i, _list in enumerate(group_lists, 1)]
+        else:
+            body = [util.make_html_italic("You have no group lists!")]
+
+        list_count = len(group_lists)
+        footer = [f"{EMOJI_LIST} {list_count} group list{'' if list_count == 1 else 's'} in total"]
 
         return "\n\n".join(header + body + footer)
 
@@ -303,13 +372,14 @@ class User(object):
 
 class Group(object):
     def __init__(self, gid: str, name: str, uid: int, password: str, member_ids: set,
-                 poll_ids: set, created_date: datetime) -> None:
+                 poll_ids: set, list_ids: set, created_date: datetime) -> None:
         self.gid = gid
         self.name = name
         self.owner = uid
         self.password = password
         self.member_ids = member_ids
         self.poll_ids = poll_ids
+        self.list_ids = list_ids
         self.created_date = created_date
 
     @staticmethod
@@ -319,14 +389,15 @@ class Group(object):
     @classmethod
     def create_new(cls, name: str, uid: int, password=""):
         gid = util.generate_random_id(GROUP_ID_LENGTH, set(all_groups.keys()))
-        group = cls(gid, name, uid, password, {uid}, set(), datetime.now())
+        group = cls(gid, name, uid, password, {uid}, set(), set(), datetime.now())
         all_groups[gid] = group
         return group
 
     @classmethod
     def load(cls, gid: str, name: str, owner: int, password: str, member_ids: list,
-             poll_ids: list, created_date: str) -> None:
-        group = cls(gid, name, owner, password, set(member_ids), set(poll_ids), datetime.fromisoformat(created_date))
+             poll_ids: list, list_ids: list, created_date: str) -> None:
+        group = cls(gid, name, owner, password, set(member_ids),
+                    set(poll_ids), set(list_ids), datetime.fromisoformat(created_date))
         all_groups[gid] = group
         return
 
@@ -401,6 +472,27 @@ class Group(object):
         title = Poll.get_poll_by_id(poll_id).get_title()
         return f"Poll \"{title}\" has been removed from the group."
 
+    def get_list_ids(self) -> set:
+        return self.list_ids
+
+    def get_lists(self, filters="") -> list:
+        group_lists = [Poll.get_list_by_id(list_id) for list_id in self.list_ids]
+        filtered_lists = [_list for _list in group_lists if filters.lower() in _list.get_title().lower()]
+        return sorted(filtered_lists, key=lambda _list: _list.get_created_date(), reverse=True)
+
+    def add_list(self, list_id: str) -> str:
+        if list_id in self.list_ids:
+            return "The list already exists in the group."
+        self.list_ids.add(list_id)
+        return f"List \"{List.get_list_by_id(list_id).get_title()}\" added into the group."
+
+    def remove_list(self, list_id: str) -> str:
+        if list_id not in self.list_ids:
+            return "The list is not in the group."
+        self.list_ids.remove(list_id)
+        title = List.get_list_by_id(list_id).get_title()
+        return f"List \"{title}\" has been removed from the group."
+
     def generate_linked_summary(self) -> str:
         short_bold_title = util.make_html_bold(self.name)[:60]
         link = f"/group_{self.gid}"
@@ -431,7 +523,8 @@ class Group(object):
         owner = [f"{EMOJI_CROWN} {User.get_user_by_id(self.owner).get_name()}"]
         member_count = [f"{EMOJI_PEOPLE} {len(self.member_ids)}"]
         poll_count = [f"{EMOJI_POLL} {len(self.poll_ids)}"]
-        return " / ".join(owner + member_count + poll_count)
+        list_count = [f"{EMOJI_LIST} {len(self.list_ids)}"]
+        return " / ".join(owner + member_count + poll_count + list_count)
 
     def render_group_details_text(self) -> str:
         title = util.make_html_bold(self.name)
@@ -440,7 +533,8 @@ class Group(object):
 
         member_count = f"{EMOJI_PEOPLE} {len(self.member_ids)}"
         poll_count = f"{EMOJI_POLL} {len(self.poll_ids)}"
-        body = [f"{member_count: <8}{poll_count}"]
+        list_count = f"{EMOJI_LIST} {len(self.list_ids)}"
+        body = [f"{member_count: <8}{poll_count: <8}{list_count}"]
 
         footer = [util.make_html_italic(f"Created on: {util.format_date(self.created_date)}")]
         return "\n\n".join(header + body + footer)
@@ -567,6 +661,7 @@ class Group(object):
             db.GROUP_PASSWORD: self.password,
             db.GROUP_MEMBER_IDS: list(self.member_ids),
             db.GROUP_POLL_IDS: list(self.poll_ids),
+            db.GROUP_LIST_IDS: list(self.list_ids),
             db.GROUP_CREATED_DATE: self.created_date.isoformat()
         }
 
