@@ -1726,10 +1726,12 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         return
     # Handle update done button
     elif action == models.UPDATE_DONE and is_pm:
-        reply_message = query.edit_message_reply_markup(
-            util.build_single_switch_button_markup("Return To Chat", "/")
+        reply_message = query.message.reply_html(
+            "Returning to chat...",
+            reply_markup=util.build_single_switch_button_markup("Return To Chat", "/")
         )
-
+        
+        query.message.delete()
         reply_message.delete()
     # Handle close button
     elif action == models.CLOSE:
