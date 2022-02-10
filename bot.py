@@ -1184,7 +1184,7 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     elif subject == models.POLL_SUBJECT:
         handle_poll_callback_query(query, context, action, identifier)
     elif subject == models.LIST_SUBJECT:
-        handle_poll_callback_query(query, context, action, identifier)
+        handle_list_callback_query(query, context, action, identifier)
     elif subject == models.GROUP_SUBJECT:
         handle_group_callback_query(query, context, action, identifier)
     else:
