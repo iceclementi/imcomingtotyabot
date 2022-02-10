@@ -64,10 +64,10 @@ SKIP = "skip"
 
 # endregion
 
-all_users = dict()
-all_groups = dict()
-all_polls = dict()
-all_lists = dict()
+user_storage = dict()
+group_storage = dict()
+poll_storage = dict()
+list_storage = dict()
 
 
 class User(object):
@@ -85,18 +85,18 @@ class User(object):
 
     @staticmethod
     def get_user_by_id(uid: int):
-        return all_users.get(uid, None)
+        return user_storage.get(uid, None)
 
     @staticmethod
     def get_users_by_name(name="") -> list:
-        sorted_users = sorted(all_users.values(), key=lambda user: user.get_name().lower())
+        sorted_users = sorted(user_storage.values(), key=lambda user: user.get_name().lower())
         filtered_users = [user for user in sorted_users if name in user.get_name()]
         return filtered_users
 
     @classmethod
     def register(cls, uid: int, first_name: str, last_name="", username=""):
         user = cls(uid, first_name, last_name, username, False, set(), set(), set(), set())
-        all_users[uid] = user
+        user_storage[uid] = user
         return user
 
     @classmethod
@@ -104,7 +104,7 @@ class User(object):
              owned_group_ids: list, joined_group_ids: list, poll_ids: list, list_ids: list) -> None:
         user = cls(uid, first_name, last_name, username, is_leader,
                    set(owned_group_ids), set(joined_group_ids), set(poll_ids), set(list_ids))
-        all_users[uid] = user
+        user_storage[uid] = user
         return
 
     def get_uid(self) -> int:
@@ -128,9 +128,8 @@ class User(object):
         return self.groups
 
     def get_owned_groups(self, filters="") -> list:
-        user_groups = [Group.get_group_by_id(gid) for gid in self.owned_group_ids]
-        filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
-        return sorted(filtered_groups, key=lambda group: group.get_name().lower())
+        owned_groups = Group.get_groups_by_ids(self.owned_group_ids, filters)
+        return sorted(owned_groups, key=lambda group: group.get_name().lower())
 
     def has_group_with_name(self, name: str) -> bool:
         return any(group.get_name() == name for group in self.get_owned_groups())
@@ -156,9 +155,8 @@ class User(object):
         return self.joined_group_ids
 
     def get_joined_groups(self, filters="") -> list:
-        user_groups = [Group.get_group_by_id(gid) for gid in self.joined_group_ids]
-        filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
-        return sorted(filtered_groups, key=lambda group: group.get_name().lower())
+        joined_groups = Group.get_groups_by_ids(self.joined_group_ids, filters)
+        return sorted(joined_groups, key=lambda group: group.get_name().lower())
 
     def join_group(self, gid: str) -> str:
         if len(self.joined_group_ids) >= MAX_JOINED_GROUPS_PER_USER:
@@ -175,25 +173,25 @@ class User(object):
         return set.union(self.owned_group_ids, self.joined_group_ids)
 
     def get_all_groups(self, filters="") -> list:
-        user_groups = [Group.get_group_by_id(gid) for gid in self.get_all_group_ids()]
-        filtered_groups = [group for group in user_groups if filters.lower() in group.get_name().lower()]
-        return sorted(filtered_groups, key=lambda group: group.get_name().lower())
+        all_user_groups = Group.get_groups_by_ids(self.get_all_group_ids(), filters)
+        return sorted(all_user_groups, key=lambda group: group.get_name().lower())
 
     def get_poll_ids(self) -> set:
         return self.poll_ids
 
     def get_polls(self, filters="") -> list:
-        user_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
-        filtered_polls = [poll for poll in user_polls if filters.lower() in poll.get_title().lower()]
-        return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)
+        user_polls = Poll.get_polls_by_ids(self.poll_ids, filters)
+        return sorted(user_polls, key=lambda poll: poll.get_created_date(), reverse=True)
 
-    def get_group_polls(self, filters="") -> list:
+    def get_group_poll_ids(self) -> set:
         group_poll_ids = set()
         for group in self.get_all_groups():
             group_poll_ids.update(group.get_poll_ids())
-        group_polls = [Poll.get_poll_by_id(poll_id) for poll_id in group_poll_ids]
-        filtered_polls = [poll for poll in group_polls if filters.lower() in poll.get_title().lower()]
-        return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)
+        return group_poll_ids
+
+    def get_group_polls(self, filters="") -> list:
+        group_polls = Poll.get_polls_by_ids(self.get_group_poll_ids(), filters)
+        return sorted(group_polls, key=lambda poll: poll.get_created_date(), reverse=True)
 
     def create_poll(self, title: str, description: str, options: list) -> tuple:
         poll = Poll.create_new(title, self.uid, description, options)
@@ -222,17 +220,18 @@ class User(object):
         return self.list_ids
 
     def get_lists(self, filters="") -> list:
-        user_lists = [List.get_list_by_id(list_id) for list_id in self.list_ids]
-        filtered_lists = [_list for _list in user_lists if filters.lower() in _list.get_title().lower()]
-        return sorted(filtered_lists, key=lambda _list: _list.get_created_date(), reverse=True)
+        user_lists = List.get_lists_by_ids(self.list_ids, filters)
+        return sorted(user_lists, key=lambda _list: _list.get_created_date(), reverse=True)
 
-    def get_group_lists(self, filters="") -> list:
+    def get_group_list_ids(self) -> set:
         group_list_ids = set()
         for group in self.get_all_groups():
             group_list_ids.update(group.get_list_ids())
-        group_lists = [List.get_list_by_id(list_id) for list_id in group_list_ids]
-        filtered_lists = [_list for _list in group_lists if filters.lower() in _list.get_title().lower()]
-        return sorted(filtered_lists, key=lambda _list: _list.get_created_date(), reverse=True)
+        return group_list_ids
+
+    def get_group_lists(self, filters="") -> list:
+        group_lists = List.get_lists_by_ids(self.get_group_list_ids(), filters)
+        return sorted(group_lists, key=lambda _list: _list.get_created_date(), reverse=True)
 
     def create_list(self, title: str, description: str, options: list, choices: list) -> tuple:
         _list = List.create_new(title, self.uid, description, options, choices)
@@ -256,6 +255,17 @@ class User(object):
 
     def has_group_list(self, list_id: str) -> bool:
         return any(list_id in group.get_list_ids() for group in self.get_all_groups())
+
+    def get_all_poll_ids(self) -> set:
+        return self.poll_ids.union(self.get_group_poll_ids())
+
+    def get_all_list_ids(self) -> set:
+        return self.list_ids.union(self.get_group_list_ids())
+
+    def get_everything(self, filters=""):
+        all_polls = Poll.get_polls_by_ids(self.get_all_poll_ids(), filters)
+        all_lists = List.get_lists_by_ids(self.get_all_list_ids(), filters)
+        return sorted(all_polls + all_lists, key=lambda item: item.get_created_date(), reverse=True)
 
     def render_poll_list(self) -> str:
         header = [util.make_html_bold("Your Polls")]
@@ -386,13 +396,18 @@ class Group(object):
 
     @staticmethod
     def get_group_by_id(gid: str):
-        return all_groups.get(gid, None)
+        return group_storage.get(gid, None)
+
+    @staticmethod
+    def get_groups_by_ids(gids: set, filters="") -> list:
+        group_lists = [Group.get_group_by_id(gid) for gid in gids]
+        return [group for group in group_lists if filters.lower() in group.get_name().lower()]
 
     @classmethod
     def create_new(cls, name: str, uid: int, password=""):
-        gid = util.generate_random_id(GROUP_ID_LENGTH, set(all_groups.keys()))
+        gid = util.generate_random_id(GROUP_ID_LENGTH, set(group_storage.keys()))
         group = cls(gid, name, uid, password, {uid}, set(), set(), datetime.now())
-        all_groups[gid] = group
+        group_storage[gid] = group
         return group
 
     @classmethod
@@ -400,13 +415,13 @@ class Group(object):
              poll_ids: list, list_ids: list, created_date: str) -> None:
         group = cls(gid, name, owner, password, set(member_ids),
                     set(poll_ids), set(list_ids), datetime.fromisoformat(created_date))
-        all_groups[gid] = group
+        group_storage[gid] = group
         return
 
     def delete(self) -> None:
         for uid in list(self.get_member_ids()):
             self.remove_member(uid)
-        all_groups.pop(self.gid, None)
+        group_storage.pop(self.gid, None)
 
     def get_gid(self) -> str:
         return self.gid
@@ -683,17 +698,22 @@ class Poll(object):
 
     @staticmethod
     def get_poll_by_id(poll_id: str):
-        return all_polls.get(poll_id, None)
+        return poll_storage.get(poll_id, None)
+
+    @staticmethod
+    def get_polls_by_ids(poll_ids: set, filters="") -> list:
+        poll_lists = [Poll.get_poll_by_id(poll_id) for poll_id in poll_ids]
+        return [poll for poll in poll_lists if filters.lower() in poll.get_title().lower()]
 
     @classmethod
     def create_new(cls, title: str, uid: int, description: str, option_titles: list):
-        poll_id = util.generate_random_id(POLL_ID_LENGTH, set(all_polls.keys()))
+        poll_id = util.generate_random_id(POLL_ID_LENGTH, set(poll_storage.keys()))
         poll = cls(poll_id, title, uid, description, list(), True, set(), EXPIRY, datetime.now())
 
         for option_title in option_titles:
             poll.add_option(Option.create_new(option_title))
 
-        all_polls[poll_id] = poll
+        poll_storage[poll_id] = poll
         return poll
 
     @classmethod
@@ -709,11 +729,11 @@ class Poll(object):
                 option_data.get(db.OPTION_RESPONDENTS, [])
             ))
 
-        all_polls[poll_id] = poll
+        poll_storage[poll_id] = poll
         return
 
     def delete(self) -> None:
-        all_polls.pop(self.poll_id, None)
+        poll_storage.pop(self.poll_id, None)
 
     def get_creator_id(self) -> int:
         return self.creator_id
@@ -1031,17 +1051,22 @@ class List(object):
 
     @staticmethod
     def get_list_by_id(list_id: str):
-        return all_lists.get(list_id, None)
+        return list_storage.get(list_id, None)
+
+    @staticmethod
+    def get_lists_by_ids(list_ids: set, filters="") -> list:
+        list_lists = [List.get_list_by_id(list_id) for list_id in list_ids]
+        return [_list for _list in list_lists if filters.lower() in _list.get_title().lower()]
 
     @classmethod
     def create_new(cls, title: str, uid: int, description: str, option_titles: list, choices: list):
-        list_id = util.generate_random_id(LIST_ID_LENGTH, set(all_lists.keys()))
+        list_id = util.generate_random_id(LIST_ID_LENGTH, set(list_storage.keys()))
         _list = cls(list_id, title, uid, description, list(), choices, True, set(), EXPIRY, datetime.now())
 
         for option_title in option_titles:
             _list.add_option(ListOption.create_new(option_title))
 
-        all_lists[list_id] = _list
+        list_storage[list_id] = _list
         return _list
 
     @classmethod
@@ -1056,11 +1081,11 @@ class List(object):
                 option_data.get(db.LIST_OPTION_ALLOCATIONS, [])
             ))
 
-        all_lists[list_id] = _list
+        list_storage[list_id] = _list
         return
 
     def delete(self) -> None:
-        all_lists.pop(self.list_id, None)
+        list_storage.pop(self.list_id, None)
 
     def get_creator_id(self) -> int:
         return self.creator_id
@@ -1313,10 +1338,10 @@ class BotManager(object):
     @staticmethod
     def save_data() -> str:
         try:
-            db.save(all_users, db.USER_SHEET)
-            db.save(all_groups, db.GROUP_SHEET)
-            db.save(all_polls, db.POLL_SHEET)
-            db.save(all_lists, db.LIST_SHEET)
+            db.save(user_storage, db.USER_SHEET)
+            db.save(group_storage, db.GROUP_SHEET)
+            db.save(poll_storage, db.POLL_SHEET)
+            db.save(list_storage, db.LIST_SHEET)
             return "Data saved successfully."
         except (TypeError, json.JSONDecodeError) as error:
             return f"Error saving data: {error}"
@@ -1416,7 +1441,7 @@ class BotManager(object):
         response = f"Who do you want to promote to a bot leader?"
 
         buttons = []
-        for user in sorted(all_users.values(), key=lambda u: u.get_name().lower()):
+        for user in sorted(user_storage.values(), key=lambda u: u.get_name().lower()):
             if not user.is_leader():
                 invite_button = util.build_button(user.get_name(), USER_SUBJECT, PROMOTE, util.encode(user.get_uid()))
                 buttons.append([invite_button])

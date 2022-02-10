@@ -114,8 +114,12 @@ ERROR_USER_NOT_FOUND = "Sorry, the user does not exist."
 START_GUIDE = "<b>/start</b>\nView the bot's welcome message"
 POLL_GUIDE = "<b>/poll</b> &lt;title&gt;\nBuild a new poll with an optional title"
 POLLS_GUIDE = "<b>/polls</b>\nView all the polls you have built"
+LIST_GUIDE = "<b>/list</b> &lt;title&gt;\nBuild a new list with an optional title"
+LISTS_GUIDE = "<b>/lists</b>\nView all the lists you have built"
 GROUP_GUIDE = "<b>/group</b> &lt;name&gt\nCreate a new group with an optional name"
 GROUPS_GUIDE = "<b>/groups</b>\nView all the groups you are in"
+GROUP_POLLS_GUIDE = "<b>/gpolls</b>\nView all your group polls"
+GROUP_LISTS_GUIDE = "<b>/glists</b>\nView all your group lists"
 INVITE_GUIDE = "<b>/invite</b>\nSend an invite link to your friends to join your group"
 HELP_GUIDE = "<b>/help</b>\nView this help message"
 
@@ -185,6 +189,14 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
     elif command == "polls":
         handle_polls(update, context)
         return
+    elif command == "list":
+        title = context.user_data.get("title", "")
+        update.message.text = f"/{command} {title}"
+        handle_list(update, context)
+        return
+    elif command == "lists":
+        handle_lists(update, context)
+        return
     elif command == "group":
         name = context.user_data.get("name", "")
         update.message.text = f"/{command} {name}"
@@ -192,6 +204,12 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
         return
     elif command == "groups":
         handle_groups(update, context)
+        return
+    elif command == "gpolls":
+        handle_group_polls(update, context)
+        return
+    elif command == "glists":
+        handle_group_lists(update, context)
         return
     elif command == "invite":
         handle_invite(update, context)
@@ -647,7 +665,7 @@ def handle_group_view(update: Update, context: CallbackContext) -> None:
 
 
 def handle_group_polls(update: Update, context: CallbackContext) -> None:
-    """Displays all recent group polls to the user."""
+    """Displays all group polls to the user."""
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
@@ -660,6 +678,24 @@ def handle_group_polls(update: Update, context: CallbackContext) -> None:
 
     update.message.reply_html(
         user.render_group_poll_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+    )
+    return
+
+
+def handle_group_lists(update: Update, context: CallbackContext) -> None:
+    """Displays all group lists to the user."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
+
+    user = User.get_user_by_id(update.effective_user.id)
+
+    update.message.reply_html(
+        user.render_group_list_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
     )
     return
 
@@ -698,9 +734,11 @@ def handle_help(update: Update, context: CallbackContext) -> None:
     body = [START_GUIDE]
     if user:
         if user.is_leader():
-            body += [POLL_GUIDE, POLLS_GUIDE, GROUP_GUIDE, GROUPS_GUIDE, INVITE_GUIDE]
+            body += [POLL_GUIDE, POLLS_GUIDE, LISTS_GUIDE, LISTS_GUIDE, GROUP_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
+                     GROUP_LISTS_GUIDE, INVITE_GUIDE]
         else:
-            body += [POLL_GUIDE, POLLS_GUIDE, GROUPS_GUIDE, INVITE_GUIDE]
+            body += [POLL_GUIDE, POLLS_GUIDE, LISTS_GUIDE, LISTS_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
+                     GROUP_LISTS_GUIDE, INVITE_GUIDE]
     body += [HELP_GUIDE]
 
     if not user:
@@ -1905,6 +1943,20 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 input_message_content=InputTextMessageContent("/polls")
             )
             results.append(query_result)
+        # Handle list query
+        if "lis".startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id="listcom", title="/list", description="Build a new list",
+                input_message_content=InputTextMessageContent("/list")
+            )
+            results.append(query_result)
+        # Handle lists query
+        if "list".startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id="listscom", title="/lists", description="View all the lists you have built",
+                input_message_content=InputTextMessageContent("/lists")
+            )
+            results.append(query_result)
         # Handle group query
         if "grou".startswith(command) and is_leader:
             query_result = InlineQueryResultArticle(
@@ -1924,6 +1976,13 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             query_result = InlineQueryResultArticle(
                 id="grouppollscom", title="/gpolls", description="View all the polls in your groups",
                 input_message_content=InputTextMessageContent("/gpolls")
+            )
+            results.append(query_result)
+        # Handle group lists query
+        if "glist".startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id="grouplistscom", title="/glists", description="View all the lists in your groups",
+                input_message_content=InputTextMessageContent("/glists")
             )
             results.append(query_result)
         # Handle invite query
@@ -1963,7 +2022,8 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             results.append(query_result)
 
     # Display complete commands as pm text
-    match = re.match(r"^/(start|poll|polls|group|groups|gpolls|invite|enrol|promote|help)(\s+.+)?$", text)
+    match = \
+        re.match(r"^/(start|poll|polls|list|lists|group|groups|gpolls|glists|invite|enrol|promote|help)(\s+.+)?$", text)
     if match:
         command, details = match.group(1), match.group(2)
         details = details.strip() if details else ""
@@ -1991,6 +2051,27 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 )
                 results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your polls", switch_pm_parameter=command)
+            return
+        # Handle list query
+        elif command == "list" and user and is_sender:
+            if details:
+                context.user_data.update({"title": details})
+                query.answer(
+                    results, switch_pm_text="Click to build a new list with the title", switch_pm_parameter=command
+                )
+            else:
+                query.answer(results, switch_pm_text="Click to build a new list", switch_pm_parameter=command)
+            return
+        # Handle lists query
+        elif command == "lists" and user and is_sender:
+            for _list in user.get_lists(details)[:QUERY_RESULTS_LIMIT]:
+                query_result = InlineQueryResultArticle(
+                    id=f"list_{_list.get_list_id()}", title=_list.get_title(),
+                    description=_list.generate_options_summary(),
+                    input_message_content=InputTextMessageContent(f"/list_{_list.get_list_id()}")
+                )
+                results.append(query_result)
+            query.answer(results, switch_pm_text="Click to view all your lists", switch_pm_parameter=command)
             return
         # Handle group query
         elif command == "group" and is_leader and is_sender:
@@ -2023,6 +2104,17 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 )
                 results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your group polls", switch_pm_parameter=command)
+            return
+        # Handle group lists query
+        elif command == "glists" and user and is_sender:
+            for _list in user.get_group_lists(details)[:QUERY_RESULTS_LIMIT]:
+                query_result = InlineQueryResultArticle(
+                    id=f"glist_{_list.get_list_id()}", title=_list.get_title(),
+                    description=_list.generate_options_summary(),
+                    input_message_content=InputTextMessageContent(f"/list_{_list.get_list_id()}")
+                )
+                results.append(query_result)
+            query.answer(results, switch_pm_text="Click to view all your group lists", switch_pm_parameter=command)
             return
         # Handle invite query
         elif command == "invite" and user:
@@ -2076,15 +2168,26 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             query.answer(results)
             return
 
-    # Handle poll query
+    # Handle search everything
     if user:
-        polls = user.get_polls(text)[:QUERY_RESULTS_LIMIT]
-        for poll in polls:
-            query_result = InlineQueryResultArticle(
-                id=f"poll {poll.get_poll_id()}", title=poll.get_title(), description=poll.generate_options_summary(),
-                input_message_content=InputTextMessageContent(poll.render_text(), parse_mode=ParseMode.HTML),
-                reply_markup=poll.build_option_buttons(),
-            )
+        items = user.get_everything(text)[:QUERY_RESULTS_LIMIT]
+        for item in items:
+            if type(item) == Poll:
+                query_result = InlineQueryResultArticle(
+                    id=f"poll {item.get_poll_id()}", title=item.get_title(),
+                    description=item.generate_options_summary(),
+                    input_message_content=InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML),
+                    reply_markup=item.build_option_buttons()
+                )
+            elif type(item) == List:
+                query_result = InlineQueryResultArticle(
+                    id=f"list {item.get_list_id()}", title=item.get_title(),
+                    description=item.generate_options_summary(),
+                    input_message_content=InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML),
+                    reply_markup=item.build_option_buttons()
+                )
+            else:
+                continue
             results.append(query_result)
 
     query.answer(results)
@@ -2122,6 +2225,23 @@ def handle_chosen_poll_result(update: Update, context: CallbackContext) -> None:
         poll.add_message_details(chosen_poll.inline_message_id)
     else:
         logger.warning(f"Invalid poll from chosen poll result! {poll_id}")
+    return
+
+
+def handle_chosen_list_result(update: Update, context: CallbackContext) -> None:
+    chosen_list = update.chosen_inline_result
+    match = re.match(r"^list (\w+)$", chosen_list.result_id)
+
+    if not match:
+        logger.warning(f"Invalid list result! {chosen_list.result_id}")
+        return
+
+    list_id = match.group(1)
+    _list = List.get_list_by_id(list_id)
+    if _list:
+        _list.add_message_details(chosen_list.inline_message_id)
+    else:
+        logger.warning(f"Invalid list from chosen list result! {list_id}")
     return
 
 
@@ -2337,6 +2457,7 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler("group", handle_group, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("groups", handle_groups, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("gpolls", handle_group_polls, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("glists", handle_group_lists, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("invite", handle_invite, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("help", handle_help, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("save", handle_save, filters=Filters.chat_type.private))
@@ -2362,6 +2483,7 @@ def main() -> None:
 
     # Chosen inline result handlers
     dispatcher.add_handler(ChosenInlineResultHandler(handle_chosen_poll_result, pattern=r"^poll \w+$"))
+    dispatcher.add_handler(ChosenInlineResultHandler(handle_chosen_list_result, pattern=r"^list \w+$"))
 
     # Error handlers
     dispatcher.add_error_handler(handle_error)
