@@ -504,7 +504,7 @@ def handle_list(update: Update, context: CallbackContext) -> None:
     response = NEW_LIST_DESCRIPTION.format(bold_title)
     reply_message = update.message.reply_html(
         response, reply_markup=util.build_multiple_buttons_markup(
-            util.generate_button_details("Skip", models.SKIP),
+            util.generate_button_details("Skip", models.DONE),
             util.generate_button_details("Cancel", models.RESET)
         )
     )
