@@ -2219,14 +2219,16 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     # Handle search everything
     if user:
         items = user.get_everything(text)[:QUERY_RESULTS_LIMIT]
+        query.answer(results)
         for item in items:
             if type(item) == Poll:
-                query_result = InlineQueryResultArticle(
-                    id=f"poll {item.get_poll_id()}", title=item.get_title(),
-                    description=item.generate_options_summary(),
-                    input_message_content=InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML),
-                    reply_markup=item.build_option_buttons()
-                )
+                pass
+                # query_result = InlineQueryResultArticle(
+                #     id=f"poll {item.get_poll_id()}", title=item.get_title(),
+                #     description=item.generate_options_summary(),
+                #     input_message_content=InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML),
+                #     reply_markup=item.build_option_buttons()
+                # )
             elif type(item) == List:
                 query_result = InlineQueryResultArticle(
                     id=f"list {item.get_list_id()}", title=item.get_title(),
@@ -2238,7 +2240,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 continue
             results.append(query_result)
 
-    query.answer(results)
+    # query.answer(results)
     return
 
 
