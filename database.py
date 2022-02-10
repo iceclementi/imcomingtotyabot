@@ -140,6 +140,8 @@ def load(sheet_name: str) -> list:
         return load_from_sheet(groups_sheet, GROUP_FIELDS)
     elif sheet_name == POLL_SHEET:
         return load_from_sheet(polls_sheet, POLL_FIELDS)
+    elif sheet_name == LIST_SHEET:
+        return load_from_sheet(lists_sheet, LIST_FIELDS)
     else:
         return list()
 
