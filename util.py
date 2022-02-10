@@ -3,6 +3,7 @@ import string
 import random
 from datetime import datetime
 from hashlib import blake2b as blake
+from typing import List, Tuple, Set
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 ENCODE_KEY = string.digits + string.ascii_letters
@@ -13,7 +14,7 @@ def create_random_string(n: int) -> str:
     return ''.join(random.choices(string.ascii_letters + string.digits, k=n))
 
 
-def generate_random_id(n: int, preclusion: set) -> str:
+def generate_random_id(n: int, preclusion: Set[str]) -> str:
     random_id = create_random_string(n)
     while random_id in preclusion:
         random_id = create_random_string(n)
@@ -95,7 +96,7 @@ def build_single_switch_button_markup(text: str, placeholder: str) -> InlineKeyb
     return InlineKeyboardMarkup([[button]])
 
 
-def build_multiple_buttons_markup(*button_details: tuple) -> InlineKeyboardMarkup:
+def build_multiple_buttons_markup(*button_details: Tuple[str, str, bool, bool]) -> InlineKeyboardMarkup:
     buttons = []
     for text, action, is_switch, to_self in button_details:
         if is_switch:
@@ -107,7 +108,22 @@ def build_multiple_buttons_markup(*button_details: tuple) -> InlineKeyboardMarku
     return InlineKeyboardMarkup(buttons)
 
 
-def generate_button_details(text: str, action: str, is_switch=False, to_self=False) -> tuple:
+def build_multiple_stacked_buttons_markup(*button_details: List[Tuple[str, str, bool, bool]]):
+    buttons = []
+    for button_row_details in button_details:
+        button_row = []
+        for text, action, is_switch, to_self in button_row_details:
+            if is_switch:
+                button = InlineKeyboardButton(text, switch_inline_query_current_chat=action) if to_self \
+                    else InlineKeyboardButton(text, switch_inline_query=action)
+            else:
+                button = InlineKeyboardButton(text, callback_data=action)
+            button_row.append(button)
+        buttons.append(button_row)
+    return InlineKeyboardMarkup(buttons)
+
+
+def generate_button_details(text: str, action: str, is_switch=False, to_self=False) -> Tuple[str, str, bool, bool]:
     return text, action, is_switch, to_self
 
 
@@ -120,11 +136,11 @@ def format_date(date: datetime, date_format="%B %d, %Y") -> str:
     return date.strftime(date_format)
 
 
-def list_to_dict(_list: list) -> dict:
+def list_to_dict(_list: List[str]) -> dict:
     return {i: item for i, item in enumerate(_list)}
 
 
-def list_to_indexed_list_string(_list: list, start=1) -> str:
+def list_to_indexed_list_string(_list: List[str], start=1) -> str:
     indexed_list = [f"{i}. {item}" for i, item in enumerate(_list, start)]
     return "\n".join(indexed_list)
 

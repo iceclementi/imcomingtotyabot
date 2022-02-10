@@ -100,12 +100,13 @@ ERROR_EARLY_DONE_GROUP_NAME = "Sorry, please add a group name."
 ERROR_INVALID_GROUP_INVITE = "Sorry, invalid or expired group invitation code."
 ERROR_ALREADY_IN_GROUP = "You're already in the group! Use /groups to view all your groups."
 ERROR_ILLEGAL_SECRET_CHANGE = "Only group owners can change the group's password!"
-ERROR_INVALID_POLL_COMMENT_REQUEST = "Sorry, invalid poll comment request."
-ERROR_INVALID_POLL_VOTE_REQUEST = "Sorry, invalid poll vote request."
-ERROR_INVALID_POLL_OPTION_REQUEST = "Sorry, invalid poll option request."
 ERROR_ALREADY_VOTED = "You've already voted for this option in the poll!"
 ERROR_NOT_VOTED = "Sorry, you've not voted for this option in the poll."
 ERROR_USER_NOT_FOUND = "Sorry, the user does not exist."
+ERROR_INVALID_POLL_COMMENT_REQUEST = "Sorry, invalid poll comment request."
+ERROR_INVALID_POLL_VOTE_REQUEST = "Sorry, invalid poll vote request."
+ERROR_INVALID_POLL_OPTION_REQUEST = "Sorry, invalid poll option request."
+ERROR_INVALID_LIST_UPDATE_REQUEST = "Sorry, invalid list update request."
 
 # endregion
 
@@ -169,6 +170,10 @@ def handle_start(update: Update, context: CallbackContext) -> None:
     # Handle vote
     elif action == "vote":
         handle_vote_pm(update, context, details)
+        return
+    # Handle update
+    elif action == "update":
+        handle_update_pm(update, context, details)
         return
     # Handle others
     else:
@@ -255,7 +260,7 @@ def handle_join_pm(update: Update, context: CallbackContext, details: str) -> No
     return
 
 
-def handle_vote_pm(update: Update, context: CallbackContext, details: str) -> None:
+def handle_comment_pm(update: Update, context: CallbackContext, details: str) -> None:
     """Handles user voting for poll option that requires comment."""
     match = re.match(r"^([^_\W]+_[^_\W]+)$", details)
     if not match:
@@ -282,7 +287,7 @@ def handle_vote_pm(update: Update, context: CallbackContext, details: str) -> No
     return
 
 
-def handle_comment_pm(update: Update, context: CallbackContext, details: str) -> None:
+def handle_vote_pm(update: Update, context: CallbackContext, details: str) -> None:
     """Handles user adding or changing comment for a poll option."""
     match = re.match(r"^([^_\W]+_[^_\W]+)_(\d+)$", details)
     if not match:
@@ -329,6 +334,33 @@ def handle_comment_pm(update: Update, context: CallbackContext, details: str) ->
     )
     context.user_data.update({"action": "vote", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
     delete_message_with_timer(reply_message, 900)
+    return
+
+
+def handle_update_pm(update: Update, context: CallbackContext, details: str) -> None:
+    """Handles user making updates to a list."""
+    match = re.match(r"^([^_\W]+_[^_\W]+)$", details)
+    if not match:
+        update.message.reply_html(
+            ERROR_INVALID_LIST_UPDATE_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+        )
+        logger.warning("Invalid list update request!")
+        return
+
+    list_hash = match.group(1)
+    list_id = list_hash.split("_")[0]
+    _list = List.get_list_by_id(list_id)
+
+    if not _list or _list.get_list_hash() != list_hash:
+        update.message.reply_html(
+            ERROR_INVALID_LIST_UPDATE_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+        )
+        logger.warning("Invalid list update request!")
+        return
+
+    update.message.reply_html(
+        _list.render_text(), reply_markup=_list.build_option_buttons()
+    )
     return
 
 
@@ -1595,7 +1627,7 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         )
         return
     # Handle list option button
-    elif action.startswith(f"{models.OPTION}_"):
+    elif action.startswith(f"{models.OPTION}_") and is_pm:
         match = re.match(f"{models.OPTION}_(\\d+)", action)
         if not match:
             logger.warning("Invalid callback query data.")
@@ -1614,7 +1646,7 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         query.answer(text=f"Select the names you want to pick for {option.get_title()}.")
         return
     # Handle list choice button
-    elif action.startswith(f"{models.CHOICE}_"):
+    elif action.startswith(f"{models.CHOICE}_") and is_pm:
         match = re.match(f"{models.CHOICE}_(\\d+)_(\\d+)", action)
         if not match:
             logger.warning("Invalid callback query data.")
@@ -1640,8 +1672,15 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         query.answer(text=status)
         refresh_lists(_list, context)
         return
+    # Handle user refresh option button
+    elif action == models.USER_REFRESH:
+        query.answer(text="Results updated!")
+        query.edit_message_text(
+            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_update_buttons()
+        )
+        return
     # Handle refresh option button
-    elif action == models.REFRESH_OPT:
+    elif action == models.REFRESH_OPT and is_pm:
         query.answer(text="Results updated!")
         query.edit_message_text(
             _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_option_buttons()
@@ -1685,6 +1724,13 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         query.edit_message_reply_markup(_list.build_admin_buttons(uid))
         query.answer(text=None)
         return
+    # Handle update done button
+    elif action == models.UPDATE_DONE and is_pm:
+        reply_message = query.edit_message_reply_markup(
+            util.build_single_switch_button_markup("Return To Chat", "")
+        )
+
+        reply_message.delete()
     # Handle close button
     elif action == models.CLOSE:
         message.delete()
@@ -1913,7 +1959,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     results = []
 
     # Handle vote and comment queries
-    match = re.match(r"^/(vote|comment|join|access)\s+(\w+)$", text)
+    match = re.match(r"^/(vote|comment|update|join|access)\s+(\w+)$", text)
     if match:
         handle_inline_pm_query(query, match.group(1), match.group(2))
         return
@@ -2184,7 +2230,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                     id=f"list {item.get_list_id()}", title=item.get_title(),
                     description=item.generate_options_summary(),
                     input_message_content=InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML),
-                    reply_markup=item.build_option_buttons()
+                    reply_markup=item.build_update_buttons()
                 )
             else:
                 continue
@@ -2200,6 +2246,8 @@ def handle_inline_pm_query(query: InlineQuery, action: str, details: str) -> Non
         text = "Click here to toggle your vote."
     elif action == "comment":
         text = "Click here to add a comment to the poll."
+    elif action == "update":
+        text = "Click here to update the list."
     elif action == "join":
         text = "Click here to join group"
     elif action == "access":
@@ -2385,12 +2433,12 @@ def refresh_lists(_list: List, context: CallbackContext, only_buttons=False) -> 
     """Refreshes all lists to update changes."""
     if only_buttons:
         for mid in _list.get_message_details():
-            context.bot.edit_message_reply_markup(inline_message_id=mid, reply_markup=_list.build_option_buttons())
+            context.bot.edit_message_reply_markup(inline_message_id=mid, reply_markup=_list.build_update_buttons())
     else:
         for mid in _list.get_message_details():
             context.bot.edit_message_text(
                 _list.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
-                reply_markup=_list.build_option_buttons()
+                reply_markup=_list.build_update_buttons()
             )
     return
 

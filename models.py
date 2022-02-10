@@ -61,6 +61,7 @@ CLOSE = "close"
 RESET = "reset"
 DONE = "done"
 SKIP = "skip"
+UPDATE_DONE = "updateDone"
 
 # endregion
 
@@ -1205,13 +1206,20 @@ class List(object):
         footer = [f"{EMOJI_PEOPLE} {self.generate_allocations_summary()}"]
         return "\n\n".join(header + body + footer)
 
+    def build_update_buttons(self) -> InlineKeyboardMarkup:
+        update_button = util.build_switch_button("Update", f"/update {self.get_list_hash()}", to_self=True)
+        refresh_button = util.build_button("Refresh", LIST_SUBJECT, USER_REFRESH, self.list_id)
+        buttons = [[update_button, refresh_button]]
+        return InlineKeyboardMarkup(buttons)
+
     def build_option_buttons(self) -> InlineKeyboardMarkup:
         buttons = []
         for i, option in enumerate(self.options):
             option_button = util.build_button(option.get_title(), LIST_SUBJECT, f"{OPTION}_{i}", self.list_id)
             buttons.append([option_button])
         refresh_button = util.build_button("Refresh", LIST_SUBJECT, REFRESH_OPT, self.list_id)
-        buttons.append([refresh_button])
+        done_button = util.build_button("Done", LIST_SUBJECT, UPDATE_DONE, self.list_id)
+        buttons.append([refresh_button, done_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_admin_buttons(self, uid: int) -> InlineKeyboardMarkup:
