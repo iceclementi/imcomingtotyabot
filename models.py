@@ -855,7 +855,7 @@ class Poll(object):
         header = [f"{title}\n{description}" if description else title]
         body = [option.render_text() for option in self.options]
         footer = [f"{EMOJI_PEOPLE} {self.generate_respondents_summary()}"]
-        return "\n\n".join(header + body + footer)
+        return u"\n\n".join(header + body + footer)
 
     def build_option_buttons(self) -> InlineKeyboardMarkup:
         buttons = []
@@ -1026,7 +1026,7 @@ class Option(object):
         if self.respondents:
             title += f" ({len(self.respondents)} {EMOJI_PEOPLE})"
         namelist = util.strip_html_symbols(self.generate_namelist())
-        return f"{title}\n{namelist}"
+        return u"" + f"{title}\n{namelist}"
 
     def to_json(self) -> dict:
         return {
@@ -1204,7 +1204,7 @@ class List(object):
         header = [f"{title}\n{description}" if description else title]
         body = [option.render_text() for option in self.options]
         footer = [f"{EMOJI_PEOPLE} {self.generate_allocations_summary()}"]
-        return "\n\n".join(header + body + footer)
+        return u"\n\n".join(header + body + footer)
 
     def build_update_buttons(self) -> InlineKeyboardMarkup:
         update_button = util.build_switch_button("Update", f"/update {self.get_list_hash()}", to_self=True)
@@ -1325,7 +1325,7 @@ class ListOption(object):
         if self.allocations:
             title += f" ({len(self.allocations)} {EMOJI_PEOPLE})"
         namelist = util.strip_html_symbols(self.generate_namelist())
-        return f"{title}\n{namelist}"
+        return u"" + f"{title}\n{namelist}"
 
     def to_json(self) -> dict:
         return {
