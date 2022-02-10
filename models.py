@@ -1076,10 +1076,11 @@ class List(object):
                     expiry, datetime.fromisoformat(created_date))
 
         for option_data in options:
-            _list.add_option(ListOption.load(
-                option_data.get(db.LIST_OPTION_TITLE, ""),
-                option_data.get(db.LIST_OPTION_ALLOCATIONS, [])
-            ))
+            option = ListOption.load(option_data.get(db.LIST_OPTION_TITLE, ""))
+            for choice_id in option_data.get(db.LIST_OPTION_ALLOCATIONS, []):
+                if _list.is_valid_choice(choice_id):
+                    option.add_allocation(choice_id, _list.get_choice(choice_id))
+            _list.add_option(option)
 
         list_storage[list_id] = _list
         return
@@ -1268,17 +1269,17 @@ class List(object):
 
 
 class ListOption(object):
-    def __init__(self, title: str, allocations: list) -> None:
+    def __init__(self, title: str) -> None:
         self.title = title
-        self.allocations = util.list_to_dict(allocations)
+        self.allocations = dict()
 
     @classmethod
     def create_new(cls, title: str):
-        return cls(title, list())
+        return cls(title)
 
     @classmethod
-    def load(cls, title: str, allocations: list):
-        return cls(title, allocations)
+    def load(cls, title: str):
+        return cls(title)
 
     def get_title(self) -> str:
         return self.title
@@ -1291,6 +1292,9 @@ class ListOption(object):
 
     def is_allocated(self) -> bool:
         return len(self.allocations) > 0
+
+    def add_allocation(self, choice_id: int, name: str) -> None:
+        self.allocations[choice_id] = name
 
     def remove_allocation(self, choice_id: int) -> None:
         if choice_id in self.allocations:
@@ -1317,8 +1321,8 @@ class ListOption(object):
 
     def to_json(self) -> dict:
         return {
-            db.OPTION_TITLE: self.title,
-            db.OPTION_RESPONDENTS: list(self.allocations.values())
+            db.LIST_OPTION_TITLE: self.title,
+            db.LIST_OPTION_ALLOCATIONS: list(self.allocations)
         }
 
 

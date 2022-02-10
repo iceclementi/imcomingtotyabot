@@ -734,10 +734,10 @@ def handle_help(update: Update, context: CallbackContext) -> None:
     body = [START_GUIDE]
     if user:
         if user.is_leader():
-            body += [POLL_GUIDE, POLLS_GUIDE, LISTS_GUIDE, LISTS_GUIDE, GROUP_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
+            body += [POLL_GUIDE, POLLS_GUIDE, LIST_GUIDE, LISTS_GUIDE, GROUP_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
                      GROUP_LISTS_GUIDE, INVITE_GUIDE]
         else:
-            body += [POLL_GUIDE, POLLS_GUIDE, LISTS_GUIDE, LISTS_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
+            body += [POLL_GUIDE, POLLS_GUIDE, LIST_GUIDE, LISTS_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
                      GROUP_LISTS_GUIDE, INVITE_GUIDE]
     body += [HELP_GUIDE]
 
@@ -1591,7 +1591,7 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
     if action == models.OPTIONS:
         query.answer(text=None)
         query.edit_message_text(
-            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_build_option_buttons()
+            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_option_buttons()
         )
         return
     # Handle list option button
