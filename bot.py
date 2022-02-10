@@ -2222,7 +2222,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         query.answer(results)
         for item in items:
             if type(item) == Poll:
-                pass
+                continue
                 # query_result = InlineQueryResultArticle(
                 #     id=f"poll {item.get_poll_id()}", title=item.get_title(),
                 #     description=item.generate_options_summary(),
