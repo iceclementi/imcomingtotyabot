@@ -1301,6 +1301,8 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
             context.user_data.get("options", []), context.user_data.get("choices", [])
 
+        logger.info(context.user_data)
+
         if not title:
             query.message.delete()
             query.answer(text="Invalid callback query data!")
