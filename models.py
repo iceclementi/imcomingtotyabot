@@ -951,7 +951,7 @@ class Option(object):
     def is_voted_by_user(self, uid: int) -> bool:
         return uid in self.respondents
 
-    def get_respondents(self) -> list:
+    def get_respondents(self) -> OrderedDict:
         return self.respondents
 
     def has_votes(self) -> bool:
@@ -1106,8 +1106,8 @@ class List(object):
         return self.single_response
 
     def toggle_response_type(self) -> str:
-        # if any(option.has_votes() for option in self.options):
-        #     return "Cannot change response type for non-empty poll."
+        # if any(option.is_allocated() for option in self.options):
+        #     return "Cannot change response type for non-empty list."
         self.single_response = not self.single_response
         status = "single response" if self.single_response else "multi-response"
         return f"Response type is changed to {status}."
@@ -1253,7 +1253,7 @@ class ListOption(object):
     def contains(self, choice_id: int) -> bool:
         return choice_id in self.allocations
 
-    def get_allocations(self) -> list:
+    def get_allocations(self) -> dict:
         return self.allocations
 
     def is_allocated(self) -> bool:

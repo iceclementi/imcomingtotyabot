@@ -122,3 +122,9 @@ def format_date(date: datetime, date_format="%B %d, %Y") -> str:
 
 def list_to_dict(_list: list) -> dict:
     return {i: item for i, item in enumerate(_list)}
+
+
+def list_to_indexed_list_string(_list: list, start=1) -> str:
+    indexed_list = [f"{i}. {item}" for i, item in enumerate(_list, start)]
+    return "\n".join(indexed_list)
+

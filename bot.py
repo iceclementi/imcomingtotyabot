@@ -31,6 +31,8 @@ logger = logging.getLogger(__name__)
 # Bot settings
 MAX_TITLE_LENGTH = 100
 MAX_OPTION_TITLE_LENGTH = 50
+MAX_OPTIONS = 10
+MAX_CHOICE_ITEM_NAME_LENGTH = 50
 MAX_GROUP_NAME_LENGTH = 50
 MIN_GROUP_PASS_LENGTH = 4
 MAX_GROUP_PASS_LENGTH = 20
@@ -49,10 +51,20 @@ USER_PROMOTED = "Yay!! \U0001f389 {} is now a bot leader!!"
 
 NEW_POLL = "Let's create a new poll! First, send me the title."
 NEW_POLL_DESCRIPTION = "{}\n\nNice! Now send me a poll description or skip this step."
-NEW_OPTION = "{}\n\nAlright, now send me your very first option."
-NEXT_OPTION = "Nice! {} added!\n\nNow send me another answer option or press <b>Done</b> to finish."
-POLL_DONE = "\U0001f44d Poll created! You may now publish it to a group or send it to your friends."
+NEW_POLL_OPTION = "{}\n\nAlright, now send me your very first option."
+NEXT_POLL_OPTION = "Nice! {} added!\n\nNow send me another  option or press <b>Done</b> to finish."
+POLL_DONE = "\U0001f44d Poll created! You may now publish it to your friends or share it with a group."
 DELETED_POLL = "Sorry, the poll has been deleted."
+
+NEW_LIST = "Let's create a new list! First, send me the title."
+NEW_LIST_DESCRIPTION = "{}\n\nNice! Now send me a list description or skip this step."
+NEW_LIST_OPTION = "{}\n\nAlright, now send me your very first option."
+NEXT_LIST_OPTION = "Nice! {} added!\n\n{}\n\n" \
+                   "Now send me another answer option or press <b>Done</b> to go to the next step."
+NEW_LIST_CHOICE = "Okay, now send me your first choice item."
+NEXT_LIST_CHOICE = "Great! {} added!\n\n{}\n\nNow send me another choice item or press <b>Done</b> to finish."
+LIST_DONE = "\U0001f44d List created! You may now publish it to your friends or share it with a group."
+DELETED_LIST = "Sorry, the list has been deleted."
 
 NEW_GROUP = "Let's create a new group! To begin, send me the group name."
 GROUP_PASSWORD_REQUEST = "{}\n\nGreat! Now enter a secret password for your group or skip this step."
@@ -69,8 +81,16 @@ ERROR_ACCESS_ALREADY_GRANTED = "You already have access to the bot! Use /start t
 ERROR_ALREADY_PROMOTED = "The user is already a bot leader!"
 ERROR_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_TITLE_LENGTH} characters)."
 ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_OPTION_TITLE_LENGTH} characters)."
-ERROR_EARLY_DONE_TITLE = "Sorry, please add a title to the poll."
-ERROR_EARLY_DONE_OPTION = "Sorry, please add at least one option to the poll."
+ERROR_CHOICE_NAME_TOO_LONG = f"Sorry, please enter a shorter name (maximum {MAX_CHOICE_ITEM_NAME_LENGTH} characters)."
+ERROR_DUPLICATE_OPTION_TITLE = "Sorry, there's already an option with the same title.\n\n{}\n\n" \
+                               "Please enter a different option title."
+ERROR_DUPLICATE_CHOICE_NAME = "Sorry, there's already a choice item with the same name.\n\n{}\n\n" \
+                               "Please enter a different choice item name."
+ERROR_EARLY_DONE_POLL_TITLE = "Sorry, please add a title to the poll."
+ERROR_EARLY_DONE_POLL_OPTION = "Sorry, please add at least one option to the poll."
+ERROR_EARLY_DONE_LIST_TITLE = "Sorry, please add a title to the list."
+ERROR_EARLY_DONE_LIST_OPTION = "Sorry, please add at least one option to the list."
+ERROR_EARLY_DONE_LIST_CHOICE = "Sorry, please add at least one choice item to the list."
 ERROR_GROUP_NAME_EXISTS = "You already have a group with this name. Please enter another group name."
 ERROR_GROUP_NAME_TOO_LONG = f"Sorry, please enter a shorter group name (maximum {MAX_GROUP_NAME_LENGTH} characters)."
 ERROR_INVALID_GROUP_PASS_FORMAT = \
@@ -141,6 +161,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
     # Handle comment
     elif action == "comment":
         handle_comment_pm(update, context, details)
+        return
     # Handle vote
     elif action == "vote":
         handle_vote_pm(update, context, details)
@@ -406,7 +427,7 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
 
 
 def handle_polls(update: Update, context: CallbackContext) -> None:
-    """Displays all recent polls created by user."""
+    """Displays all polls created by user."""
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
     context.user_data.clear()
@@ -450,16 +471,90 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
     return
 
 
-def handle_attend(update: Update, context: CallbackContext) -> None:
-    pass
+def handle_list(update: Update, context: CallbackContext) -> None:
+    """Begins building a new list."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
+
+    context.user_data.update({"action": "list", "step": 1, "title": "", "descr": "", "options": [], "choices": []})
+
+    match = re.match(r"^\s*/list\s+(.+)$", update.message.text.strip())
+    if not match:
+        reply_message = update.message.reply_html(
+            NEW_LIST, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+        )
+        context.user_data.update({"del": reply_message.message_id})
+        return
+
+    title = match.group(1)
+
+    if len(title) > MAX_TITLE_LENGTH:
+        reply_message = update.message.reply_html(
+            ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+        )
+        context.user_data.update({"del": reply_message.message_id})
+        return
+
+    bold_title = util.make_html_bold(title)
+    response = NEW_LIST_DESCRIPTION.format(bold_title)
+    reply_message = update.message.reply_html(
+        response, reply_markup=util.build_multiple_buttons_markup(
+            util.generate_button_details("Skip", models.SKIP),
+            util.generate_button_details("Cancel", models.RESET)
+        )
+    )
+    context.user_data.update({"step": 2, "title": title, "del": reply_message.message_id})
+    return
 
 
-def handle_attends(update: Update, context: CallbackContext) -> None:
-    pass
+def handle_lists(update: Update, context: CallbackContext) -> None:
+    """Displays all lists created by user."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
+
+    user = User.get_user_by_id(update.effective_user.id)
+
+    update.message.reply_html(
+        user.render_list_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+    )
+    return
 
 
-def handle_attend_view(update: Update, context: CallbackContext) -> None:
-    pass
+def handle_list_view(update: Update, context: CallbackContext) -> None:
+    """Displays the master list identified by its list id"""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    if not is_registered(update.effective_user):
+        handle_help(update, context)
+        return
+
+    uid = update.effective_user.id
+    text = update.message.text.strip()
+
+    list_id = re.match(r"^/list_(\w+).*$", text).group(1)
+    _list = List.get_list_by_id(list_id)
+    if not _list:
+        handle_help(update, context)
+        return
+
+    if _list.get_creator_id() == uid or User.get_user_by_id(uid).has_group_list(list_id):
+        deliver_list(update, _list)
+        return
+
+    handle_help(update, context)
+    return
 
 
 def handle_group(update: Update, context: CallbackContext) -> None:
@@ -646,6 +741,9 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     elif action == "comment":
         handle_comment_conversation(update, context)
         return
+    elif action == "list":
+        handle_list_conversation(update, context)
+        return
     elif action == "group" and is_leader:
         handle_group_conversation(update, context)
         return
@@ -716,7 +814,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
 
     # Handle description
     if not description:
-        response = NEW_OPTION.format("Awesome! Description added!")
+        response = NEW_POLL_OPTION.format("Awesome! Description added!")
         reply_message = update.message.reply_html(
             response, reply_markup=util.build_multiple_buttons_markup(
                 util.generate_button_details("Cancel", models.RESET)
@@ -726,7 +824,85 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         return
 
     # Handle option
+    if not options:
+        error_buttons = util.build_single_button_markup("Cancel", models.RESET)
     else:
+        error_buttons = util.build_multiple_buttons_markup(
+            util.generate_button_details("Done", models.DONE),
+            util.generate_button_details("Cancel", models.RESET)
+        )
+
+    if len(text) > MAX_OPTION_TITLE_LENGTH:
+        reply_message = update.message.reply_html(
+            ERROR_OPTION_TITLE_TOO_LONG, reply_markup=error_buttons
+        )
+        context.user_data.update({"del": reply_message.message_id})
+        return
+
+    options.append(text)
+
+    if len(options) < MAX_OPTIONS:
+        reply_message = update.message.reply_html(
+            NEXT_POLL_OPTION.format(util.make_html_bold(text)), reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("Done", models.DONE),
+                util.generate_button_details("Cancel", models.RESET)
+            )
+        )
+        context.user_data.update({"options": options, "del": reply_message.message_id})
+        return
+
+    # Create poll
+    poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, description.strip(), options)
+
+    update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+    deliver_poll(update, poll)
+
+    # Clear user data
+    context.user_data.clear()
+    return
+
+
+def handle_list_conversation(update: Update, context: CallbackContext) -> None:
+    """Handles the conversation between the bot and the user to build a list."""
+    text = update.message.text.strip()
+    step, title, description, options, choices = \
+        context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
+        context.user_data.get("options", []), context.user_data.get("choice", [])
+
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+
+    # Handle title
+    if step == 1:
+        if len(text) > MAX_TITLE_LENGTH:
+            reply_message = update.message.reply_html(
+                ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        bold_title = util.make_html_bold(text)
+        response = NEW_LIST_DESCRIPTION.format(bold_title)
+        reply_message = update.message.reply_html(
+            response, reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("Skip", models.DONE),
+                util.generate_button_details("Cancel", models.RESET)
+            )
+        )
+        context.user_data.update({"step": 2, "title": text, "del": reply_message.message_id})
+        return
+    # Handle description
+    elif step == 2:
+        response = NEW_LIST_OPTION.format("Super! Description added!")
+        reply_message = update.message.reply_html(
+            response, reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("Cancel", models.RESET)
+            )
+        )
+        context.user_data.update({"step": 3, "descr": text, "del": reply_message.message_id})
+        return
+    # Handle option
+    elif step == 3:
         if not options:
             error_buttons = util.build_single_button_markup("Cancel", models.RESET)
         else:
@@ -742,27 +918,79 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
             context.user_data.update({"del": reply_message.message_id})
             return
 
-        options.append(text)
-
-        if len(options) < 10:
+        if text in options:
             reply_message = update.message.reply_html(
-                NEXT_OPTION.format(util.make_html_bold(text)), reply_markup=util.build_multiple_buttons_markup(
+                ERROR_DUPLICATE_OPTION_TITLE.format(util.list_to_indexed_list_string(options)),
+                reply_markup=util.build_multiple_buttons_markup(
                     util.generate_button_details("Done", models.DONE),
                     util.generate_button_details("Cancel", models.RESET)
                 )
             )
-            context.user_data.update({"options": options, "del": reply_message.message_id})
+            context.user_data.update({"del": reply_message.message_id})
             return
 
-        # Create poll
-        poll, _ = User.get_user_by_id(update.effective_user.id).create_poll(title, description.strip(), options)
+        options.append(text)
+        context.user_data.update({"options": options})
 
-        update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
-        deliver_poll(update, poll)
+        if len(options) >= MAX_OPTIONS:
+            context.user_data.update({"step": 4})
+            return
 
-        # Clear user data
+        reply_message = update.message.reply_html(
+            NEXT_LIST_OPTION.format(util.make_html_bold(text), util.list_to_indexed_list_string(options)),
+            reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("Done", models.DONE),
+                util.generate_button_details("Cancel", models.RESET)
+            )
+        )
+        context.user_data.update({"del": reply_message.message_id})
+        return
+    # Handle choice
+    elif step == 4:
+        if not choices:
+            error_buttons = util.build_single_button_markup("Cancel", models.RESET)
+        else:
+            error_buttons = util.build_multiple_buttons_markup(
+                util.generate_button_details("Done", models.DONE),
+                util.generate_button_details("Cancel", models.RESET)
+            )
+
+        if len(text) > MAX_CHOICE_ITEM_NAME_LENGTH:
+            reply_message = update.message.reply_html(
+                ERROR_CHOICE_NAME_TOO_LONG, reply_markup=error_buttons
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        if text in choices:
+            reply_message = update.message.reply_html(
+                ERROR_DUPLICATE_CHOICE_NAME.format(util.list_to_indexed_list_string(choices)),
+                reply_markup=util.build_multiple_buttons_markup(
+                    util.generate_button_details("Done", models.DONE),
+                    util.generate_button_details("Cancel", models.RESET)
+                )
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        choices.append(text)
+        context.user_data.update({"choices": choices})
+
+        reply_message = update.message.reply_html(
+            NEXT_LIST_CHOICE.format(util.make_html_bold(text), util.list_to_indexed_list_string(choices)),
+            reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("Done", models.DONE),
+                util.generate_button_details("Cancel", models.RESET)
+            )
+        )
+        context.user_data.update({"del": reply_message.message_id})
+        return
+    # Handle invalid step
+    else:
+        logger.warning("Error with list conversation step index!!")
         context.user_data.clear()
-    return
+        handle_help(update, context)
+        return
 
 
 def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
@@ -987,7 +1215,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
     elif action == models.SKIP:
         user_action = context.user_data.get("action", "")
         if user_action == "poll":
-            response = NEW_OPTION.format("")
+            response = NEW_POLL_OPTION.format("")
             reply_message = query.edit_message_text(
                 response, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_buttons_markup(
                     util.generate_button_details("Cancel", models.RESET)
@@ -1037,19 +1265,21 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
         # Check if there is a title
         if not title:
             reply_message = query.edit_message_text(
-                ERROR_EARLY_DONE_TITLE, parse_mode=ParseMode.HTML,
+                ERROR_EARLY_DONE_POLL_TITLE, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
+            query.answer(text=ERROR_EARLY_DONE_POLL_TITLE)
             return
 
         # Check if there are options
         if not options:
             reply_message = query.edit_message_text(
-                ERROR_EARLY_DONE_OPTION, parse_mode=ParseMode.HTML,
+                ERROR_EARLY_DONE_POLL_OPTION, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
+            query.answer(text=ERROR_EARLY_DONE_POLL_OPTION)
             return
 
         # Create poll
@@ -1060,10 +1290,60 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         query.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(query.from_user.id))
+        query.answer(text="Poll created successfully!")
 
         # Clear user data
         context.user_data.clear()
         return
+    # Handle list
+    elif action == "list":
+        step, title, description, options, choices = \
+            context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
+            context.user_data.get("options", []), context.user_data.get("choice", [])
+
+        if not (title and description and options):
+            query.message.delete()
+            query.answer(text="Invalid callback query data!")
+            logger.warning("Invalid callback query data.")
+            return
+
+        if step == 2:
+            response = NEW_LIST_OPTION.format("")
+            reply_message = query.edit_message_text(
+                response, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_buttons_markup(
+                    util.generate_button_details("Cancel", models.RESET)
+                )
+            )
+            context.user_data.update({"step": 3, "descr": " ", "del": reply_message.message_id})
+            return
+        elif step == 3:
+            query.edit_message_text(
+                NEW_LIST_CHOICE, parse_mode=ParseMode.HTML,
+                reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            )
+            query.answer(text="Good job! Now, send me the first choice item name.")
+            context.user_data.update({"step": 4})
+            return
+        elif step == 4 and choices:
+            # Create list
+            _list, _ = User.get_user_by_id(query.from_user.id).create_list(title, description.strip(), options, choices)
+
+            query.edit_message_text(
+                LIST_DONE, parse_mode=ParseMode.HTML,
+                reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+            )
+            query.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(query.from_user.id))
+            query.answer(text="List created successfully!")
+
+            # Clear user data
+            context.user_data.clear()
+            return
+        else:
+            query.message.delete()
+            query.answer(text="Invalid callback query data!")
+            logger.warning("Invalid callback query data.")
+            return
+    # Handle group
     # Handle group
     elif action == "group":
         group_name = context.user_data.setdefault("name", "")
@@ -1075,6 +1355,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
                 reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
+            query.answer(text=ERROR_EARLY_DONE_GROUP_NAME)
             return
 
         # Create group
@@ -1085,6 +1366,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         query.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_buttons())
+        query.answer(text="Group created successfully!")
 
         # Clear user data
         context.user_data.clear()
@@ -1754,6 +2036,7 @@ def handle_load(update: Update, context: CallbackContext) -> None:
 
 # region HELPERS
 
+
 def get_user_permissions(uid: int) -> tuple:
     """Checks the user's permissions."""
     user = User.get_user_by_id(uid)
@@ -1844,6 +2127,26 @@ def refresh_polls(poll: Poll, context: CallbackContext, only_buttons=False) -> N
     return
 
 
+def deliver_list(update: Update, _list: List) -> None:
+    """Delivers the list."""
+    update.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(update.effective_user.id))
+    return
+
+
+def refresh_lists(_list: List, context: CallbackContext, only_buttons=False) -> None:
+    """Refreshes all lists to update changes."""
+    if only_buttons:
+        for mid in _list.get_message_details():
+            context.bot.edit_message_reply_markup(inline_message_id=mid, reply_markup=_list.build_option_buttons())
+    else:
+        for mid in _list.get_message_details():
+            context.bot.edit_message_text(
+                _list.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
+                reply_markup=_list.build_option_buttons()
+            )
+    return
+
+
 def deliver_group(update: Update, group: Group) -> None:
     """Delivers the group details."""
     update.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_buttons())
@@ -1900,10 +2203,12 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler("promote", handle_promote, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("start", handle_start, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("poll", handle_poll, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("group", handle_group, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("polls", handle_polls, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("gpolls", handle_group_polls, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("list", handle_list, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("lists", handle_lists, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("group", handle_group, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("groups", handle_groups, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("gpolls", handle_group_polls, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("invite", handle_invite, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("help", handle_help, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("save", handle_save, filters=Filters.chat_type.private))
@@ -1912,6 +2217,9 @@ def main() -> None:
     # Message handlers
     dispatcher.add_handler(
         MessageHandler((Filters.regex(r"^\/poll_\w+.*$") & Filters.chat_type.private), handle_poll_view)
+    )
+    dispatcher.add_handler(
+        MessageHandler((Filters.regex(r"^\/list_\w+.*$") & Filters.chat_type.private), handle_list_view)
     )
     dispatcher.add_handler(
         MessageHandler((Filters.regex(r"^\/group_\w+.*$") & Filters.chat_type.private), handle_group_view)
