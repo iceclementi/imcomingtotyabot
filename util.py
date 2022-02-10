@@ -63,12 +63,12 @@ def decode(code: str, base=32) -> int:
 def simple_hash(text: str, salt="", length=16, variance=True) -> str:
     if variance:
         time_variance = datetime.now().strftime("%H%d%m%y")
-        salt_bytes = bytes(f"{time_variance}{salt}", "ascii")
+        salt_bytes = bytes(f"{time_variance}{salt}", "utf-8")
     else:
-        salt_bytes = bytes(f"{salt}", "ascii")
+        salt_bytes = bytes(f"{salt}", "utf-8")
 
     hasher = blake(key=salt_bytes, digest_size=16)
-    hasher.update(bytes(text, "ascii"))
+    hasher.update(bytes(text, "utf-8"))
 
     digest = hasher.hexdigest()
     encoded_digest = encode(int(digest, 16), base=62)

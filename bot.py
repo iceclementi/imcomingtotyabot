@@ -2230,16 +2230,16 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             #     )
             if type(item) == List:
                 logger.info("Making")
-                content = InputTextMessageContent("abc", parse_mode=ParseMode.HTML)
+                content = InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML)
                 logger.info("Making2")
                 buttons = item.build_update_buttons()
                 # logger.info("Setting")
-                # query_result = InlineQueryResultArticle(
-                #     id=f"list {item.get_list_id()}", title="something",
-                #     description=item.generate_options_summary(),
-                #     input_message_content=content,
-                #     reply_markup=buttons
-                # )
+                query_result = InlineQueryResultArticle(
+                    id=f"list {item.get_list_id()}", title="something",
+                    description=item.generate_options_summary(),
+                    input_message_content=content,
+                    reply_markup=buttons
+                )
                 logger.info(content)
                 logger.info(buttons)
                 logger.info("Inserting")
