@@ -1181,7 +1181,9 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     if subject == models.USER_SUBJECT:
         handle_user_callback_query(query, context, action, identifier)
-    if subject == models.POLL_SUBJECT:
+    elif subject == models.POLL_SUBJECT:
+        handle_poll_callback_query(query, context, action, identifier)
+    elif subject == models.LIST_SUBJECT:
         handle_poll_callback_query(query, context, action, identifier)
     elif subject == models.GROUP_SUBJECT:
         handle_group_callback_query(query, context, action, identifier)
@@ -1518,6 +1520,131 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     # Handle back button
     elif action == models.BACK and is_pm:
         query.edit_message_reply_markup(poll.build_admin_buttons(uid))
+        query.answer(text=None)
+        return
+    # Handle close button
+    elif action == models.CLOSE:
+        message.delete()
+        query.answer(text=None)
+        return
+    # Handle other cases
+    else:
+        logger.warning("Invalid callback query data.")
+        query.answer(text="Invalid callback query data!")
+        query.edit_message_reply_markup(None)
+        return
+
+
+def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, action: str, poll_id: str) -> None:
+    """Handles a poll callback query."""
+    _list = List.get_list_by_id(list_id)
+
+    # List is deleted or has error
+    if not _list:
+        query.edit_message_reply_markup(None)
+        query.answer(text=DELETED_LIST)
+        return
+
+    uid = query.from_user.id
+    message = query.message
+    is_pm = is_private_chat(message)
+
+    # Handle list options button
+    if action == models.OPTIONS:
+        query.answer(text=None)
+        query.edit_message_text(
+            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_build_option_buttons()
+        )
+        return
+    # Handle list option button
+    elif action.startswith(f"{models.OPTION}_"):
+        match = re.match(f"{models.OPTION}_(\\d+)", action)
+        if not match:
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            return
+
+        opt_id = int(match.group(1))
+
+        if not _list.is_valid_option(opt_id):
+            logger.warning(f"Invalid option selected: {opt_id} in list {_list.get_list_id()}.")
+            query.answer(text="Invalid option selected!")
+            return
+
+        option = _list.get_option(opt_id)
+        query.edit_message_reply_markup(_list.build_choice_buttons(opt_id))
+        query.answer(text=f"Select the names you want to pick for {option.get_title()}.")
+        return
+    # Handle list choice button
+    elif action.startswith(f"{models.CHOICE}_"):
+        match = re.match(f"{models.CHOICE}_(\\d+)_(\\d+)", action)
+        if not match:
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            return
+
+        opt_id, choice_id = int(match.group(1)), int(match.group(2))
+
+        if not _list.is_valid_option(opt_id):
+            logger.warning(f"Invalid option selected: {opt_id} in list {_list.get_list_id()}.")
+            query.answer(text="Invalid option selected!")
+            return
+
+        if not _list.is_valid_choice(choice_id):
+            logger.warning(f"Invalid choice selected: {choice_id} in list {_list.get_list_id()}.")
+            query.answer(text="Invalid choice selected!")
+            return
+
+        status = _list.toggle(opt_id, choice_id)
+        query.edit_message_text(
+            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_choice_buttons(opt_id)
+        )
+        query.answer(text=status)
+        refresh_lists(_list, context)
+        return
+    # Handle refresh option button
+    elif action == models.REFRESH_OPT:
+        query.answer(text="Results updated!")
+        query.edit_message_text(
+            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_option_buttons()
+        )
+        return
+    # Handle admin refresh button
+    elif action == models.REFRESH and is_pm:
+        query.answer(text="Results updated!")
+        query.edit_message_text(
+            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_admin_buttons(uid)
+        )
+        return
+    # Handle customise button
+    elif action == models.CUSTOMISE and is_pm:
+        query.edit_message_reply_markup(_list.build_customise_buttons())
+        query.answer(text=None)
+        return
+    # Handle toggle response button
+    elif action == models.RESPONSE and is_pm:
+        status = _list.toggle_response_type()
+        query.answer(text=status)
+        query.edit_message_reply_markup(_list.build_customise_buttons())
+        return
+    # Handle delete button
+    elif action == models.DELETE and is_pm:
+        query.edit_message_reply_markup(_list.build_delete_confirmation_buttons())
+        query.answer(text="Confirm delete?")
+        return
+    # Handle delete confirmation button
+    elif action == models.DELETE_YES and is_pm:
+        User.get_user_by_id(uid).delete_list(list_id)
+        message.delete()
+        query.answer(text="List deleted!")
+        for mid in _list.get_message_details():
+            context.bot.edit_message_reply_markup(
+                inline_message_id=mid, reply_markup=None
+            )
+        return
+    # Handle back button
+    elif action == models.BACK and is_pm:
+        query.edit_message_reply_markup(_list.build_admin_buttons(uid))
         query.answer(text=None)
         return
     # Handle close button

@@ -35,6 +35,7 @@ PUBLISH = "publish"
 REFRESH = "refresh"
 OPTION = "opt"
 OPTIONS = "opts"
+CHOICE = "choice"
 USER_REFRESH = "userRefresh"
 REFRESH_OPT = "refreshOpt"
 CUSTOMISE = "custom"
@@ -1081,6 +1082,9 @@ class List(object):
     def get_options(self) -> list:
         return self.options
 
+    def get_option(self, opt_id):
+        return self.options[opt_id] if self.is_valid_option(opt_id) else None
+
     def add_option(self, option) -> None:
         self.options.append(option)
 
@@ -1089,6 +1093,9 @@ class List(object):
 
     def get_choices(self) -> list:
         return self.choices
+
+    def get_choice(self, choice_id: int) -> str:
+        return self.choices[choice_id] if self.is_valid_choice(choice_id) else ""
 
     def is_valid_choice(self, choice_id: int) -> bool:
         return 0 <= choice_id < len(self.choices)
@@ -1124,15 +1131,15 @@ class List(object):
     def get_list_hash(self) -> str:
         return f"{self.list_id}_{util.simple_hash(self.title, self.list_id, variance=False)}"
 
-    def toggle(self, opt_id: int, choice_id: int, choice_name: str) -> str:
-        if opt_id >= len(self.options):
-            return "Sorry, invalid option."
+    def toggle(self, opt_id: int, choice_id: int) -> str:
+        if not self.is_valid_option(opt_id) or not self.is_valid_choice(choice_id):
+            return "Sorry, invalid option or choice."
 
         if self.single_response:
             for i, option in enumerate(self.options):
                 if i != opt_id:
-                    option.remove_allocation(uid)
-        return self.options[opt_id].toggle(choice_id, choice_name)
+                    option.remove_allocation(choice_id)
+        return self.options[opt_id].toggle(choice_id, self.get_choice(choice_id))
 
     def contains(self, opt_id: int, choice_id: int):
         if opt_id < len(self.options):
@@ -1200,10 +1207,10 @@ class List(object):
         buttons = [[toggle_response_button], [back_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_choices_buttons(self) -> InlineKeyboardMarkup:
+    def build_choice_buttons(self, opt_id: int) -> InlineKeyboardMarkup:
         buttons = []
         for i, choice in enumerate(self.choices):
-            choice_button = util.build_button(choice, LIST_SUBJECT, f"{i}", self.list_id)
+            choice_button = util.build_button(choice, LIST_SUBJECT, f"{CHOICE}_{opt_id}_{i}", self.list_id)
             buttons.append([choice_button])
         back_button = util.build_button("Back", LIST_SUBJECT, OPTIONS, self.list_id)
         buttons.append([back_button])
