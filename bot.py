@@ -1535,7 +1535,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         return
 
 
-def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, action: str, poll_id: str) -> None:
+def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, action: str, list_id: str) -> None:
     """Handles a poll callback query."""
     _list = List.get_list_by_id(list_id)
 
