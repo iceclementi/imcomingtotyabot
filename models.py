@@ -1308,6 +1308,7 @@ class BotManager(object):
             db.save(all_users, db.USER_SHEET)
             db.save(all_groups, db.GROUP_SHEET)
             db.save(all_polls, db.POLL_SHEET)
+            db.save(all_lists, db.LIST_SHEET)
             return "Data saved successfully."
         except (TypeError, json.JSONDecodeError) as error:
             return f"Error saving data: {error}"
@@ -1325,7 +1326,8 @@ class BotManager(object):
                     user_data[db.USER_IS_LEADER],
                     user_data[db.USER_OWNED_GROUP_IDS],
                     user_data[db.USER_JOINED_GROUP_IDS],
-                    user_data[db.USER_POLL_IDS]
+                    user_data[db.USER_POLL_IDS],
+                    user_data[db.USER_LIST_IDS]
                 )
 
             groups_data = db.load(db.GROUP_SHEET)
@@ -1337,6 +1339,7 @@ class BotManager(object):
                     group_data[db.GROUP_PASSWORD],
                     group_data[db.GROUP_MEMBER_IDS],
                     group_data[db.GROUP_POLL_IDS],
+                    group_data[db.GROUP_LIST_IDS],
                     group_data[db.GROUP_CREATED_DATE],
                 )
 
@@ -1353,6 +1356,22 @@ class BotManager(object):
                     poll_data[db.POLL_EXPIRY],
                     poll_data[db.POLL_CREATED_DATE],
                 )
+
+            lists_data = db.load(db.LIST_SHEET)
+            for list_data in lists_data:
+                List.load(
+                    list_data[db.LIST_ID],
+                    list_data[db.LIST_TITLE],
+                    list_data[db.LIST_CREATOR_ID],
+                    list_data[db.LIST_DESCRIPTION],
+                    list_data[db.LIST_OPTIONS],
+                    list_data[db.LIST_CHOICES],
+                    list_data[db.LIST_SINGLE_RESPONSE],
+                    list_data[db.LIST_MESSAGE_DETAILS],
+                    list_data[db.LIST_EXPIRY],
+                    list_data[db.LIST_CREATED_DATE],
+                )
+
             return "Data loaded successfully."
         except (TypeError, json.JSONDecodeError) as error:
             return f"Error loading data: {error}"

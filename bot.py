@@ -1344,7 +1344,6 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             logger.warning("Invalid callback query data.")
             return
     # Handle group
-    # Handle group
     elif action == "group":
         group_name = context.user_data.setdefault("name", "")
 
