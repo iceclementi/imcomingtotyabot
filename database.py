@@ -25,6 +25,7 @@ database_spreadsheet = client.open_by_key("1Qd__kBpgbE6CqxbX30q4QulHAl0hiiRoEeTJ
 users_sheet = database_spreadsheet.worksheet("User Data")
 groups_sheet = database_spreadsheet.worksheet("Group Data")
 polls_sheet = database_spreadsheet.worksheet("Poll Data")
+lists_sheet = database_spreadsheet.worksheet("List Data")
 
 # User database fields
 USER_SHEET = "user"
@@ -114,6 +115,8 @@ def save(data: dict, sheet_name: str) -> None:
         return save_to_sheet(data, groups_sheet, GROUP_FIELDS)
     elif sheet_name == POLL_SHEET:
         return save_to_sheet(data, polls_sheet, POLL_FIELDS)
+    elif sheet_name == LIST_SHEET:
+        return save_to_sheet(data, lists_sheet, LIST_FIELDS)
     else:
         return
 
@@ -145,6 +148,6 @@ def load_from_sheet(sheet: Worksheet, headers: list) -> list:
     all_values = sheet.get_all_records(numericise_ignore=["all"])
     data = []
     for row_values in all_values:
-        row_data = {field: json.loads(row_values[field]) for field in headers}
+        row_data = {field: json.loads(row_values) for field in headers}
         data.append(row_data)
     return data
