@@ -2218,8 +2218,11 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
 
     # Handle search everything
     if user:
+        logger.info("In items")
         items = user.get_everything(text)[:QUERY_RESULTS_LIMIT]
+        logger.info("out items")
         for item in items:
+            logger.info("In loop")
             # if type(item) == Poll:
             #     query_result = InlineQueryResultArticle(
             #         id=f"poll {item.get_poll_id()}", title=item.get_title(),
@@ -2238,7 +2241,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             else:
                 continue
         #     results.append(query_result)
-
+    logger.info("Out loop")
     query.answer(results)
     return
 
