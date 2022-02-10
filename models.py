@@ -1180,12 +1180,10 @@ class List(object):
 
     def generate_allocations_summary(self) -> str:
         allocation_count = self.get_allocation_count()
-        if allocation_count == 0:
-            summary = "Nobody allocated"
-        elif allocation_count == 1:
-            summary = "1 person allocated"
+        if allocation_count == 0 or 1:
+            summary = f"{allocation_count} person allocated out of {len(self.choices)}"
         else:
-            summary = f"{allocation_count} people allocated"
+            summary = f"{allocation_count} people allocated out of {len(self.choices)}"
         return summary
 
     def generate_linked_summary(self, include_creator=False) -> str:
