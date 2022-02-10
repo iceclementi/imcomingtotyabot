@@ -2229,10 +2229,10 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             #     )
             if type(item) == List:
                 query_result = InlineQueryResultArticle(
-                    id=f"list {item.get_list_id()}", title=item.get_title(),
+                    id=f"list {item.get_list_id()}", title="something",
                     description=item.generate_options_summary(),
-                    input_message_content=InputTextMessageContent("a", parse_mode=ParseMode.HTML),
-                    reply_markup=None
+                    input_message_content=InputTextMessageContent("abc", parse_mode=ParseMode.HTML),
+                    reply_markup=item.build_update_buttons()
                 )
                 results.append(query_result)
             else:
