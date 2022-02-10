@@ -2232,7 +2232,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                     id=f"list {item.get_list_id()}", title=item.get_title(),
                     description=item.generate_options_summary(),
                     input_message_content=InputTextMessageContent("a", parse_mode=ParseMode.HTML),
-                    reply_markup=None
+                    reply_markup=item.build_update_buttons()
                 )
                 results.append(query_result)
             else:
