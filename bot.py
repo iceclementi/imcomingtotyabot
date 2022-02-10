@@ -867,7 +867,7 @@ def handle_list_conversation(update: Update, context: CallbackContext) -> None:
     text = update.message.text.strip()
     step, title, description, options, choices = \
         context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
-        context.user_data.get("options", []), context.user_data.get("choice", [])
+        context.user_data.get("options", []), context.user_data.get("choices", [])
 
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
@@ -1299,9 +1299,9 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
     elif action == "list":
         step, title, description, options, choices = \
             context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
-            context.user_data.get("options", []), context.user_data.get("choice", [])
+            context.user_data.get("options", []), context.user_data.get("choices", [])
 
-        if not (title and description and options):
+        if not title:
             query.message.delete()
             query.answer(text="Invalid callback query data!")
             logger.warning("Invalid callback query data.")
@@ -1316,7 +1316,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             )
             context.user_data.update({"step": 3, "descr": " ", "del": reply_message.message_id})
             return
-        elif step == 3:
+        elif step == 3 and options:
             query.edit_message_text(
                 NEW_LIST_CHOICE, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Cancel", models.RESET)
@@ -1324,7 +1324,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             query.answer(text="Good job! Now, send me the first choice item name.")
             context.user_data.update({"step": 4})
             return
-        elif step == 4 and choices:
+        elif step == 4 and options and choices:
             # Create list
             _list, _ = User.get_user_by_id(query.from_user.id).create_list(title, description.strip(), options, choices)
 
