@@ -367,7 +367,8 @@ class User(object):
             db.USER_IS_LEADER: self.leader,
             db.USER_OWNED_GROUP_IDS: list(self.owned_group_ids),
             db.USER_JOINED_GROUP_IDS: list(self.joined_group_ids),
-            db.USER_POLL_IDS: list(self.poll_ids)
+            db.USER_POLL_IDS: list(self.poll_ids),
+            db.USER_LIST_IDS: list(self.list_ids)
         }
 
 
