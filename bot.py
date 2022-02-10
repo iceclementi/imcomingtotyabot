@@ -1727,7 +1727,7 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
     # Handle update done button
     elif action == models.UPDATE_DONE and is_pm:
         reply_message = query.edit_message_reply_markup(
-            util.build_single_switch_button_markup("Return To Chat", "")
+            util.build_single_switch_button_markup("Return To Chat", "/")
         )
 
         reply_message.delete()
