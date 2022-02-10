@@ -2220,34 +2220,24 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     if user:
         items = user.get_everything(text)[:QUERY_RESULTS_LIMIT]
         for item in items:
-            logger.info("In loop")
-            # if type(item) == Poll:
-            #     query_result = InlineQueryResultArticle(
-            #         id=f"poll {item.get_poll_id()}", title=item.get_title(),
-            #         description=item.generate_options_summary(),
-            #         input_message_content=InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML),
-            #         reply_markup=item.build_option_buttons()
-            #     )
-            if type(item) == List:
-                logger.info("Making")
-                content = InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML)
-                logger.info("Making2")
-                buttons = item.build_update_buttons()
-                # logger.info("Setting")
+            if type(item) == Poll:
                 query_result = InlineQueryResultArticle(
-                    id=f"list {item.get_list_id()}", title="something",
+                    id=f"poll {item.get_poll_id()}", title=item.get_title(),
                     description=item.generate_options_summary(),
-                    input_message_content=content,
-                    reply_markup=buttons
+                    input_message_content=InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML),
+                    reply_markup=item.build_option_buttons()
                 )
-                logger.info(content)
-                logger.info(buttons)
-                logger.info("Inserting")
-                # results.append(query_result)
+            elif type(item) == List:
+                query_result = InlineQueryResultArticle(
+                    id=f"list {item.get_list_id()}", title=item.get_title(),
+                    description=item.generate_options_summary(),
+                    input_message_content=InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML),
+                    reply_markup=item.build_update_buttons()
+                )
             else:
                 continue
-        #     results.append(query_result)
-    logger.info("Out loop")
+            results.append(query_result)
+
     query.answer(results)
     return
 
