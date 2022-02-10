@@ -1,5 +1,5 @@
 # I'm Coming To TYA Bot
-![Current version](https://img.shields.io/badge/version-v1.1-blue)
+![Current version](https://img.shields.io/badge/version-v1.2-blue)
 <a href="https://github.com/python-telegram-bot/python-telegram-bot">![Python Telegram Bot version](https://img.shields.io/badge/python--telegram--bot-v13.7-teal)</a>
 ![Supported Python version](https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8%20%7C%203.9-teal?logo=python&logoColor=yellow)
 ![MIT License](https://img.shields.io/badge/license-MIT-orange)
@@ -20,19 +20,10 @@ Feel free to use my code, make changes, and run on your own server 😉.
 <table>
   <tbody>
     <tr align="left">
-      <th><h3>ℹ What's New?</h3></th>
+      <th><h3>🎉 What's New?</h3></th>
     </tr>
     <tr>
       <td>
-        <b>Access</b>
-        <ul>
-          <li>Access to the bot is now restricted 😯
-            <ul>
-              <li>This is to prevent database from overloading from public users</li>
-              <li>Request for bot access from the <b>bot admin</b></li>
-            </ul>
-          </li>
-        </ul>
         <b>Groups</b>
         <ul>
           <li>You can now create groups* to share your created polls! 😁
@@ -42,6 +33,18 @@ Feel free to use my code, make changes, and run on your own server 😉.
           </li>
           <li>Invite group members to join your group</li>
           <li>Share and view created polls from other group members</li>
+        </ul>
+        <b>Lists</b>
+        <ul>
+          <li>You can now create a new kind of poll - Lists! 😁</li>
+          <li>Lists are like manual polls where you first create a list of names that can be placed in the options</li>
+          <li>Add the names to each option in the list</li>
+          <li><b>Great for attendance taking or organising people into groups!</b> 😉</li>
+        </ul>
+        <b>Miscellaneous</b>
+        <ul>
+          <li>You can now add descriptions to polls!</li>
+          <li>Use <code>/gpolls</code> and <code>/glists</code> to now view all your group polls and lists!</li>
         </ul>
       </td>
     </tr>
@@ -53,11 +56,18 @@ Feel free to use my code, make changes, and run on your own server 😉.
 ## Features
 
 ### Polls
+- 🆕 You can now add descriptions to polls!
 - Build a standard poll with options where users can vote their names
 - Toggle between single or multiple votes allowed for each user
 - Toggle whether a comment is required for each option in the poll
 - Users may leave a comment for an option they selected
   - If comment is required, users are forced to enter a comment or their vote will not be registered
+
+### Lists 🆕
+- Build a manual poll with options and pre-determined choices
+- Set of options and choices must be made beforehand
+- Insert each choice in one or multiple options, depending on the settings
+- **Great for attendance taking or organising people into groups!** 👏
 
 ### Groups 🆕
 <table>
@@ -106,8 +116,12 @@ Below is a list of bot commands as of this version.
 | `/start`        | Views the bot's welcome message                         |      None       |
 | `/poll [title]` | Builds a new poll with an optional title                |       Bot       |
 | `/polls`        | Views all the polls you have built                      |       Bot       |
+| `/list [title]` | Builds a new list with an optional title                |       Bot       |
+| `/lists`        | Views all the lists you have built                      |       Bot       |
 | `/group [name]` | Creates a new group with an optional name               |     Leader      |
 | `/groups`       | Views all the groups you are in                         |       Bot       |
+| `/gpolls`       | Views all the group polls in all your groups            |       Bot       |
+| `/glists`       | Views all the group lists in all your groups            |       Bot       |
 | `/invite`       | Sends an invite link to your friends to join your group |       Bot       |
 | `/help`         | Views the help message to show available commands       |      None       |
 
@@ -136,15 +150,24 @@ Below is a list of inline queries processed by the bot as of this version.
 | `/poll <title>`    | Builds a new poll with the given title                                                    |       Bot       |
 | `/polls`           | Views all the polls you have built                                                        |       Bot       |
 | `/polls [filter]`  | Shows polls filtered by title for you to choose to view                                   |       Bot       |
+| `/lists [filter]`  | Shows lists filtered by title for you to choose to view                                   |       Bot       |
+| `/list`            | Builds a new list                                                                         |       Bot       |
+| `/list <title>`    | Builds a new list with the given title                                                    |       Bot       |
+| `/lists`           | Views all the lists you have built                                                        |       Bot       |
+| `/lists [filter]`  | Shows lists filtered by title for you to choose to view                                   |       Bot       |
 | `/group`           | Creates a new group                                                                       |     Leader      |
 | `/group <name>`    | Creates a new group with the given name                                                   |     Leader      |
-| `/groups`          | View all the groups you are in                                                            |       Bot       |
+| `/groups`          | Views all the groups you are in                                                           |       Bot       |
 | `/groups [filter]` | Shows groups filtered by name for you to choose to view                                   |       Bot       |
+| `/gpolls`          | Views all your group polls                                                                |       Bot       |
+| `/gpolls [filter]` | Shows group polls filtered by name for you to choose to view                              |       Bot       |
+| `/glists`          | Views all your group lists                                                                |       Bot       |
+| `/glists [filter]` | Shows group lists filtered by name for you to choose to view                              |       Bot       |
 | `/invite`          | Sends an invite link to your friends to join your group                                   |       Bot       |
 | `/invite [filter]` | Shows groups filtered by name for you to choose to send an invite link for                |       Bot       |
 | `/join <code>`     | Joins a group via the invite code sent by an existing group member                        |      None       |
 | `/help`            | Views the help message to show available commands                                         |      None       |
-| `[filter]`         | Shows a list of polls filtered by title for you to choose to publish                      |       Bot       |
+| `[filter]`         | Shows all your polls and lists filtered by title for you to choose to publish             |       Bot       |
 
 <table>
   <tr>
@@ -159,11 +182,11 @@ Below is a list of inline queries processed by the bot as of this version.
 ---
 
 ## Upcoming Features
-- Create command to show all group polls
-- Create new poll type: attendance poll
-  - Input the names of all the users beforehand
-  - Allocate each name to one or more options in the poll
-- Enable users to create custom templates to build a poll faster! 😎
+- 🔴 Enable users to create custom templates to build a poll faster!
+- 🟡 Editing of fields like titles and descriptions even after poll/list has been created
+- 🟡 Pagination of polls/lists with many options for better UI
+- 🟢 Add deadlines to polls (users can no longer vote in the poll)
+- 🟢 New kind of poll - feedback?
 
 ---
 
