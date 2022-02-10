@@ -2218,9 +2218,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
 
     # Handle search everything
     if user:
-        logger.info("In items")
         items = user.get_everything(text)[:QUERY_RESULTS_LIMIT]
-        logger.info("out items")
         for item in items:
             logger.info("In loop")
             # if type(item) == Poll:
@@ -2231,12 +2229,17 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             #         reply_markup=item.build_option_buttons()
             #     )
             if type(item) == List:
+                logger.info("Making")
+                content = InputTextMessageContent("abc", parse_mode=ParseMode.HTML)
+                buttons = item.build_update_buttons()
+                logger.info("Setting")
                 query_result = InlineQueryResultArticle(
                     id=f"list {item.get_list_id()}", title="something",
                     description=item.generate_options_summary(),
-                    input_message_content=InputTextMessageContent("abc", parse_mode=ParseMode.HTML),
-                    reply_markup=item.build_update_buttons()
+                    input_message_content=content,
+                    reply_markup=buttons
                 )
+                logger.info("Inserting")
                 results.append(query_result)
             else:
                 continue
