@@ -1345,14 +1345,15 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         return
     # Handle show command button
     elif action == models.SHOW:
-        query.answer(text="Command keyboard shown!")
         handle_show_command_callback_query(query, context)
+        query.answer(text="Command keyboard shown!")
         return
     # Handle hide command button
     elif action == models.HIDE:
-        query.answer(text="Command keyboard hidden!")
+        query.message.delete()
         reply_message = query.message.reply_html("Hiding command keyboard...", reply_markup=ReplyKeyboardRemove())
         reply_message.delete()
+        query.answer(text="Command keyboard hidden!")
         return
     # Handle close button
     elif action == models.CLOSE:
@@ -1505,7 +1506,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
 def handle_show_command_callback_query(query: CallbackQuery, context: CallbackContext) -> None:
     """Shows the command keyboard to the user."""
     query.message.delete()
-    user, is_leader, is_admin = get_user_permissions(update.effective_user.id)
+    user, is_leader, is_admin = get_user_permissions(query.from_user.id)
 
     if not user:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
