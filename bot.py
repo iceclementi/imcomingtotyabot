@@ -74,7 +74,7 @@ DELETED_GROUP = "Sorry, the group has been deleted."
 GROUP_INVITATION = "Which group's invite code do you want to send?"
 
 REASON = "You've selected {}.\nPlease enter a reason/comment for your selected option."
-START = "Welcome to the bot! \U0001f60a\n\nClick the button below to show available bot commands.\n\n" \
+START = "Welcome to the bot! \U0001f60a\n\nUse /keyboard to show and hide the command keyboard.\n\n" \
         "Use /help to check the description for each bot command."
 
 ERROR_ACCESS_ALREADY_GRANTED = "You already have access to the bot! Use /start to get started."
@@ -1526,7 +1526,7 @@ def handle_show_command_callback_query(query: CallbackQuery, context: CallbackCo
     elif is_admin:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
-            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
+            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}"],
             [f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
             [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
             [f"/{ACCESS_COMMAND}", f"/{ENROL_COMMAND}", f"/{PROMOTE_COMMAND}"],
@@ -1535,14 +1535,14 @@ def handle_show_command_callback_query(query: CallbackQuery, context: CallbackCo
     elif is_leader:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
-            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
+            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}"],
             [f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
             [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"]
         )
     else:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
-            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
+            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}"],
             [f"/{LISTS_COMMAND}", f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}"],
             [f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}", "."]
         )
