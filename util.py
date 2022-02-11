@@ -4,7 +4,7 @@ import random
 from datetime import datetime
 from hashlib import blake2b as blake
 from typing import List, Tuple, Set
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 ENCODE_KEY = string.digits + string.ascii_letters
 NEGATIVE_SYMBOL = "Z"
@@ -108,7 +108,7 @@ def build_multiple_buttons_markup(*button_details: Tuple[str, str, bool, bool]) 
     return InlineKeyboardMarkup(buttons)
 
 
-def build_multiple_stacked_buttons_markup(*button_details: List[Tuple[str, str, bool, bool]]):
+def build_multiple_stacked_buttons_markup(*button_details: List[Tuple[str, str, bool, bool]]) -> InlineKeyboardMarkup:
     buttons = []
     for button_row_details in button_details:
         button_row = []
@@ -130,6 +130,24 @@ def generate_button_details(text: str, action: str, is_switch=False, to_self=Fal
 def build_single_link_button_markup(text: str, link: str) -> InlineKeyboardMarkup:
     button = InlineKeyboardButton(text, url=link)
     return InlineKeyboardMarkup([[button]])
+
+
+def build_multiple_keyboard_buttons(*button_texts: str, one_time=False, placeholder=None) -> ReplyKeyboardMarkup:
+    buttons = []
+    for button_text in button_texts:
+        buttons.append([button_text])
+    return ReplyKeyboardMarkup(buttons, one_time_keyboard=one_time, input_field_placeholder=placeholder)
+
+
+def build_multiple_stacked_keyboard_buttons(*button_texts: List[str], one_time=False, placeholder=None) \
+        -> ReplyKeyboardMarkup:
+    buttons = []
+    for button_row_texts in button_texts:
+        button_row = []
+        for button_text in button_row_texts:
+            button_row.append(button_text)
+        buttons.append(button_row)
+    return ReplyKeyboardMarkup(buttons, one_time_keyboard=one_time, input_field_placeholder=placeholder)
 
 
 def format_date(date: datetime, date_format="%B %d, %Y") -> str:

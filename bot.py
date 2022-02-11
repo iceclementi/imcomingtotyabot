@@ -110,6 +110,27 @@ ERROR_INVALID_LIST_UPDATE_REQUEST = "Sorry, invalid list update request."
 
 # endregion
 
+# region COMMANDS
+
+START_COMMAND = "start"
+POLL_COMMAND = "poll"
+POLLS_COMMAND = "polls"
+LIST_COMMAND = "list"
+LISTS_COMMAND = "lists"
+GROUP_COMMAND = "group"
+GROUPS_COMMAND = "groups"
+GROUP_POLLS_COMMAND = "gpolls"
+GROUP_LISTS_COMMAND = "glists"
+INVITE_COMMAND = "invite"
+HELP_COMMAND = "help"
+ACCESS_COMMAND = "access"
+ENROL_COMMAND = "enrol"
+PROMOTE_COMMAND = "promote"
+SAVE_COMMAND = "save"
+LOAD_COMMAND = "load"
+
+# endregion
+
 # region COMMAND GUIDE
 
 START_GUIDE = "<b>/start</b>\nView the bot's welcome message"
@@ -366,7 +387,46 @@ def handle_update_pm(update: Update, context: CallbackContext, details: str) -> 
 
 def handle_command_view(update: Update, context: CallbackContext) -> None:
     """Shows all commands available to the users in the keyboard."""
-    update.message.reply_html("Testing")
+    update.message.delete()
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, is_leader, is_admin = get_user_permissions(update.effective_user.id)
+
+    if not user:
+        buttons = util.build_multiple_stacked_keyboard_buttons(
+            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"]
+        )
+    elif is_admin:
+        buttons = util.build_multiple_stacked_keyboard_buttons(
+            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"],
+            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
+            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
+            [f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
+            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
+            [f"/{INVITE_COMMAND}", f"/{ACCESS_COMMAND}"],
+            [f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}"]
+        )
+    elif is_leader:
+        buttons = util.build_multiple_stacked_keyboard_buttons(
+            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"],
+            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
+            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
+            [f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
+            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
+            [f"/{INVITE_COMMAND}", f""]
+        )
+    else:
+        buttons = util.build_multiple_stacked_keyboard_buttons(
+            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"],
+            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
+            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
+            [f"/{GROUPS_COMMAND}", f""],
+            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
+            [f"/{INVITE_COMMAND}", f""]
+        )
+
+    update.message.reply_html("Select a bot command 🔽", reply_markup=buttons)
     return
 
 
@@ -765,13 +825,13 @@ def handle_help(update: Update, context: CallbackContext) -> None:
     context.user_data.clear()
 
     uid = update.effective_user.id
-    user = User.get_user_by_id(uid)
+    user, is_leader, is_admin = get_user_permissions(uid)
 
     header = [util.make_html_bold("Available Bot Commands")]
 
     body = [START_GUIDE]
     if user:
-        if user.is_leader():
+        if is_leader:
             body += [POLL_GUIDE, POLLS_GUIDE, LIST_GUIDE, LISTS_GUIDE, GROUP_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
                      GROUP_LISTS_GUIDE, INVITE_GUIDE]
         else:
@@ -2502,22 +2562,22 @@ def main() -> None:
     dispatcher = updater.dispatcher
 
     # Command handlers
-    dispatcher.add_handler(CommandHandler("access", handle_access, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("enrol", handle_enrol, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("promote", handle_promote, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("start", handle_start, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("poll", handle_poll, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("polls", handle_polls, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("list", handle_list, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("lists", handle_lists, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("group", handle_group, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("groups", handle_groups, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("gpolls", handle_group_polls, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("glists", handle_group_lists, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("invite", handle_invite, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("help", handle_help, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("save", handle_save, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("load", handle_load, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(ACCESS_COMMAND, handle_access, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(ENROL_COMMAND, handle_enrol, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(PROMOTE_COMMAND, handle_promote, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(START_COMMAND, handle_start, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(POLL_COMMAND, handle_poll, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(POLLS_COMMAND, handle_polls, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(LIST_COMMAND, handle_list, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(LISTS_COMMAND, handle_lists, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(GROUP_COMMAND, handle_group, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(GROUPS_COMMAND, handle_groups, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(GROUP_POLLS_COMMAND, handle_group_polls, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(GROUP_LISTS_COMMAND, handle_group_lists, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(INVITE_COMMAND, handle_invite, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(HELP_COMMAND, handle_help, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(SAVE_COMMAND, handle_save, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(LOAD_COMMAND, handle_load, filters=Filters.chat_type.private))
 
     # Message handlers
     dispatcher.add_handler(
