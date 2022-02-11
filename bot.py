@@ -412,27 +412,26 @@ def handle_command_view(update: Update, context: CallbackContext) -> None:
             [f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
             [f"/{INVITE_COMMAND}", f"/{ACCESS_COMMAND}", f"/{ENROL_COMMAND}"],
             [f"/{PROMOTE_COMMAND}", f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}"],
-            [f"/{HELP_COMMAND}", " ", " "]
+            [f"/{HELP_COMMAND}", ".", "."]
         )
     elif is_leader:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
             [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}"],
             [f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f"/{HELP_COMMAND}", " "]
+            [f"/{INVITE_COMMAND}", f"/{HELP_COMMAND}", "."]
         )
     else:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
             [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUPS_COMMAND}"],
             [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
-            [f"/{HELP_COMMAND}", " ", " "]
+            [f"/{HELP_COMMAND}", ".", "."]
         )
 
     reply_message = update.message.reply_html("Loading command keyboard...", reply_markup=ReplyKeyboardRemove())
     reply_message.delete()
-    reply_message = update.message.reply_html("Select a bot command 🔽", reply_markup=buttons)
-    context.user_data.update({"del": reply_message.message_id})
+    update.message.reply_html("Select a bot command 🔽", reply_markup=buttons)
     return
 
 
@@ -866,6 +865,10 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
     text = update.message.text
     if not text:
+        return
+
+    if text == ".":
+        update.message.delete()
         return
 
     user, is_leader, _ = get_user_permissions(update.effective_user.id)
