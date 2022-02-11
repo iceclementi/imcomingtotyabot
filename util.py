@@ -132,14 +132,14 @@ def build_single_link_button_markup(text: str, link: str) -> InlineKeyboardMarku
     return InlineKeyboardMarkup([[button]])
 
 
-def build_multiple_keyboard_buttons(*button_texts: str, one_time=False, placeholder=None) -> ReplyKeyboardMarkup:
+def build_multiple_keyboard_buttons_markup(*button_texts: str, one_time=False, placeholder=None) -> ReplyKeyboardMarkup:
     buttons = []
     for button_text in button_texts:
         buttons.append([button_text])
     return ReplyKeyboardMarkup(buttons, one_time_keyboard=one_time, input_field_placeholder=placeholder)
 
 
-def build_multiple_stacked_keyboard_buttons(*button_texts: List[str], one_time=False, placeholder=None) \
+def build_multiple_stacked_keyboard_buttons_markup(*button_texts: List[str], one_time=False, placeholder=None) \
         -> ReplyKeyboardMarkup:
     buttons = []
     for button_row_texts in button_texts:

@@ -62,6 +62,8 @@ RESET = "reset"
 DONE = "done"
 SKIP = "skip"
 UPDATE_DONE = "updateDone"
+SHOW = "show"
+HIDE = "hide"
 
 # endregion
 
