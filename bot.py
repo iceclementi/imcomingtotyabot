@@ -7,7 +7,7 @@ from models import User, Group, Poll, Option, List, ListOption, BotManager
 import util
 from telegram import (
     Update, ParseMode, User as TeleUser, Message, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup,
-    InlineQueryResultArticle, InputTextMessageContent, ForceReply, CallbackQuery, InlineQuery
+    ReplyKeyboardRemove, InlineQueryResultArticle, InputTextMessageContent, ForceReply, CallbackQuery, InlineQuery
 )
 from telegram.ext import (
     CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
@@ -395,7 +395,8 @@ def handle_command_view(update: Update, context: CallbackContext) -> None:
 
     if not user:
         buttons = util.build_multiple_stacked_keyboard_buttons(
-            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"]
+            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"],
+            one_time=True
         )
     elif is_admin:
         buttons = util.build_multiple_stacked_keyboard_buttons(
@@ -405,7 +406,8 @@ def handle_command_view(update: Update, context: CallbackContext) -> None:
             [f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
             [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
             [f"/{INVITE_COMMAND}", f"/{ACCESS_COMMAND}"],
-            [f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}"]
+            [f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}"],
+            one_time=True
         )
     elif is_leader:
         buttons = util.build_multiple_stacked_keyboard_buttons(
@@ -414,7 +416,8 @@ def handle_command_view(update: Update, context: CallbackContext) -> None:
             [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
             [f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
             [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f""]
+            [f"/{INVITE_COMMAND}", f""],
+            one_time=True
         )
     else:
         buttons = util.build_multiple_stacked_keyboard_buttons(
@@ -423,10 +426,12 @@ def handle_command_view(update: Update, context: CallbackContext) -> None:
             [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
             [f"/{GROUPS_COMMAND}", f""],
             [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f""]
+            [f"/{INVITE_COMMAND}", f""],
+            one_time=True
         )
 
-    update.message.reply_html("Select a bot command 🔽", reply_markup=buttons)
+    reply_message = update.message.reply_html("Select a bot command 🔽", reply_markup=buttons)
+    context.user_data.update({"del": reply_message.message_id})
     return
 
 
