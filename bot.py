@@ -113,6 +113,7 @@ ERROR_INVALID_LIST_UPDATE_REQUEST = "Sorry, invalid list update request."
 # region COMMANDS
 
 START_COMMAND = "start"
+KEYBOARD_COMMAND = "keyboard"
 POLL_COMMAND = "poll"
 POLLS_COMMAND = "polls"
 LIST_COMMAND = "list"
@@ -134,6 +135,7 @@ LOAD_COMMAND = "load"
 # region COMMAND GUIDE
 
 START_GUIDE = "<b>/start</b>\nView the bot's welcome message"
+KEYBOARD_GUIDE = "<b>/keyboard</b>\nChoose between showing or hiding the command keyboard"
 POLL_GUIDE = "<b>/poll</b> &lt;title&gt;\nBuild a new poll with an optional title"
 POLLS_GUIDE = "<b>/polls</b>\nView all the polls you have built"
 LIST_GUIDE = "<b>/list</b> &lt;title&gt;\nBuild a new list with an optional title"
@@ -204,50 +206,56 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
 def handle_pm_command(command: str, update: Update, context: CallbackContext) -> None:
     """Manages standard commands in pm mode with the bot."""
-    if command == "start":
+    if command == START_COMMAND:
         handle_start(update, context)
         return
-    elif command == "poll":
+    elif command == KEYBOARD_COMMAND:
+        handle_keyboard(update, context)
+        return
+    elif command == POLL_COMMAND:
         title = context.user_data.get("title", "")
         update.message.text = f"/{command} {title}"
         handle_poll(update, context)
         return
-    elif command == "polls":
+    elif command == POLLS_COMMAND:
         handle_polls(update, context)
         return
-    elif command == "list":
+    elif command == LIST_COMMAND:
         title = context.user_data.get("title", "")
         update.message.text = f"/{command} {title}"
         handle_list(update, context)
         return
-    elif command == "lists":
+    elif command == LISTS_COMMAND:
         handle_lists(update, context)
         return
-    elif command == "group":
+    elif command == GROUP_COMMAND:
         name = context.user_data.get("name", "")
         update.message.text = f"/{command} {name}"
         handle_group(update, context)
         return
-    elif command == "groups":
+    elif command == GROUPS_COMMAND:
         handle_groups(update, context)
         return
-    elif command == "gpolls":
+    elif command == GROUP_POLLS_COMMAND:
         handle_group_polls(update, context)
         return
-    elif command == "glists":
+    elif command == GROUP_LISTS_COMMAND:
         handle_group_lists(update, context)
         return
-    elif command == "invite":
+    elif command == INVITE_COMMAND:
         handle_invite(update, context)
         return
-    elif command == "enrol":
+    elif command == ENROL_COMMAND:
         handle_enrol(update, context)
         return
-    elif command == "promote":
+    elif command == PROMOTE_COMMAND:
         handle_promote(update, context)
         return
-    elif command == "help":
+    elif command == HELP_COMMAND:
         handle_help(update, context)
+        return
+    else:
+        logger.warning("Illegal pm command!")
         return
 
 
@@ -385,7 +393,7 @@ def handle_update_pm(update: Update, context: CallbackContext, details: str) -> 
     return
 
 
-def handle_command_view(update: Update, context: CallbackContext) -> None:
+def handle_keyboard(update: Update, context: CallbackContext) -> None:
     """Shows option to user to show or hide the command keyboard."""
     update.message.delete()
     delete_old_chat_message(update, context)
@@ -397,7 +405,6 @@ def handle_command_view(update: Update, context: CallbackContext) -> None:
     )
 
     reply_message = update.message.reply_html("Show or hide command keyboard?", reply_markup=show_hide_buttons)
-    context.user_data.update({"del": reply_message.message_id})
     return
 
 
@@ -801,7 +808,7 @@ def handle_help(update: Update, context: CallbackContext) -> None:
 
     header = [util.make_html_bold("Available Bot Commands")]
 
-    body = [START_GUIDE]
+    body = [START_GUIDE, KEYBOARD_GUIDE]
     if user:
         if is_leader:
             body += [POLL_GUIDE, POLLS_GUIDE, LIST_GUIDE, LISTS_GUIDE, GROUP_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
@@ -1514,30 +1521,30 @@ def handle_show_command_callback_query(query: CallbackQuery, context: CallbackCo
 
     if not user:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{HELP_COMMAND}", " "]
+            [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"]
         )
     elif is_admin:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
-            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}"],
-            [f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f"/{ACCESS_COMMAND}", f"/{ENROL_COMMAND}"],
-            [f"/{PROMOTE_COMMAND}", f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}"],
-            [f"/{HELP_COMMAND}", ".", "."]
+            [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
+            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
+            [f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
+            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
+            [f"/{ACCESS_COMMAND}", f"/{ENROL_COMMAND}", f"/{PROMOTE_COMMAND}"],
+            [f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}", "."]
         )
     elif is_leader:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
-            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}"],
-            [f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f"/{HELP_COMMAND}", "."]
+            [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
+            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
+            [f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
+            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"]
         )
     else:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
-            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUPS_COMMAND}"],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
-            [f"/{HELP_COMMAND}", ".", "."]
+            [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
+            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
+            [f"/{LISTS_COMMAND}", f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}"],
+            [f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}", "."]
         )
 
     reply_message = query.message.reply_html("Loading command keyboard...", reply_markup=ReplyKeyboardRemove())
@@ -2065,106 +2072,106 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     match = re.match(r"^/([a-z]*)$", text)
     if match and is_sender:
         command = match.group(1)
-        # Handle empty query
-        if command == "":
-            query_result = InlineQueryResultArticle(
-                id="emptycom", title="/", description="Show or hide the command keyboard",
-                input_message_content=InputTextMessageContent("/")
-            )
-            results.append(query_result)
         # Handle start query
-        if "star".startswith(command):
+        if START_COMMAND[:-1].startswith(command):
             query_result = InlineQueryResultArticle(
                 id="startcom", title="/start", description="View the bot's welcome message",
                 input_message_content=InputTextMessageContent("/start")
             )
             results.append(query_result)
+        # Handle keyboard query
+        if KEYBOARD_COMMAND[:-1].startswith(command):
+            query_result = InlineQueryResultArticle(
+                id="keyboardcom", title="/keyboard", description="Show or hide the command keyboard",
+                input_message_content=InputTextMessageContent("/keyboard")
+            )
+            results.append(query_result)
         # Handle poll query
-        if "pol".startswith(command) and user:
+        if POLL_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
                 id="pollcom", title="/poll", description="Build a new poll",
                 input_message_content=InputTextMessageContent("/poll")
             )
             results.append(query_result)
         # Handle polls query
-        if "poll".startswith(command) and user:
+        if POLLS_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
                 id="pollscom", title="/polls", description="View all the polls you have built",
                 input_message_content=InputTextMessageContent("/polls")
             )
             results.append(query_result)
         # Handle list query
-        if "lis".startswith(command) and user:
+        if LIST_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
                 id="listcom", title="/list", description="Build a new list",
                 input_message_content=InputTextMessageContent("/list")
             )
             results.append(query_result)
         # Handle lists query
-        if "list".startswith(command) and user:
+        if LISTS_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
                 id="listscom", title="/lists", description="View all the lists you have built",
                 input_message_content=InputTextMessageContent("/lists")
             )
             results.append(query_result)
         # Handle group query
-        if "grou".startswith(command) and is_leader:
+        if GROUP_COMMAND[:-1].startswith(command) and is_leader:
             query_result = InlineQueryResultArticle(
                 id="groupcom", title="/group", description="Create a new group",
                 input_message_content=InputTextMessageContent("/group")
             )
             results.append(query_result)
         # Handle groups query
-        if "group".startswith(command) and user:
+        if GROUPS_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
                 id="groupscom", title="/groups", description="View all the groups you are in",
                 input_message_content=InputTextMessageContent("/groups")
             )
             results.append(query_result)
         # Handle group polls query
-        if "gpoll".startswith(command) and user:
+        if GROUP_POLLS_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
                 id="grouppollscom", title="/gpolls", description="View all the polls in your groups",
                 input_message_content=InputTextMessageContent("/gpolls")
             )
             results.append(query_result)
         # Handle group lists query
-        if "glist".startswith(command) and user:
+        if GROUP_LISTS_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
                 id="grouplistscom", title="/glists", description="View all the lists in your groups",
                 input_message_content=InputTextMessageContent("/glists")
             )
             results.append(query_result)
         # Handle invite query
-        if "invit".startswith(command) and user:
+        if INVITE_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
                 id="invitecom", title="/invite", description="Send a group invite to your friends",
                 input_message_content=InputTextMessageContent("/invite")
             )
             results.append(query_result)
         # Handle access query
-        if "acces".startswith(command) and is_admin:
+        if ACCESS_COMMAND[:-1].startswith(command) and is_admin:
             query_result = InlineQueryResultArticle(
                 id="accesscom", title="/access", description="Manage access rights",
                 input_message_content=InputTextMessageContent("/access")
             )
             results.append(query_result)
         # Handle invite access query
-        if "enro".startswith(command) and is_admin:
+        if INVITE_COMMAND[:-1].startswith(command) and is_admin:
             query_result = InlineQueryResultArticle(
                 id="enrolcom", title="/enrol", description="Send a bot access invite to your friends",
                 input_message_content=InputTextMessageContent("/enrol")
             )
             results.append(query_result)
         # Handle promote query
-        if "promot".startswith(command) and is_admin:
+        if PROMOTE_COMMAND[:-1].startswith(command) and is_admin:
             query_result = InlineQueryResultArticle(
                 id="promotecom", title="/promote", description="Promote users to be bot leaders",
                 input_message_content=InputTextMessageContent("/promote")
             )
             results.append(query_result)
         # Handle help query
-        if "hel".startswith(command):
+        if HELP_COMMAND[:-1].startswith(command):
             query_result = InlineQueryResultArticle(
                 id="helpcom", title="/help", description="View the help message",
                 input_message_content=InputTextMessageContent("/help")
@@ -2173,16 +2180,21 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
 
     # Display complete commands as pm text
     match = \
-        re.match(r"^/(start|poll|polls|list|lists|group|groups|gpolls|glists|invite|enrol|promote|help)(\s+.+)?$", text)
+        re.match(r"^/(start|keyboard|poll|polls|list|lists|group|groups|gpolls|glists|invite|enrol|promote|help)"
+                 r"(\s+.+)?$", text)
     if match:
         command, details = match.group(1), match.group(2)
         details = details.strip() if details else ""
         # Handle start query
-        if command == "start" and is_sender:
+        if command == START_COMMAND and is_sender:
             query.answer(results, switch_pm_text="Click to view the bot's welcome message", switch_pm_parameter=command)
             return
+        # Handle keyboard query
+        elif command == KEYBOARD_COMMAND and is_sender:
+            query.answer(results, switch_pm_text="Show or hide the command keyboard", switch_pm_parameter=command)
+            return
         # Handle poll query
-        elif command == "poll" and user and is_sender:
+        elif command == POLL_COMMAND and user and is_sender:
             if details:
                 context.user_data.update({"title": details})
                 query.answer(
@@ -2192,7 +2204,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 query.answer(results, switch_pm_text="Click to build a new poll", switch_pm_parameter=command)
             return
         # Handle polls query
-        elif command == "polls" and user and is_sender:
+        elif command == POLLS_COMMAND and user and is_sender:
             for poll in user.get_polls(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
                     id=f"poll_{poll.get_poll_id()}", title=poll.get_title(),
@@ -2203,7 +2215,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             query.answer(results, switch_pm_text="Click to view all your polls", switch_pm_parameter=command)
             return
         # Handle list query
-        elif command == "list" and user and is_sender:
+        elif command == LIST_COMMAND and user and is_sender:
             if details:
                 context.user_data.update({"title": details})
                 query.answer(
@@ -2213,7 +2225,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 query.answer(results, switch_pm_text="Click to build a new list", switch_pm_parameter=command)
             return
         # Handle lists query
-        elif command == "lists" and user and is_sender:
+        elif command == LISTS_COMMAND and user and is_sender:
             for _list in user.get_lists(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
                     id=f"list_{_list.get_list_id()}", title=_list.get_title(),
@@ -2224,7 +2236,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             query.answer(results, switch_pm_text="Click to view all your lists", switch_pm_parameter=command)
             return
         # Handle group query
-        elif command == "group" and is_leader and is_sender:
+        elif command == GROUP_COMMAND and is_leader and is_sender:
             if details:
                 context.user_data.update({"name": details})
                 query.answer(
@@ -2234,7 +2246,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 query.answer(results, switch_pm_text="Click to create a new group", switch_pm_parameter=command)
             return
         # Handle groups query
-        elif command == "groups" and user and is_sender:
+        elif command == GROUPS_COMMAND and user and is_sender:
             for group in user.get_all_groups(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
                     id=f"group_{group.get_gid()}", title=group.get_name(),
@@ -2245,7 +2257,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             query.answer(results, switch_pm_text="Click to view all your joined groups", switch_pm_parameter=command)
             return
         # Handle group polls query
-        elif command == "gpolls" and user and is_sender:
+        elif command == GROUP_POLLS_COMMAND and user and is_sender:
             for poll in user.get_group_polls(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
                     id=f"gpoll_{poll.get_poll_id()}", title=poll.get_title(),
@@ -2256,7 +2268,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             query.answer(results, switch_pm_text="Click to view all your group polls", switch_pm_parameter=command)
             return
         # Handle group lists query
-        elif command == "glists" and user and is_sender:
+        elif command == GROUP_LISTS_COMMAND and user and is_sender:
             for _list in user.get_group_lists(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
                     id=f"glist_{_list.get_list_id()}", title=_list.get_title(),
@@ -2267,7 +2279,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             query.answer(results, switch_pm_text="Click to view all your group lists", switch_pm_parameter=command)
             return
         # Handle invite query
-        elif command == "invite" and user:
+        elif command == INVITE_COMMAND and user:
             if is_sender:
                 query.answer(results, switch_pm_text="Click to send a group invite", switch_pm_parameter=command)
                 return
@@ -2282,7 +2294,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             query.answer(results)
             return
         # Handle enrol query
-        elif command == "enrol" and is_admin:
+        elif command == ENROL_COMMAND and is_admin:
             if is_sender:
                 query.answer(results, switch_pm_text="Click to send a bot access invite", switch_pm_parameter=command)
                 return
@@ -2297,7 +2309,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             query.answer(results)
             return
         # Handle promote query
-        elif command == "promote" and is_admin and is_sender:
+        elif command == PROMOTE_COMMAND and is_admin and is_sender:
             for user in User.get_users_by_name(details)[:QUERY_RESULTS_LIMIT]:
                 if not user.is_leader():
                     query_result = InlineQueryResultArticle(
@@ -2310,7 +2322,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             )
             return
         # Handle help query
-        elif command == "help" and is_sender:
+        elif command == HELP_COMMAND and is_sender:
             query.answer(results, switch_pm_text="Click to view the help message", switch_pm_parameter=command)
             return
         # Handle other query
@@ -2598,10 +2610,8 @@ def main() -> None:
     dispatcher = updater.dispatcher
 
     # Command handlers
-    dispatcher.add_handler(CommandHandler(ACCESS_COMMAND, handle_access, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(ENROL_COMMAND, handle_enrol, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(PROMOTE_COMMAND, handle_promote, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(START_COMMAND, handle_start, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(KEYBOARD_COMMAND, handle_keyboard, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(POLL_COMMAND, handle_poll, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(POLLS_COMMAND, handle_polls, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(LIST_COMMAND, handle_list, filters=Filters.chat_type.private))
@@ -2612,13 +2622,13 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler(GROUP_LISTS_COMMAND, handle_group_lists, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(INVITE_COMMAND, handle_invite, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(HELP_COMMAND, handle_help, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(ACCESS_COMMAND, handle_access, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(ENROL_COMMAND, handle_enrol, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(PROMOTE_COMMAND, handle_promote, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(SAVE_COMMAND, handle_save, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(LOAD_COMMAND, handle_load, filters=Filters.chat_type.private))
 
     # Message handlers
-    dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/$") & Filters.chat_type.private), handle_command_view)
-    )
     dispatcher.add_handler(
         MessageHandler((Filters.regex(r"^\/poll_\w+.*$") & Filters.chat_type.private), handle_poll_view)
     )
