@@ -364,6 +364,12 @@ def handle_update_pm(update: Update, context: CallbackContext, details: str) -> 
     return
 
 
+def handle_command_view(update: Update, context: CallbackContext) -> None:
+    """Shows all commands available to the users in the keyboard."""
+    update.message.reply_html("Testing")
+    return
+
+
 def handle_access(update: Update, context: CallbackContext) -> None:
     """Manages different accesses in the bot."""
     delete_chat_message(update.message)
@@ -2496,6 +2502,7 @@ def main() -> None:
     dispatcher = updater.dispatcher
 
     # Command handlers
+    dispatcher.add_handler(CommandHandler("", handle_command_view, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("access", handle_access, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("enrol", handle_enrol, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("promote", handle_promote, filters=Filters.chat_type.private))
