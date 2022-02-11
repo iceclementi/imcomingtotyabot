@@ -2109,6 +2109,13 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
     match = re.match(r"^/([a-z]*)$", text)
     if match and is_sender:
         command = match.group(1)
+        # Handle empty query
+        if command == "":
+            query_result = InlineQueryResultArticle(
+                id="emptycom", title="/", description="Show all the bot commands available to you",
+                input_message_content=InputTextMessageContent("/")
+            )
+            results.append(query_result)
         # Handle start query
         if "star".startswith(command):
             query_result = InlineQueryResultArticle(
