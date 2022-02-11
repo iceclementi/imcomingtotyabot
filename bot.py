@@ -159,13 +159,7 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
     arguments = context.args
     if not arguments:
-        update.message.reply_html(
-            START,
-            reply_markup=util.build_multiple_buttons_markup(
-                util.generate_button_details("View Commands", "/", True, True),
-                util.generate_button_details("Close", models.CLOSE)
-            )
-        )
+        update.message.reply_html(START, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
         return
 
     if re.match(r"^\w+$", arguments[0]):
@@ -404,7 +398,7 @@ def handle_keyboard(update: Update, context: CallbackContext) -> None:
         [util.generate_button_details("Close", models.CLOSE)]
     )
 
-    reply_message = update.message.reply_html("Show or hide command keyboard?", reply_markup=show_hide_buttons)
+    update.message.reply_html("Show or hide command keyboard?", reply_markup=show_hide_buttons)
     return
 
 
@@ -1550,7 +1544,6 @@ def handle_show_command_callback_query(query: CallbackQuery, context: CallbackCo
     reply_message = query.message.reply_html("Loading command keyboard...", reply_markup=ReplyKeyboardRemove())
     reply_message.delete()
     reply_message = query.message.reply_html("Select a bot command 🔽", reply_markup=buttons)
-    context.user_data.update({"del": reply_message.message_id})
     return
 
 
