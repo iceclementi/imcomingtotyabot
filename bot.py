@@ -391,47 +391,13 @@ def handle_command_view(update: Update, context: CallbackContext) -> None:
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
-    # show_hide_buttons = util.build_multiple_stacked_buttons_markup(
-    #     [util.generate_button_details("Show", models.SHOW), util.generate_button_details("Hide", models.HIDE)],
-    #     [util.generate_button_details("Close", models.CLOSE)]
-    # )
-    #
-    # reply_message = update.message.reply_html("Show or hide command keyboard?", reply_markup=show_hide_buttons)
-    # context.user_data.update({"del": reply_message.message_id})
+    show_hide_buttons = util.build_multiple_stacked_buttons_markup(
+        [util.generate_button_details("Show", models.SHOW), util.generate_button_details("Hide", models.HIDE)],
+        [util.generate_button_details("Close", models.CLOSE)]
+    )
 
-    user, is_leader, is_admin = get_user_permissions(update.effective_user.id)
-
-    if not user:
-        buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{HELP_COMMAND}", " "]
-        )
-    elif is_admin:
-        buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
-            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}"],
-            [f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f"/{ACCESS_COMMAND}", f"/{ENROL_COMMAND}"],
-            [f"/{PROMOTE_COMMAND}", f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}"],
-            [f"/{HELP_COMMAND}", ".", "."]
-        )
-    elif is_leader:
-        buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
-            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}"],
-            [f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f"/{HELP_COMMAND}", "."]
-        )
-    else:
-        buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
-            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUPS_COMMAND}"],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
-            [f"/{HELP_COMMAND}", ".", "."]
-        )
-
-    reply_message = update.message.reply_html("Loading command keyboard...", reply_markup=ReplyKeyboardRemove())
-    reply_message.delete()
-    update.message.reply_html("Select a bot command 🔽", reply_markup=buttons)
+    reply_message = update.message.reply_html("Show or hide command keyboard?", reply_markup=show_hide_buttons)
+    context.user_data.update({"del": reply_message.message_id})
     return
 
 
@@ -1381,12 +1347,12 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         user_action = context.user_data.get("action", "")
         handle_done_callback_query(query, context, user_action)
         return
-    # Handle show command button - to be removed
+    # Handle show command button
     elif action == models.SHOW:
         handle_show_command_callback_query(query, context)
         query.answer(text="Command keyboard shown!")
         return
-    # Handle hide command button - to be removed
+    # Handle hide command button
     elif action == models.HIDE:
         query.message.delete()
         reply_message = query.message.reply_html("Hiding command keyboard...", reply_markup=ReplyKeyboardRemove())
@@ -1541,7 +1507,6 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
         return
 
 
-# To be removed
 def handle_show_command_callback_query(query: CallbackQuery, context: CallbackContext) -> None:
     """Shows the command keyboard to the user."""
     query.message.delete()
@@ -1549,36 +1514,30 @@ def handle_show_command_callback_query(query: CallbackQuery, context: CallbackCo
 
     if not user:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"]
+            [f"/{START_COMMAND}", f"/{HELP_COMMAND}", " "]
         )
     elif is_admin:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"],
-            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
-            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
-            [f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f"/{ACCESS_COMMAND}"],
-            [f"/{ENROL_COMMAND}", f"/{PROMOTE_COMMAND}"],
-            [f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}"]
+            [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
+            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}"],
+            [f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
+            [f"/{INVITE_COMMAND}", f"/{ACCESS_COMMAND}", f"/{ENROL_COMMAND}"],
+            [f"/{PROMOTE_COMMAND}", f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}"],
+            [f"/{HELP_COMMAND}", ".", "."]
         )
     elif is_leader:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"],
-            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
-            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
-            [f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f""]
+            [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
+            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}"],
+            [f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
+            [f"/{INVITE_COMMAND}", f"/{HELP_COMMAND}", "."]
         )
     else:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"],
-            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
-            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
-            [f"/{GROUPS_COMMAND}", f""],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f""]
+            [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
+            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUPS_COMMAND}"],
+            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
+            [f"/{HELP_COMMAND}", ".", "."]
         )
 
     reply_message = query.message.reply_html("Loading command keyboard...", reply_markup=ReplyKeyboardRemove())
@@ -2109,7 +2068,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         # Handle empty query
         if command == "":
             query_result = InlineQueryResultArticle(
-                id="emptycom", title="/", description="Show all the bot commands available to you",
+                id="emptycom", title="/", description="Show or hide the command keyboard",
                 input_message_content=InputTextMessageContent("/")
             )
             results.append(query_result)
