@@ -403,36 +403,30 @@ def handle_command_view(update: Update, context: CallbackContext) -> None:
 
     if not user:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"]
+            [f"/{START_COMMAND}", f"/{HELP_COMMAND}", " "]
         )
     elif is_admin:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"],
-            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
-            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
-            [f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f"/{ACCESS_COMMAND}"],
-            [f"/{ENROL_COMMAND}", f"/{PROMOTE_COMMAND}"],
-            [f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}"]
+            [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
+            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}"],
+            [f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
+            [f"/{INVITE_COMMAND}", f"/{ACCESS_COMMAND}", f"/{ENROL_COMMAND}"],
+            [f"/{PROMOTE_COMMAND}", f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}"],
+            [f"/{HELP_COMMAND}", " ", " "]
         )
     elif is_leader:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"],
-            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
-            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
-            [f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f""]
+            [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
+            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}"],
+            [f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
+            [f"/{INVITE_COMMAND}", f"/{HELP_COMMAND}", " "]
         )
     else:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
-            [f"/{START_COMMAND}", f"/{HELP_COMMAND}"],
-            [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
-            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}"],
-            [f"/{GROUPS_COMMAND}", f""],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
-            [f"/{INVITE_COMMAND}", f""]
+            [f"/{START_COMMAND}", f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}"],
+            [f"/{LIST_COMMAND}", f"/{LISTS_COMMAND}", f"/{GROUPS_COMMAND}"],
+            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
+            [f"/{HELP_COMMAND}", " ", " "]
         )
 
     reply_message = update.message.reply_html("Loading command keyboard...", reply_markup=ReplyKeyboardRemove())
