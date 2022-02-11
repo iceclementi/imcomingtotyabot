@@ -2502,7 +2502,6 @@ def main() -> None:
     dispatcher = updater.dispatcher
 
     # Command handlers
-    dispatcher.add_handler(CommandHandler("", handle_command_view, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("access", handle_access, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("enrol", handle_enrol, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("promote", handle_promote, filters=Filters.chat_type.private))
@@ -2521,6 +2520,9 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler("load", handle_load, filters=Filters.chat_type.private))
 
     # Message handlers
+    dispatcher.add_handler(
+        MessageHandler((Filters.regex(r"^\/$") & Filters.chat_type.private), handle_command_view)
+    )
     dispatcher.add_handler(
         MessageHandler((Filters.regex(r"^\/poll_\w+.*$") & Filters.chat_type.private), handle_poll_view)
     )
