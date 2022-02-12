@@ -123,6 +123,7 @@ GROUPS_COMMAND = "groups"
 GROUP_POLLS_COMMAND = "gpolls"
 GROUP_LISTS_COMMAND = "glists"
 INVITE_COMMAND = "invite"
+PRESET_COMMAND = "preset"
 HELP_COMMAND = "help"
 ACCESS_COMMAND = "access"
 ENROL_COMMAND = "enrol"
@@ -145,6 +146,7 @@ GROUPS_GUIDE = "<b>/groups</b>\nView all the groups you are in"
 GROUP_POLLS_GUIDE = "<b>/gpolls</b>\nView all your group polls"
 GROUP_LISTS_GUIDE = "<b>/glists</b>\nView all your group lists"
 INVITE_GUIDE = "<b>/invite</b>\nSend an invite link to your friends to join your group"
+PRESET_GUIDE = "<b>/preset</b>\nPreset templates to build a poll or list"
 HELP_GUIDE = "<b>/help</b>\nView this help message"
 
 # endregion
@@ -791,6 +793,28 @@ def handle_invite(update: Update, context: CallbackContext) -> None:
     return
 
 
+def handle_preset(update: Update, context: CallbackContext) -> None:
+    """Creates custom templates to build polls and lists."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, _, _ = get_user_permissions(update.effective_user.id)
+
+    if not user:
+        handle_help(update, context)
+        return
+
+    response_text = "Which **template** do you want to create?"
+    buttons = util.build_multiple_buttons_markup(
+        util.generate_button_details("Poll", models.PRESET_POLL),
+        util.generate_button_details("List", models.PRESET_LIST),
+        util.generate_button_details("Close", models.CLOSE)
+    )
+    update.message.reply_markdown_v2(response_text, reply_markup=buttons)
+    return
+
+
 def handle_help(update: Update, context: CallbackContext) -> None:
     """Displays a help message to explain available bot commands."""
     delete_chat_message(update.message)
@@ -1368,9 +1392,48 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
     # Handle reset button
     elif action == models.RESET:
         query.message.delete()
-        query.answer(text=None)
+        query.answer(text="Process cancelled.")
         context.user_data.clear()
         return
+    # Handle preset poll button
+    elif action == models.PRESET_POLL:
+        context.user_data.update({"action": models.PRESET_POLL, "step": 1, "title": "", "descr": "", "options": []})
+        response_text = "You're about to build a new **poll template**.\n\nFirst, enter a **title** for the poll."
+        reply_message = query.edit_message_text(
+            response_text, parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("Preset Format Guide", f"{models.PRESET_GUIDE}_{models.PRESET_POLL}"),
+                util.generate_button_details("Cancel", models.RESET)
+            )
+        )
+        context.user_data.update({"del": reply_message.message_id})
+        return
+    # Handle preset format guide button
+    elif action.startswith(f"{models.PRESET_GUIDE}_"):
+        _, subject = action.split("_", 1)
+        if subject == models.PRESET_POLL:
+            context_action, step = context.user_data.get("action", ""), context.user_data.get("step", 0)
+            if context_action != models.PRESET_POLL or not step:
+                query.answer("Sorry, message has expired!")
+                query.message.delete()
+                return
+
+            if step == 1:
+                back_action = models.PRESET_POLL
+            else:
+                back_action = ""
+
+            query.answer(text="Here's the preset format guide!")
+            query.edit_message_text(
+                generate_preset_format_guide(), parse_mode=ParseMode.MARKDOWN_V2,
+                reply_markup=util.build_single_button_markup("Back", back_action)
+            )
+            return
+        else:
+            query.answer(text="Invalid callback query data!")
+            logger.warning("Invalid callback query data in preset guide.")
+            return
+    # Handle other cases
     else:
         query.answer(text="Invalid callback query data!")
         logger.warning("Invalid callback query data.")
@@ -1543,7 +1606,7 @@ def handle_show_command_callback_query(query: CallbackQuery, context: CallbackCo
 
     reply_message = query.message.reply_html("Loading command keyboard...", reply_markup=ReplyKeyboardRemove())
     reply_message.delete()
-    reply_message = query.message.reply_html("Select a bot command 🔽", reply_markup=buttons)
+    query.message.reply_html("Select a bot command 🔽", reply_markup=buttons)
     return
 
 
@@ -2581,6 +2644,10 @@ def try_join_group_through_invitation(update: Update, invitation_code: str):
     return
 
 
+def generate_preset_format_guide() -> str:
+    return "**Preset Placeholder Format Guide**"
+
+
 def save_data(context: CallbackContext) -> None:
     """Saves data to database."""
     status = BotManager.save_data()
@@ -2614,6 +2681,7 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler(GROUP_POLLS_COMMAND, handle_group_polls, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(GROUP_LISTS_COMMAND, handle_group_lists, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(INVITE_COMMAND, handle_invite, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(PRESET_COMMAND, handle_preset, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(HELP_COMMAND, handle_help, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(ACCESS_COMMAND, handle_access, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(ENROL_COMMAND, handle_enrol, filters=Filters.chat_type.private))

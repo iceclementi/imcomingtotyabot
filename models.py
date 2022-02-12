@@ -33,6 +33,7 @@ LIST_SUBJECT = "l"
 GROUP_SUBJECT = "g"
 PUBLISH = "publish"
 REFRESH = "refresh"
+TITLE = "title"
 OPTION = "opt"
 OPTIONS = "opts"
 CHOICE = "choice"
@@ -64,6 +65,9 @@ SKIP = "skip"
 UPDATE_DONE = "updateDone"
 SHOW = "show"
 HIDE = "hide"
+PRESET_POLL = "prePoll"
+PRESET_LIST = "preList"
+PRESET_GUIDE = "preGuide"
 
 # endregion
 
