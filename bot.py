@@ -811,7 +811,7 @@ def handle_preset(update: Update, context: CallbackContext) -> None:
         util.generate_button_details("List", models.PRESET_LIST),
         util.generate_button_details("Close", models.CLOSE)
     )
-    update.message.reply_markdown_v2(response_text, reply_markup=buttons)
+    update.message.reply_html(response_text, reply_markup=buttons)
     return
 
 
@@ -1400,7 +1400,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         context.user_data.update({"action": models.PRESET_POLL, "step": 1, "title": "", "descr": "", "options": []})
         response_text = "You're about to build a new **poll template**.\n\nFirst, enter a **title** for the poll."
         reply_message = query.edit_message_text(
-            response_text, parse_mode=ParseMode.MARKDOWN_V2,
+            response_text, parse_mode=ParseMode.HTML,
             reply_markup=util.build_multiple_buttons_markup(
                 util.generate_button_details("Preset Format Guide", f"{models.PRESET_GUIDE}_{models.PRESET_POLL}"),
                 util.generate_button_details("Cancel", models.RESET)
@@ -1425,7 +1425,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
 
             query.answer(text="Here's the preset format guide!")
             query.edit_message_text(
-                generate_preset_format_guide(), parse_mode=ParseMode.MARKDOWN_V2,
+                generate_preset_format_guide(), parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Back", back_action)
             )
             return
