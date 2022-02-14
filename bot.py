@@ -806,10 +806,13 @@ def handle_preset(update: Update, context: CallbackContext) -> None:
         return
 
     response_text = "Which <b>template</b> do you want to create?"
-    buttons = util.build_multiple_buttons_markup(
-        util.generate_button_details("Poll", models.PRESET_POLL),
-        util.generate_button_details("List", models.PRESET_LIST),
-        util.generate_button_details("Close", models.CLOSE)
+    buttons = util.build_multiple_stacked_buttons_markup(
+        [
+            util.generate_button_details("Poll", models.PRESET_POLL),
+            util.generate_button_details("List", models.PRESET_LIST)
+        ],
+        [util.generate_button_details("Preset Format Guide", models.PRESET_GUIDE)],
+        [util.generate_button_details("Close", models.CLOSE)]
     )
     update.message.reply_html(response_text, reply_markup=buttons)
     return
@@ -1065,6 +1068,10 @@ def handle_list_conversation(update: Update, context: CallbackContext) -> None:
         context.user_data.update({"options": options})
 
         if len(options) >= MAX_OPTIONS:
+            update.message.edit_text(
+                NEW_LIST_CHOICE, parse_mode=ParseMode.HTML,
+                reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            )
             context.user_data.update({"step": 4})
             return
 
@@ -1270,8 +1277,8 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
         context.user_data.get("options", [])
 
     format_types = {"d": "digit", "s": "string", "dt": "date"}
-    display_format_result = lambda format_type, default: f"<b>type</b> <i>{format_types.get(format_type, '')}</i>, " \
-                                                         f"<b>default</b> <i>{default}</i>"
+    display_format_result = lambda format_type, default: f"<b>type</b> {format_types.get(format_type, '')}, " \
+                                                         f"<b>default</b> {default}"
 
     # Handle title
     if step == 1:
@@ -1285,18 +1292,19 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
         format_text, format_results, is_valid = util.parse_format_string(util.strip_html_symbols(text))
 
         if not is_valid:
-            response = f"{text}\n\n{format_text}\n\nPlease re-enter the title."
+            response = f"{text}\n\n{format_text}\n\nPlease re-enter the <b>title</b>."
             reply_message = update.message.reply_html(
                 response, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
             return
 
-        bold_title = f"<b>{format_text}</b>"
-        body = "\n".join(f"<code>{label}</code> - {display_format_result(format_result[0], format_result[1])}"
+        header = f"<b>Title</b>\n{format_text}"
+        body = "\n".join(f"<b><u>{label}</u></b> - {display_format_result(format_result[0], format_result[1])}"
                          for label, format_result in format_results.items())
         footer = f"<b>Continue</b> to the next step or <b>Edit</b> the title to make changes."
-        response = "\n\n".join([bold_title] + [body] + [footer]) if body else "\n\n".join([bold_title] + [footer])
+        response = "\n\n".join([header] + [f"<b>Placeholder</b>\n{body}"] + [footer]) if body \
+            else "\n\n".join([header] + [footer])
 
         reply_message = update.message.reply_html(
             response, reply_markup=util.build_multiple_stacked_buttons_markup(
@@ -1307,32 +1315,55 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
             )
         )
         context.user_data.update(
-            {"step": 1, "title": format_text, "title_res": format_results, "del": reply_message.message_id}
+            {"title": format_text, "title_res": format_results, "del": reply_message.message_id}
         )
         return
     # Handle description
     elif step == 2:
-        response = NEW_LIST_OPTION.format("Super! Description added!")
+        format_text, format_results, is_valid = util.parse_format_string(util.strip_html_symbols(text))
+
+        if not is_valid:
+            response = f"{text}\n\n{format_text}\n\nPlease re-enter the <b>description</b>."
+            reply_message = update.message.reply_html(
+                response, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        header = f"<b>Description</b>\n{format_text}"
+        body = "\n".join(f"<b><u>{label}</u></b> - {display_format_result(format_result[0], format_result[1])}"
+                         for label, format_result in format_results.items())
+        footer = f"<b>Continue</b> to the next step or <b>Edit</b> the description to make changes."
+        response = "\n\n".join([header] + [f"<b>Placeholder</b>\n{body}"] + [footer]) if body \
+            else "\n\n".join([header] + [footer])
+
         reply_message = update.message.reply_html(
-            response, reply_markup=util.build_multiple_buttons_markup(
-                util.generate_button_details("Cancel", models.RESET)
+            response, reply_markup=util.build_multiple_stacked_buttons_markup(
+                [
+                    util.generate_button_details("Edit", models.EDIT),
+                    util.generate_button_details("Continue", models.DONE)
+                ], [util.generate_button_details("Cancel", models.RESET)]
             )
         )
-        context.user_data.update({"step": 3, "descr": text, "del": reply_message.message_id})
+        context.user_data.update(
+            {"descr": format_text, "descr_res": format_results, "del": reply_message.message_id}
+        )
         return
     # Handle option
     elif step == 3:
         if not options:
-            error_buttons = util.build_single_button_markup("Cancel", models.RESET)
+            buttons = util.build_single_button_markup("Cancel", models.RESET)
         else:
-            error_buttons = util.build_multiple_buttons_markup(
-                util.generate_button_details("Done", models.DONE),
-                util.generate_button_details("Cancel", models.RESET)
+            buttons = util.build_multiple_stacked_buttons_markup(
+                [
+                    util.generate_button_details("Cancel", models.RESET),
+                    util.generate_button_details("Done", models.DONE)
+                ]
             )
 
         if len(text) > MAX_OPTION_TITLE_LENGTH:
             reply_message = update.message.reply_html(
-                ERROR_OPTION_TITLE_TOO_LONG, reply_markup=error_buttons
+                ERROR_OPTION_TITLE_TOO_LONG, reply_markup=buttons
             )
             context.user_data.update({"del": reply_message.message_id})
             return
@@ -1340,10 +1371,7 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
         if text in options:
             reply_message = update.message.reply_html(
                 ERROR_DUPLICATE_OPTION_TITLE.format(util.list_to_indexed_list_string(options)),
-                reply_markup=util.build_multiple_buttons_markup(
-                    util.generate_button_details("Done", models.DONE),
-                    util.generate_button_details("Cancel", models.RESET)
-                )
+                reply_markup=buttons
             )
             context.user_data.update({"del": reply_message.message_id})
             return
@@ -1352,55 +1380,16 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
         context.user_data.update({"options": options})
 
         if len(options) >= MAX_OPTIONS:
-            context.user_data.update({"step": 4})
-            return
-
-        reply_message = update.message.reply_html(
-            NEXT_LIST_OPTION.format(util.make_html_bold(text), util.list_to_indexed_list_string(options)),
-            reply_markup=util.build_multiple_buttons_markup(
-                util.generate_button_details("Done", models.DONE),
-                util.generate_button_details("Cancel", models.RESET)
-            )
-        )
-        context.user_data.update({"del": reply_message.message_id})
-        return
-    # Handle choice
-    elif step == 4:
-        if not choices:
-            error_buttons = util.build_single_button_markup("Cancel", models.RESET)
-        else:
-            error_buttons = util.build_multiple_buttons_markup(
-                util.generate_button_details("Done", models.DONE),
-                util.generate_button_details("Cancel", models.RESET)
-            )
-
-        if len(text) > MAX_CHOICE_ITEM_NAME_LENGTH:
-            reply_message = update.message.reply_html(
-                ERROR_CHOICE_NAME_TOO_LONG, reply_markup=error_buttons
-            )
+            response_text = f"You have a maximum of {MAX_OPTIONS} options already!\n\n" \
+                            f"{util.list_to_indexed_list_string(options)}\n\n" \
+                            f"Press <b>Done</b> to go to the next step."
+            reply_message = update.message.reply_html(response_text, reply_markup=buttons)
             context.user_data.update({"del": reply_message.message_id})
             return
 
-        if text in choices:
-            reply_message = update.message.reply_html(
-                ERROR_DUPLICATE_CHOICE_NAME.format(util.list_to_indexed_list_string(choices)),
-                reply_markup=util.build_multiple_buttons_markup(
-                    util.generate_button_details("Done", models.DONE),
-                    util.generate_button_details("Cancel", models.RESET)
-                )
-            )
-            context.user_data.update({"del": reply_message.message_id})
-            return
-
-        choices.append(text)
-        context.user_data.update({"choices": choices})
-
         reply_message = update.message.reply_html(
-            NEXT_LIST_CHOICE.format(util.make_html_bold(text), util.list_to_indexed_list_string(choices)),
-            reply_markup=util.build_multiple_buttons_markup(
-                util.generate_button_details("Done", models.DONE),
-                util.generate_button_details("Cancel", models.RESET)
-            )
+            NEXT_POLL_OPTION.format(util.make_html_bold(text), util.list_to_indexed_list_string(options)),
+            reply_markup=buttons
         )
         context.user_data.update({"del": reply_message.message_id})
         return
@@ -1543,6 +1532,19 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         query.answer(text="Process cancelled.")
         context.user_data.clear()
         return
+    # Handle preset button
+    elif action == models.PRESET:
+        query.answer(text=None)
+        response_text = "Which <b>template</b> do you want to create?"
+        buttons = util.build_multiple_stacked_buttons_markup(
+            [
+                util.generate_button_details("Poll", models.PRESET_POLL),
+                util.generate_button_details("List", models.PRESET_LIST)
+            ],
+            [util.generate_button_details("Preset Format Guide", models.PRESET_GUIDE)],
+            [util.generate_button_details("Close", models.CLOSE)]
+        )
+        query.edit_message_text(response_text, parse_mode=ParseMode.HTML, reply_markup=buttons)
     # Handle preset poll button
     elif action == models.PRESET_POLL:
         context.user_data.update({"action": models.PRESET_POLL, "step": 1, "title": "", "descr": "", "options": []})
@@ -1550,36 +1552,69 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         reply_message = query.edit_message_text(
             response_text, parse_mode=ParseMode.HTML,
             reply_markup=util.build_multiple_buttons_markup(
-                util.generate_button_details("Preset Format Guide", f"{models.PRESET_GUIDE}_{models.PRESET_POLL}"),
                 util.generate_button_details("Cancel", models.RESET)
             )
         )
         context.user_data.update({"del": reply_message.message_id})
         return
     # Handle preset format guide button
-    elif action.startswith(f"{models.PRESET_GUIDE}_"):
-        _, subject = action.split("_", 1)
-        if subject == models.PRESET_POLL:
-            context_action, step = context.user_data.get("action", ""), context.user_data.get("step", 0)
-            if context_action != models.PRESET_POLL or not step:
-                query.answer("Sorry, message has expired!")
-                query.message.delete()
+    elif action == models.PRESET_GUIDE:
+        query.answer(text="Here's the preset format guide!")
+        query.edit_message_text(
+            generate_preset_format_guide(), parse_mode=ParseMode.HTML,
+            reply_markup=util.build_single_button_markup("Back", models.PRESET)
+        )
+        return
+    # Handle edit button
+    elif action == models.EDIT:
+        user_action, step = context.user_data.get("action", ""), context.user_data.get("step", 0)
+        if user_action == models.PRESET_POLL:
+            if not step:
+                query.answer(text="Invalid callback query data in preset poll edit!")
+                logger.warning("Invalid callback query data.")
                 return
-
             if step == 1:
-                back_action = models.PRESET_POLL
+                query.answer(text="Enter a title for the poll template")
+                response_text = "Enter a <b>title</b> for the poll template."
+                reply_message = query.edit_message_text(
+                    response_text, parse_mode=ParseMode.HTML,
+                    reply_markup=util.build_multiple_buttons_markup(
+                        util.generate_button_details("Cancel", models.RESET)
+                    )
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+            elif step == 2:
+                query.answer(text="Enter a description for the poll template")
+                response_text = "Send me a <b>description</b> for the poll template or <b>Skip</b> this step."
+                reply_message = query.edit_message_text(
+                    response_text, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_stacked_buttons_markup(
+                        [
+                            util.generate_button_details("Cancel", models.RESET),
+                            util.generate_button_details("Skip", models.DONE)
+                        ]
+                    )
+                )
+                context.user_data.update({"del": reply_message.message_id})
             else:
-                back_action = ""
-
-            query.answer(text="Here's the preset format guide!")
-            query.edit_message_text(
-                generate_preset_format_guide(), parse_mode=ParseMode.HTML,
-                reply_markup=util.build_single_button_markup("Back", back_action)
-            )
-            return
+                query.answer(text=None)
+                return
+    # Handle response button
+    elif action.startswith(f"{models.RESPONSE}_"):
+        _, response_type = action.split("_", 1)
+        user_action, step = context.user_data.get("action", ""), context.user_data.get("step", 0)
+        if user_action == models.PRESET_POLL and step == 4:
+            if response_type == "single":
+                is_single_response = True
+            elif response_type == "multiple":
+                is_single_response = False
+            else:
+                query.answer(text="Invalid callback query data in poll template response type!")
+                logger.warning("Invalid callback query data.")
+                return
         else:
-            query.answer(text="Invalid callback query data!")
-            logger.warning("Invalid callback query data in preset guide.")
+            query.answer(text="Invalid callback query data in poll template response type!")
+            logger.warning("Invalid callback query data.")
             return
     # Handle other cases
     else:
@@ -1640,8 +1675,6 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
             context.user_data.get("options", []), context.user_data.get("choices", [])
 
-        logger.info(context.user_data)
-
         if not title:
             query.message.delete()
             query.answer(text="Invalid callback query data!")
@@ -1678,6 +1711,63 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
 
             # Clear user data
             context.user_data.clear()
+            return
+        else:
+            query.message.delete()
+            query.answer(text="Invalid callback query data!")
+            logger.warning("Invalid callback query data.")
+            return
+    # Handle preset poll
+    elif action == models.PRESET_POLL:
+        step, title, description, options = \
+            context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
+            context.user_data.get("options", [])
+
+        if not title:
+            query.message.delete()
+            query.answer(text="Invalid callback query data!")
+            logger.warning("Invalid callback query data.")
+            return
+
+        if step == 1:
+            response = "Wonderful! Now, send me a <b>description</b> for the poll template or <b>Skip</b> this step."
+            reply_message = query.edit_message_text(
+                response, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_stacked_buttons_markup(
+                    [
+                        util.generate_button_details("Cancel", models.RESET),
+                        util.generate_button_details("Skip", models.DONE)
+                    ]
+                )
+            )
+            context.user_data.update({"step": 2, "del": reply_message.message_id})
+        elif step == 2:
+            if not description:
+                response = "Awesome! Now send me your first <b>option</b>."
+                context.user_data.update({"descr": " "})
+            else:
+                response = "Awesome, description added! Now send me your first option."
+
+            reply_message = query.edit_message_text(
+                response, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_buttons_markup(
+                    util.generate_button_details("Cancel", models.RESET)
+                )
+            )
+            context.user_data.update({"step": 3, "del": reply_message.message_id})
+            return
+        elif step == 3 and options:
+            response_text = "Nice! Now choose the response type for your poll template."
+            query.edit_message_text(
+                response_text, parse_mode=ParseMode.HTML,
+                reply_markup=util.build_multiple_stacked_buttons_markup(
+                    [
+                        util.generate_button_details("Single Response", f"{models.RESPONSE}_single"),
+                        util.generate_button_details("Multiple Response", f"{models.RESPONSE}_multiple")
+                    ]
+                    , [util.generate_button_details("Cancel", models.RESET)]
+                )
+            )
+            query.answer(text=response_text)
+            context.user_data.update({"step": 4})
             return
         else:
             query.message.delete()

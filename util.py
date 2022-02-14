@@ -234,6 +234,6 @@ def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[
 
     # Create replaced text
     for label in format_results:
-        format_string = re.sub(r"%([A-Za-z]+)(#\w+)?(\$\(.+\))?", f"<code>{label}</code>", format_string, count=1)
+        format_string = re.sub(r"%([A-Za-z]+)(#\w+)?(\$\(.+\))?", f"<u>{label}</u>", format_string, count=1)
 
     return format_string, format_results, True
