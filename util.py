@@ -5,7 +5,7 @@ import re
 import typing
 from datetime import datetime
 from hashlib import blake2b as blake
-from typing import List, Tuple, Set, Union
+from typing import List, Tuple, Set, Union, Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 ENCODE_KEY = string.digits + string.ascii_letters
@@ -165,7 +165,7 @@ def list_to_indexed_list_string(_list: List[str], start=1) -> str:
     return "\n".join(indexed_list)
 
 
-def parse_format_string(format_string: str) -> Tuple[str, Union[dict, None], bool]:
+def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[str, str]], None], bool]:
     format_results = dict()
 
     all_matches = re.findall(r"^%([A-Za-z]+)(#\w+)?(\$\(.+\))?$", format_string)

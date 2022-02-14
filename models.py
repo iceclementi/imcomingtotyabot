@@ -68,6 +68,7 @@ HIDE = "hide"
 PRESET_POLL = "prePoll"
 PRESET_LIST = "preList"
 PRESET_GUIDE = "preGuide"
+EDIT = "edit"
 
 # endregion
 
@@ -1349,7 +1350,6 @@ class PollTemplate(object):
         self.description = description
         self.options = options
         self.single_response = single_response
-        self.single_response = single_response
         self.creator_id = creator_id
 
     @staticmethod
@@ -1374,6 +1374,16 @@ class PollTemplate(object):
         template = cls(temp_id, name, title, description, options, single_response, creator_id)
         template_storage[temp_id] = template
         return
+
+    def to_json(self) -> dict:
+        return {
+            db.POLL_ID: self.poll_id,
+            db.POLL_TITLE: self.title,
+            db.POLL_CREATOR_ID: self.creator_id,
+            db.POLL_DESCRIPTION: self.description,
+            db.POLL_OPTIONS: self.options,
+            db.POLL_SINGLE_RESPONSE: self.single_response,
+        }
 
 
 class BotManager(object):

@@ -862,14 +862,14 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         update.message.delete()
         return
 
-    user, is_leader, _ = get_user_permissions(update.effective_user.id)
+    user, is_leader, is_admin = get_user_permissions(update.effective_user.id)
 
-    # Check if current action is poll
+    # Handle messages according to their action type
     action = context.user_data.get("action", "")
-    if action == "bot_access":
+    if action == "bot_access" and is_admin:
         handle_bot_access_conversation(update, context)
         return
-    elif action == "poll":
+    elif action == "poll" and user:
         handle_poll_conversation(update, context)
         return
     elif action == "vote":
@@ -878,7 +878,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     elif action == "comment":
         handle_comment_conversation(update, context)
         return
-    elif action == "list":
+    elif action == "list" and user:
         handle_list_conversation(update, context)
         return
     elif action == "group" and is_leader:
@@ -887,7 +887,9 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     elif action == "pass" and is_leader:
         handle_change_secret_conversation(update, context)
         return
-
+    elif action == models.PRESET_POLL and user:
+        handle_preset_poll_conversation(update, context)
+        return
     if is_private_chat(update.message):
         handle_help(update, context)
         return
@@ -899,13 +901,6 @@ def handle_bot_access_conversation(update: Update, context: CallbackContext) -> 
 
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
-
-    _, _, is_admin = get_user_permissions(update.effective_user.id)
-
-    if not is_admin:
-        logger.warning("Illegal bot access callback")
-        handle_help(update, context)
-        return
 
     if not uid.isdigit():
         response = "You've entered an invalid user id. Please enter again."
@@ -1274,6 +1269,10 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
         context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
         context.user_data.get("options", [])
 
+    format_types = {"d": "digit", "s": "string", "dt": "date"}
+    display_format_result = lambda format_type, default: f"<b>type</b> <i>{format_types.get(format_type, '')}</i>, " \
+                                                         f"<b>default</b> <i>{default}</i>"
+
     # Handle title
     if step == 1:
         if len(text) > MAX_TITLE_LENGTH:
@@ -1283,15 +1282,33 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
             context.user_data.update({"del": reply_message.message_id})
             return
 
-        bold_title = util.make_html_bold(text)
-        response = NEW_LIST_DESCRIPTION.format(bold_title)
+        format_text, format_results, is_valid = util.parse_format_string(util.strip_html_symbols(text))
+
+        if not is_valid:
+            response = f"{text}\n\n{format_text}\n\nPlease re-enter the title."
+            reply_message = update.message.reply_html(
+                response, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        bold_title = f"<b>{format_text}</b>"
+        body = "\n".join(f"<code>{label}</code> - {display_format_result(format_result[0], format_result[1])}"
+                         for label, format_result in format_results.items())
+        footer = f"<b>Continue</b> to the next step or <b>Edit</b> the title to make changes."
+        response = "\n\n".join([bold_title] + [body] + [footer])
+
         reply_message = update.message.reply_html(
-            response, reply_markup=util.build_multiple_buttons_markup(
-                util.generate_button_details("Skip", models.DONE),
-                util.generate_button_details("Cancel", models.RESET)
+            response, reply_markup=util.build_multiple_stacked_buttons_markup(
+                [
+                    util.generate_button_details("Edit", models.EDIT),
+                    util.generate_button_details("Continue", models.DONE)
+                ], [util.generate_button_details("Cancel", models.RESET)]
             )
         )
-        context.user_data.update({"step": 2, "title": text, "del": reply_message.message_id})
+        context.user_data.update(
+            {"step": 1, "title": format_text, "title_res": format_results, "del": reply_message.message_id}
+        )
         return
     # Handle description
     elif step == 2:
