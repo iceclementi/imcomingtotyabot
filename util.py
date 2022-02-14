@@ -170,7 +170,7 @@ def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[
 
     all_matches = re.findall(r"%([A-Za-z]+)(#\w+)?(\$\(.+\))?", format_string)
     for i, match in enumerate(all_matches, 1):
-        format_type, label, default = match[0], match[1][1:], match[2][1:].strip()
+        format_type, label, default = match[0], match[1][1:], match[2][2:-1].strip()
 
         if not label:
             label = str(i)
@@ -203,7 +203,7 @@ def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[
         elif format_type == "dt":
             default = default if default else "1 %d/%m/%y"
             date_match = re.match(r"^([+|-]{0,3}[1-7])(\s+.+)?$", default)
-            if not match:
+            if not date_match:
                 return f"<b>Format String Parse Error</b>\n" \
                        f"Default value for <code>{label}</code> is not in the correct date format.\n" \
                        f"<i>E.g. 1 %d/%m/%y</i>", \
