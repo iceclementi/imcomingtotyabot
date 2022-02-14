@@ -75,6 +75,8 @@ user_storage = dict()
 group_storage = dict()
 poll_storage = dict()
 list_storage = dict()
+temp_poll_storage = dict()
+temp_list_storage = dict()
 
 
 class User(object):
@@ -694,8 +696,8 @@ class Poll(object):
     def __init__(self, poll_id: str, title: str, uid: int, description: str, options: list, single_response: bool,
                  message_details: set, expiry: int, created_date: datetime) -> None:
         self.poll_id = poll_id
-        self.title = title
         self.creator_id = uid
+        self.title = title
         self.description = description
         self.options = options
         self.single_response = single_response
@@ -1338,6 +1340,42 @@ class ListOption(object):
         }
 
 
+class PollTemplate(object):
+    def __init__(self, temp_id: str, name: str, title: str, description: str, options: list, single_response: bool,
+                 creator_id: int) -> None:
+        self.temp_id = temp_id
+        self.name = name
+        self.title = title
+        self.description = description
+        self.options = options
+        self.single_response = single_response
+        self.single_response = single_response
+        self.creator_id = creator_id
+
+    @staticmethod
+    def get_template_by_id(temp_id: str):
+        return temp_poll_storage.get(temp_id, None)
+
+    @staticmethod
+    def get_templates_by_ids(temp_ids: set, filters="") -> list:
+        template_lists = [PollTemplate.get_template_by_id(temp_id) for temp_id in temp_ids]
+        return [template for template in template_lists if filters.lower() in template.get_name().lower()]
+
+    @classmethod
+    def create_new(cls,  name: str, title: str, description: str, options: list, creator_id: int):
+        temp_id = util.generate_random_id(POLL_ID_LENGTH, set(template_storage.keys()))
+        template = cls(temp_id, name, title, description, options, True, creator_id)
+        template_storage[temp_id] = template
+        return template
+
+    @classmethod
+    def load(cls, temp_id: str, name: str, title: str, description: str, options: list, single_response: bool,
+             creator_id: int) -> None:
+        template = cls(temp_id, name, title, description, options, single_response, creator_id)
+        template_storage[temp_id] = template
+        return
+
+
 class BotManager(object):
     @staticmethod
     def is_admin(uid: int, admin_keys: list) -> bool:
@@ -1447,10 +1485,13 @@ class BotManager(object):
     @staticmethod
     def build_invite_text_and_button(token: str, uid: int) -> tuple:
         invitation = f"You are invited to have access to <b>@{BOT_NAME}</b>!"
-        access_button = util.build_switch_button(
-            "Get Access",  f"/access {BotManager.get_bot_token_hash(token, uid)}", to_self=True
+        buttons = util.build_multiple_buttons_markup(
+            util.generate_button_details(
+                "Get Access",  f"/access {BotManager.get_bot_token_hash(token, uid)}", is_switch=True, to_self=True
+            ),
+            util.generate_button_details("Close", CLOSE)
         )
-        return invitation, InlineKeyboardMarkup.from_button(access_button)
+        return invitation, buttons
 
     @staticmethod
     def build_leader_promote_invite_text_and_button() -> tuple:

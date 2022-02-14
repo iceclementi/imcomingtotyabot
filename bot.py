@@ -805,7 +805,7 @@ def handle_preset(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    response_text = "Which **template** do you want to create?"
+    response_text = "Which <b>template</b> do you want to create?"
     buttons = util.build_multiple_buttons_markup(
         util.generate_button_details("Poll", models.PRESET_POLL),
         util.generate_button_details("List", models.PRESET_LIST),
@@ -1001,13 +1001,13 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
 
 def handle_list_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the user to build a list."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+
     text = update.message.text.strip()
     step, title, description, options, choices = \
         context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
         context.user_data.get("options", []), context.user_data.get("choices", [])
-
-    delete_chat_message(update.message)
-    delete_old_chat_message(update, context)
 
     # Handle title
     if step == 1:
@@ -1264,12 +1264,143 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
     return
 
 
-def handle_change_secret_conversation(update: Update, context: CallbackContext) -> None:
-    """Handles the conversation between the bot and the user to change the group secret."""
-    gid = context.user_data.get("gid", "")
-
+def handle_preset_poll_conversation(update: Update, context: CallbackContext) -> None:
+    """Handles the conversation between the bot and the user to create a poll template."""
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
+
+    text = update.message.text.strip()
+    step, title, description, options = \
+        context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
+        context.user_data.get("options", [])
+
+    # Handle title
+    if step == 1:
+        if len(text) > MAX_TITLE_LENGTH:
+            reply_message = update.message.reply_html(
+                ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        bold_title = util.make_html_bold(text)
+        response = NEW_LIST_DESCRIPTION.format(bold_title)
+        reply_message = update.message.reply_html(
+            response, reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("Skip", models.DONE),
+                util.generate_button_details("Cancel", models.RESET)
+            )
+        )
+        context.user_data.update({"step": 2, "title": text, "del": reply_message.message_id})
+        return
+    # Handle description
+    elif step == 2:
+        response = NEW_LIST_OPTION.format("Super! Description added!")
+        reply_message = update.message.reply_html(
+            response, reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("Cancel", models.RESET)
+            )
+        )
+        context.user_data.update({"step": 3, "descr": text, "del": reply_message.message_id})
+        return
+    # Handle option
+    elif step == 3:
+        if not options:
+            error_buttons = util.build_single_button_markup("Cancel", models.RESET)
+        else:
+            error_buttons = util.build_multiple_buttons_markup(
+                util.generate_button_details("Done", models.DONE),
+                util.generate_button_details("Cancel", models.RESET)
+            )
+
+        if len(text) > MAX_OPTION_TITLE_LENGTH:
+            reply_message = update.message.reply_html(
+                ERROR_OPTION_TITLE_TOO_LONG, reply_markup=error_buttons
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        if text in options:
+            reply_message = update.message.reply_html(
+                ERROR_DUPLICATE_OPTION_TITLE.format(util.list_to_indexed_list_string(options)),
+                reply_markup=util.build_multiple_buttons_markup(
+                    util.generate_button_details("Done", models.DONE),
+                    util.generate_button_details("Cancel", models.RESET)
+                )
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        options.append(text)
+        context.user_data.update({"options": options})
+
+        if len(options) >= MAX_OPTIONS:
+            context.user_data.update({"step": 4})
+            return
+
+        reply_message = update.message.reply_html(
+            NEXT_LIST_OPTION.format(util.make_html_bold(text), util.list_to_indexed_list_string(options)),
+            reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("Done", models.DONE),
+                util.generate_button_details("Cancel", models.RESET)
+            )
+        )
+        context.user_data.update({"del": reply_message.message_id})
+        return
+    # Handle choice
+    elif step == 4:
+        if not choices:
+            error_buttons = util.build_single_button_markup("Cancel", models.RESET)
+        else:
+            error_buttons = util.build_multiple_buttons_markup(
+                util.generate_button_details("Done", models.DONE),
+                util.generate_button_details("Cancel", models.RESET)
+            )
+
+        if len(text) > MAX_CHOICE_ITEM_NAME_LENGTH:
+            reply_message = update.message.reply_html(
+                ERROR_CHOICE_NAME_TOO_LONG, reply_markup=error_buttons
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        if text in choices:
+            reply_message = update.message.reply_html(
+                ERROR_DUPLICATE_CHOICE_NAME.format(util.list_to_indexed_list_string(choices)),
+                reply_markup=util.build_multiple_buttons_markup(
+                    util.generate_button_details("Done", models.DONE),
+                    util.generate_button_details("Cancel", models.RESET)
+                )
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        choices.append(text)
+        context.user_data.update({"choices": choices})
+
+        reply_message = update.message.reply_html(
+            NEXT_LIST_CHOICE.format(util.make_html_bold(text), util.list_to_indexed_list_string(choices)),
+            reply_markup=util.build_multiple_buttons_markup(
+                util.generate_button_details("Done", models.DONE),
+                util.generate_button_details("Cancel", models.RESET)
+            )
+        )
+        context.user_data.update({"del": reply_message.message_id})
+        return
+    # Handle invalid step
+    else:
+        logger.warning("Error with list conversation step index!!")
+        context.user_data.clear()
+        handle_help(update, context)
+        return
+
+
+def handle_change_secret_conversation(update: Update, context: CallbackContext) -> None:
+    """Handles the conversation between the bot and the user to change the group secret."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+
+    gid = context.user_data.get("gid", "")
 
     group = Group.get_group_by_id(gid)
     if not group or group.get_owner() != update.effective_user.id:
@@ -1398,7 +1529,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
     # Handle preset poll button
     elif action == models.PRESET_POLL:
         context.user_data.update({"action": models.PRESET_POLL, "step": 1, "title": "", "descr": "", "options": []})
-        response_text = "You're about to build a new **poll template**.\n\nFirst, enter a **title** for the poll."
+        response_text = "You're about to build a new <b>poll template</b>.\n\nFirst, enter a <b>title</b> for the poll."
         reply_message = query.edit_message_text(
             response_text, parse_mode=ParseMode.HTML,
             reply_markup=util.build_multiple_buttons_markup(
@@ -2645,7 +2776,7 @@ def try_join_group_through_invitation(update: Update, invitation_code: str):
 
 
 def generate_preset_format_guide() -> str:
-    return "**Preset Placeholder Format Guide**"
+    return "<b>Preset Placeholder Format Guide</b>"
 
 
 def save_data(context: CallbackContext) -> None:
