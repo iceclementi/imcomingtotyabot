@@ -168,7 +168,7 @@ def list_to_indexed_list_string(_list: List[str], start=1) -> str:
 def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[str, str]], None], bool]:
     format_results = dict()
 
-    all_matches = re.findall(r"^%([A-Za-z]+)(#\w+)?(\$\(.+\))?$", format_string)
+    all_matches = re.findall(r"%([A-Za-z]+)(#\w+)?(\$\(.+\))?", format_string)
     for i, match in enumerate(all_matches, 1):
         format_type, label, default = match[0], match[1][1:], match[2][1:].strip()
 

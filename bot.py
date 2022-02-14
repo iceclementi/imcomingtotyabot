@@ -1296,7 +1296,7 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
         body = "\n".join(f"<code>{label}</code> - {display_format_result(format_result[0], format_result[1])}"
                          for label, format_result in format_results.items())
         footer = f"<b>Continue</b> to the next step or <b>Edit</b> the title to make changes."
-        response = "\n\n".join([bold_title] + [body] + [footer])
+        response = "\n\n".join([bold_title] + [body] + [footer]) if body else "\n\n".join([bold_title] + [footer])
 
         reply_message = update.message.reply_html(
             response, reply_markup=util.build_multiple_stacked_buttons_markup(
