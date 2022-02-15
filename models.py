@@ -1512,7 +1512,7 @@ class PollTemplate(object):
         return [template for template in template_lists if filters.lower() in template.name.lower()]
 
     @classmethod
-    def create_new(cls,  name: str, format_title: str, format_description: str, options: list, single_response: bool,
+    def create_new(cls, name: str, format_title: str, format_description: str, options: list, single_response: bool,
                    creator_id: int):
         temp_id = util.generate_random_id(POLL_ID_LENGTH, set(temp_poll_storage.keys()))
         formatted_title = FormatTextCode.create_new(format_title)
@@ -1522,8 +1522,8 @@ class PollTemplate(object):
         return template
 
     @classmethod
-    def load(cls, temp_id: str, name: str, title: Dict[str, Dict[str, Lst[str, str]]],
-             description: Dict[str, Dict[str, Lst[str, str]]], options: list, single_response: bool,
+    def load(cls, temp_id: str, name: str, title: Dict[str, Dict[str, Lst[str]]],
+             description: Dict[str, Dict[str, Lst[str]]], options: list, single_response: bool,
              creator_id: int) -> None:
         formatted_title = FormatTextCode.load(
             title.get(db.FORMAT_TEXT, ""),
