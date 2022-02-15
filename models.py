@@ -1373,117 +1373,6 @@ class ListOption(object):
         }
 
 
-class PollTemplate(object):
-    def __init__(self, temp_id: str, name: str, formatted_title: FormatTextCode, formatted_description: FormatTextCode,
-                 options: list, single_response: bool, creator_id: int) -> None:
-        self._temp_id = temp_id
-        self._name = name
-        self._formatted_title = formatted_title
-        self._formatted_description = formatted_description
-        self._options = options
-        self._is_single_response = single_response
-        self._creator_id = creator_id
-
-    @staticmethod
-    def get_template_by_id(temp_id: str):
-        return temp_poll_storage.get(temp_id, None)
-
-    @staticmethod
-    def get_templates_by_ids(temp_ids: set, filters="") -> list:
-        template_lists = [PollTemplate.get_template_by_id(temp_id) for temp_id in temp_ids]
-        return [template for template in template_lists if filters.lower() in template.name.lower()]
-
-    @classmethod
-    def create_new(cls, name: str, format_title: str, format_description: str, options: list, single_response: bool,
-                   creator_id: int):
-        temp_id = util.generate_random_id(POLL_ID_LENGTH, set(temp_poll_storage.keys()))
-        formatted_title = FormatTextCode.create_new(format_title)
-        formatted_description = FormatTextCode.create_new(format_description)
-        template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
-        temp_poll_storage[temp_id] = template
-        return template
-
-    @classmethod
-    def load(cls, temp_id: str, name: str, title: Dict[str, Dict[str, Lst[str]]],
-             description: Dict[str, Dict[str, Lst[str]]], options: list, single_response: bool,
-             creator_id: int) -> None:
-        formatted_title = FormatTextCode.load(
-            title.get(db.FORMAT_TEXT, ""),
-            title.get(db.FORMAT_CODES, dict())
-        )
-        formatted_description = FormatTextCode.load(
-            description.get(db.FORMAT_TEXT, ""),
-            description.get(db.FORMAT_CODES, dict())
-        )
-
-        template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
-        temp_poll_storage[temp_id] = template
-        return
-
-    def delete(self) -> None:
-        temp_poll_storage.pop(self._temp_id, None)
-
-    @property
-    def temp_id(self) -> str:
-        return self._temp_id
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @name.setter
-    def name(self, new_name: str) -> None:
-        self._name = new_name
-        return
-
-    @property
-    def formatted_title(self) -> FormatTextCode:
-        return self._formatted_title
-
-    @formatted_title.setter
-    def formatted_title(self, new_title: FormatTextCode) -> None:
-        self._formatted_title = new_title
-        return
-
-    @property
-    def formatted_description(self) -> FormatTextCode:
-        return self._formatted_description
-
-    @formatted_description.setter
-    def formatted_description(self, new_description: FormatTextCode) -> None:
-        self._formatted_description = new_description
-        return
-
-    @property
-    def options(self) -> list:
-        return self._options
-
-    @property
-    def is_single_response(self) -> bool:
-        return self._is_single_response
-
-    @property
-    def creator_id(self) -> int:
-        return self._creator_id
-
-    def render_text(self) -> str:
-        header = f"<b>Poll Template ({self.name})</b>"
-        title_body = f"<b>Title</b>\n{self.formatted_title.render_text()}"
-        description_body = f"<b>Description</b>\n{self.formatted_description.render_text()}"
-        response_type_body = f"<b>Response Type</b> - {'Single' if self.is_single_response else 'Multiple'}"
-        return "\n\n".join([header] + [title_body] + [description_body] + [response_type_body])
-
-    def to_json(self) -> dict:
-        return {
-            db.TEMP_POLL_ID: self._temp_id,
-            db.TEMP_POLL_FORMATTED_TITLE: self._formatted_title.to_json(),
-            db.TEMP_POLL_FORMATTED_DESCRIPTION: self._formatted_description.to_json(),
-            db.TEMP_POLL_OPTIONS: self._options,
-            db.TEMP_POLL_SINGLE_RESPONSE: self._is_single_response,
-            db.TEMP_POLL_CREATOR_ID: self._creator_id,
-        }
-
-
 class FormatTextCode(object):
     FORMAT_TYPES = {"d": "digit", "s": "string", "dt": "date"}
 
@@ -1601,6 +1490,117 @@ class FormatTextCode(object):
         return {
             db.FORMAT_TEXT: self.format_text,
             db.FORMAT_CODES: self.format_codes
+        }
+
+
+class PollTemplate(object):
+    def __init__(self, temp_id: str, name: str, formatted_title: FormatTextCode, formatted_description: FormatTextCode,
+                 options: list, single_response: bool, creator_id: int) -> None:
+        self._temp_id = temp_id
+        self._name = name
+        self._formatted_title = formatted_title
+        self._formatted_description = formatted_description
+        self._options = options
+        self._is_single_response = single_response
+        self._creator_id = creator_id
+
+    @staticmethod
+    def get_template_by_id(temp_id: str):
+        return temp_poll_storage.get(temp_id, None)
+
+    @staticmethod
+    def get_templates_by_ids(temp_ids: set, filters="") -> list:
+        template_lists = [PollTemplate.get_template_by_id(temp_id) for temp_id in temp_ids]
+        return [template for template in template_lists if filters.lower() in template.name.lower()]
+
+    @classmethod
+    def create_new(cls, name: str, format_title: str, format_description: str, options: list, single_response: bool,
+                   creator_id: int):
+        temp_id = util.generate_random_id(POLL_ID_LENGTH, set(temp_poll_storage.keys()))
+        formatted_title = FormatTextCode.create_new(format_title)
+        formatted_description = FormatTextCode.create_new(format_description)
+        template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
+        temp_poll_storage[temp_id] = template
+        return template
+
+    @classmethod
+    def load(cls, temp_id: str, name: str, title: Dict[str, Dict[str, Lst[str]]],
+             description: Dict[str, Dict[str, Lst[str]]], options: list, single_response: bool,
+             creator_id: int) -> None:
+        formatted_title = FormatTextCode.load(
+            title.get(db.FORMAT_TEXT, ""),
+            title.get(db.FORMAT_CODES, dict())
+        )
+        formatted_description = FormatTextCode.load(
+            description.get(db.FORMAT_TEXT, ""),
+            description.get(db.FORMAT_CODES, dict())
+        )
+
+        template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
+        temp_poll_storage[temp_id] = template
+        return
+
+    def delete(self) -> None:
+        temp_poll_storage.pop(self._temp_id, None)
+
+    @property
+    def temp_id(self) -> str:
+        return self._temp_id
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, new_name: str) -> None:
+        self._name = new_name
+        return
+
+    @property
+    def formatted_title(self) -> FormatTextCode:
+        return self._formatted_title
+
+    @formatted_title.setter
+    def formatted_title(self, new_title: FormatTextCode) -> None:
+        self._formatted_title = new_title
+        return
+
+    @property
+    def formatted_description(self) -> FormatTextCode:
+        return self._formatted_description
+
+    @formatted_description.setter
+    def formatted_description(self, new_description: FormatTextCode) -> None:
+        self._formatted_description = new_description
+        return
+
+    @property
+    def options(self) -> list:
+        return self._options
+
+    @property
+    def is_single_response(self) -> bool:
+        return self._is_single_response
+
+    @property
+    def creator_id(self) -> int:
+        return self._creator_id
+
+    def render_text(self) -> str:
+        header = f"<b>Poll Template ({self.name})</b>"
+        title_body = f"<b>Title</b>\n{self.formatted_title.render_text()}"
+        description_body = f"<b>Description</b>\n{self.formatted_description.render_text()}"
+        response_type_body = f"<b>Response Type</b> - {'Single' if self.is_single_response else 'Multiple'}"
+        return "\n\n".join([header] + [title_body] + [description_body] + [response_type_body])
+
+    def to_json(self) -> dict:
+        return {
+            db.TEMP_POLL_ID: self._temp_id,
+            db.TEMP_POLL_FORMATTED_TITLE: self._formatted_title.to_json(),
+            db.TEMP_POLL_FORMATTED_DESCRIPTION: self._formatted_description.to_json(),
+            db.TEMP_POLL_OPTIONS: self._options,
+            db.TEMP_POLL_SINGLE_RESPONSE: self._is_single_response,
+            db.TEMP_POLL_CREATOR_ID: self._creator_id,
         }
 
 
