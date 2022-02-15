@@ -1483,7 +1483,7 @@ class FormatTextCode(object):
         title = self.format_text
         body = "\n".join(f"{i}. {self.display_format_details(label, format_details)}"
                          for i, (label, format_details) in enumerate(self.format_codes.items(), 1))
-        response = "\n\n".join([title] + [f"<b>Details</b>\n{body}"]) if body else header
+        response = "\n\n".join([title] + [f"<b>Details</b>\n{body}"]) if body else title
         return response
 
     def to_json(self) -> dict:
