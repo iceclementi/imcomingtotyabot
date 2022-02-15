@@ -1387,7 +1387,7 @@ class FormatTextCode(object):
         return cls(format_text, code)
 
     @classmethod
-    def load(cls, format_text: str, code: Dict[str, Lst[str, str]]):
+    def load(cls, format_text: str, code: Dict[str, Lst[str]]):
         formatted_code = {label: tuple(format_details) for label, format_details in code.items()}
         return cls(format_text, formatted_code)
 
@@ -1428,8 +1428,8 @@ class FormatTextCode(object):
                 format_results[label] = (format_type, default)
             # Date type
             elif format_type == "dt":
-                default = default if default else "1 %d/%m/%y"
-                date_match = re.match(r"^([+|-]{0,3}[1-7])(\s+.+)?$", default)
+                default = default if default else "0 %d/%m/%y"
+                date_match = re.match(r"^([+|-]{0,3}[0-7])(\s+.+)?$", default)
                 if not date_match:
                     return f"<b>Format String Parse Error</b>\n" \
                            f"Default value for <u>{label}</u> is not in the correct date format.\n" \

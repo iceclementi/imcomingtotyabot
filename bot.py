@@ -1399,7 +1399,7 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
         )
     # Handle invalid step
     else:
-        logger.warning("Error with list conversation step index!!")
+        logger.warning("Error with preset poll conversation step index!!")
         context.user_data.clear()
         handle_help(update, context)
         return
