@@ -1397,7 +1397,7 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
         return
     # Handle template name
     elif step == 5:
-        if len(name) > 12:
+        if len(text) > 12:
             reply_message = update.message.reply_html(
                 "Sorry, please enter a shorter name (maximum 12 characters).",
                 reply_markup=util.build_single_button_markup("Cancel", models.RESET)
