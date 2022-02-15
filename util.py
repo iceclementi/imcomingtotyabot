@@ -168,9 +168,9 @@ def list_to_indexed_list_string(_list: List[str], start=1) -> str:
 def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[str, str]], None], bool]:
     format_results = dict()
 
-    all_matches = re.findall(r"%([A-Za-z]+)(#\w+)?(\$\(.+\))?", format_string)
+    all_matches = re.findall(r"%([A-Za-z]+)(#\w+)?(\$\((?:.|\n)+?(?=\)\$)\)\$)?", format_string)
     for i, match in enumerate(all_matches, 1):
-        format_type, label, default = match[0], match[1][1:], match[2][2:-1].strip()
+        format_type, label, default = match[0], match[1][1:], match[2][2:-2].strip()
 
         if not label:
             label = str(i)
@@ -178,13 +178,13 @@ def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[
             label_match = re.match(r"^[A-Za-z]\w{0,11}$", label)
             if not label_match:
                 return f"<b>Format String Parse Error</b>\n" \
-                       f"Invalid label <code>{label}</code> found.\n" \
+                       f"Invalid label <u>{label}</u> found.\n" \
                        f"<i>Labels must have up to 12 alphanumeric characters, including underscores, " \
                        f"and must start with a letter.</i>", \
                        None, False
             if label in format_results:
                 return f"<b>Format String Parse Error</b>\n" \
-                       f"Duplicated <code>{label}</code> found.\n" \
+                       f"Duplicated <u>{label}</u> found.\n" \
                        f"<i>Labels must be unique.</i>", \
                        None, False
 
@@ -192,7 +192,7 @@ def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[
         if format_type == "d":
             default = default if default else "0"
             if not default.isdigit():
-                return f"<b>Format String Parse Error</b>\nDefault value for <code>{label}</code> is not a digit.", \
+                return f"<b>Format String Parse Error</b>\nDefault value for <u>{label}</u> is not a digit.", \
                        None, False
             else:
                 format_results[label] = (format_type, default)
@@ -205,14 +205,14 @@ def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[
             date_match = re.match(r"^([+|-]{0,3}[1-7])(\s+.+)?$", default)
             if not date_match:
                 return f"<b>Format String Parse Error</b>\n" \
-                       f"Default value for <code>{label}</code> is not in the correct date format.\n" \
+                       f"Default value for <u>{label}</u> is not in the correct date format.\n" \
                        f"<i>E.g. 1 %d/%m/%y</i>", \
                        None, False
             day, date_format = date_match.group(1), date_match.group(2)
             # Checks if all '+' or all '-'
             if len(day) > 1 and day[0] * (len(day) - 1) != day[:-1]:
                 return f"<b>Format String Parse Error</b>\n" \
-                       f"Default value for <code>{label}</code> is not in the correct date format.\n" \
+                       f"Default value for <u>{label}</u> is not in the correct date format.\n" \
                        f"<i>E.g. 1 %d/%m/%y</i>", \
                        None, False
 
@@ -224,7 +224,7 @@ def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[
                     datetime.now().strftime(date_format.strip())
                 except ValueError:
                     return f"<b>Format String Parse Error</b>\n" \
-                           f"Default value for <code>{label}</code> is not in the correct date format.\n" \
+                           f"Default value for <u>{label}</u> is not in the correct date format.\n" \
                            f"<i>E.g. 1 %d/%m/%y</i>", \
                            None, False
                 format_results[label] = (format_type, default)

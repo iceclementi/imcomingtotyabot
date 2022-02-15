@@ -1363,9 +1363,10 @@ class PollTemplate(object):
         return [template for template in template_lists if filters.lower() in template.get_name().lower()]
 
     @classmethod
-    def create_new(cls,  name: str, title: str, description: str, options: list, creator_id: int):
+    def create_new(cls,  name: str, title: str, description: str, options: list, single_response: bool,
+                   creator_id: int):
         temp_id = util.generate_random_id(POLL_ID_LENGTH, set(template_storage.keys()))
-        template = cls(temp_id, name, title, description, options, True, creator_id)
+        template = cls(temp_id, name, title, description, options, single_response, creator_id)
         template_storage[temp_id] = template
         return template
 

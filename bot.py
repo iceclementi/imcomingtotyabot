@@ -3,7 +3,7 @@ import os
 import logging
 import re
 import models
-from models import User, Group, Poll, Option, List, ListOption, BotManager
+from models import User, Group, Poll, Option, List, ListOption, PollTemplate, BotManager
 import util
 from telegram import (
     Update, ParseMode, User as TeleUser, Message, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup,
@@ -52,7 +52,7 @@ USER_PROMOTED = "Yay!! \U0001f389 {} is now a bot leader!!"
 NEW_POLL = "Let's create a new poll! First, send me the title."
 NEW_POLL_DESCRIPTION = "{}\n\nNice! Now send me a poll description or skip this step."
 NEW_POLL_OPTION = "{}\n\nAlright, now send me your very first option."
-NEXT_POLL_OPTION = "Nice! {} added!\n\nNow send me another  option or press <b>Done</b> to finish."
+NEXT_POLL_OPTION = "Nice! {} added!\n\nNow send me another option or press <b>Done</b> to finish."
 POLL_DONE = "\U0001f44d Poll created! You may now publish it to your friends or share it with a group."
 DELETED_POLL = "Sorry, the poll has been deleted."
 
@@ -1272,9 +1272,9 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
     delete_old_chat_message(update, context)
 
     text = update.message.text.strip()
-    step, title, description, options = \
+    step, title, description, options, single_response = \
         context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
-        context.user_data.get("options", [])
+        context.user_data.get("options", []), context.user_data.get("response", True)
 
     format_types = {"d": "digit", "s": "string", "dt": "date"}
     display_format_result = lambda format_type, default: f"<b>type</b> {format_types.get(format_type, '')}, " \
@@ -1299,8 +1299,8 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
             context.user_data.update({"del": reply_message.message_id})
             return
 
-        header = f"<b>Title</b>\n{format_text}"
-        body = "\n".join(f"<b><u>{label}</u></b> - {display_format_result(format_result[0], format_result[1])}"
+        header = f"<b>Title</b>\n<b>{format_text}</b>"
+        body = "\n".join(f"<u>{label}</u> - {display_format_result(format_result[0], format_result[1])}"
                          for label, format_result in format_results.items())
         footer = f"<b>Continue</b> to the next step or <b>Edit</b> the title to make changes."
         response = "\n\n".join([header] + [f"<b>Placeholder</b>\n{body}"] + [footer]) if body \
@@ -1331,7 +1331,7 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
             return
 
         header = f"<b>Description</b>\n{format_text}"
-        body = "\n".join(f"<b><u>{label}</u></b> - {display_format_result(format_result[0], format_result[1])}"
+        body = "\n".join(f"<u>{label}</u>< - {display_format_result(format_result[0], format_result[1])}"
                          for label, format_result in format_results.items())
         footer = f"<b>Continue</b> to the next step or <b>Edit</b> the description to make changes."
         response = "\n\n".join([header] + [f"<b>Placeholder</b>\n{body}"] + [footer]) if body \
@@ -1389,10 +1389,20 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
 
         reply_message = update.message.reply_html(
             NEXT_POLL_OPTION.format(util.make_html_bold(text), util.list_to_indexed_list_string(options)),
-            reply_markup=buttons
+            reply_markup=util.build_multiple_stacked_buttons_markup(
+                [
+                    util.generate_button_details("Cancel", models.RESET),
+                    util.generate_button_details("Done", models.DONE)
+                ]
+            )
         )
         context.user_data.update({"del": reply_message.message_id})
         return
+    # Handle template name
+    elif step == 5:
+        poll_template = PollTemplate.create_new(
+            text, title, description, options, single_response, update.effective_user.id
+        )
     # Handle invalid step
     else:
         logger.warning("Error with list conversation step index!!")
@@ -1606,8 +1616,19 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         if user_action == models.PRESET_POLL and step == 4:
             if response_type == "single":
                 is_single_response = True
+                query.answer(text="Response type set to single response.")
             elif response_type == "multiple":
                 is_single_response = False
+                query.answer(text="Response type set to multiple response.")
+
+                response_text = "Finally, enter a unique <b>name</b> for your template for reference."
+                reply_message = query.edit_message_text(
+                    response_text, parse_mode=ParseMode.HTML,
+                    reply_markup=util.build_multiple_buttons_markup(
+                        util.generate_button_details("Cancel", models.RESET)
+                    )
+                )
+                context.user_data.update({"step": 5, "response": is_single_response, "del": reply_message.message_id})
             else:
                 query.answer(text="Invalid callback query data in poll template response type!")
                 logger.warning("Invalid callback query data.")
@@ -1755,7 +1776,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             context.user_data.update({"step": 3, "del": reply_message.message_id})
             return
         elif step == 3 and options:
-            response_text = "Nice! Now choose the response type for your poll template."
+            response_text = "Nice! Now choose the <b>response type</b> for your poll template."
             query.edit_message_text(
                 response_text, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_multiple_stacked_buttons_markup(
