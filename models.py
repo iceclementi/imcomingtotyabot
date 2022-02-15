@@ -1394,7 +1394,7 @@ class FormatTextCode(object):
 
     @staticmethod
     def parse_format_text(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[str, str]], None], bool]:
-        format_results = dict()
+        format_codes = dict()
 
         all_matches = re.findall(r"%([A-Za-z]+)(#\w+)?(\$\((?:.|\n)+?(?=\)\$)\)\$)?", format_string)
         for i, match in enumerate(all_matches, 1):
@@ -1410,7 +1410,7 @@ class FormatTextCode(object):
                            f"<i>Labels must have up to 12 alphanumeric characters, including underscores, " \
                            f"and must start with a letter.</i>", \
                            None, False
-                if label in format_results:
+                if label in format_codes:
                     return f"<b>Format String Parse Error</b>\n" \
                            f"Duplicated <u>{label}</u> found.\n" \
                            f"<i>Labels must be unique.</i>", \
@@ -1423,10 +1423,10 @@ class FormatTextCode(object):
                     return f"<b>Format String Parse Error</b>\nDefault value for <u>{label}</u> is not a digit.", \
                            None, False
                 else:
-                    format_results[label] = (format_type, default)
+                    format_codes[label] = (format_type, default)
             # String type
             elif format_type == "s":
-                format_results[label] = (format_type, default)
+                format_codes[label] = (format_type, default)
             # Date type
             elif format_type == "dt":
                 default = default if default else "0 %d/%m/%y"
@@ -1445,7 +1445,7 @@ class FormatTextCode(object):
                            None, False
 
                 if not date_format:
-                    format_results[label] = (format_type, f"{day} %d/%m/%y")
+                    format_codes[label] = (format_type, f"{day} %d/%m/%y")
                 else:
                     # Verify if date time format is valid
                     try:
@@ -1455,16 +1455,16 @@ class FormatTextCode(object):
                                f"Default value for <u>{label}</u> is not in the correct date format.\n" \
                                f"<i>E.g. 1 %d/%m/%y</i>", \
                                None, False
-                    format_results[label] = (format_type, default)
+                    format_codes[label] = (format_type, default)
             # Other types
             else:
                 return f"<b>Format String Parse Error</b>\nInvalid format type found: %{format_type}", None, False
 
         # Create replaced text
-        for label in format_results:
+        for label in format_codes:
             format_string = re.sub(r"%([A-Za-z]+)(#\w+)?(\$\(.+\))?", f"<u>{label}</u>", format_string, count=1)
 
-        return format_string, format_results, True
+        return format_string, format_codes, True
 
     @property
     def format_text(self) -> str:
@@ -1481,7 +1481,7 @@ class FormatTextCode(object):
     def render_text(self):
         title = self.format_text
         body = "\n".join(f"{i}. {self.display_format_details(label, format_details)}"
-                         for i, (label, format_details) in enumerate(format_results.items(), 1))
+                         for i, (label, format_details) in enumerate(self.format_codes.items(), 1))
         response = "\n\n".join([title] + [f"<b>Details</b>\n{body}"]) if body else header
         return response
 
