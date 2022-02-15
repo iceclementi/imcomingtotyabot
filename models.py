@@ -2,6 +2,7 @@
 import json
 from datetime import datetime
 from collections import OrderedDict
+from typing import Tuple, Dict, List as Lst, Union
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 import database as db
@@ -83,7 +84,7 @@ temp_list_storage = dict()
 
 class User(object):
     def __init__(self, uid: int, first_name: str, last_name: str, username: str, is_leader: bool,
-                 owned_group_ids: set, joined_group_ids: set, poll_ids: set, list_ids: set) -> None:
+                 owned_group_ids: set, joined_group_ids: set, poll_ids: set, list_ids: set, temp_poll_ids: set) -> None:
         self.uid = uid
         self.first_name = first_name
         self.last_name = last_name
@@ -93,6 +94,7 @@ class User(object):
         self.joined_group_ids = joined_group_ids
         self.poll_ids = poll_ids
         self.list_ids = list_ids
+        self._temp_poll_ids = temp_poll_ids
 
     @staticmethod
     def get_user_by_id(uid: int):
@@ -106,15 +108,16 @@ class User(object):
 
     @classmethod
     def register(cls, uid: int, first_name: str, last_name="", username=""):
-        user = cls(uid, first_name, last_name, username, False, set(), set(), set(), set())
+        user = cls(uid, first_name, last_name, username, False, set(), set(), set(), set(), set())
         user_storage[uid] = user
         return user
 
     @classmethod
     def load(cls, uid: int, first_name: str, last_name: str, username: str, is_leader: bool,
-             owned_group_ids: list, joined_group_ids: list, poll_ids: list, list_ids: list) -> None:
+             owned_group_ids: list, joined_group_ids: list, poll_ids: list, list_ids: list,
+             temp_poll_ids: list) -> None:
         user = cls(uid, first_name, last_name, username, is_leader,
-                   set(owned_group_ids), set(joined_group_ids), set(poll_ids), set(list_ids))
+                   set(owned_group_ids), set(joined_group_ids), set(poll_ids), set(list_ids), set(temp_poll_ids))
         user_storage[uid] = user
         return
 
@@ -259,13 +262,39 @@ class User(object):
             if list_id in group.get_list_ids():
                 group.remove_list(list_id)
 
-        list = List.get_list_by_id(list_id)
-        list.delete()
+        _list = List.get_list_by_id(list_id)
+        _list.delete()
 
         return f"Poll {util.make_html_bold(list.get_title())} has been deleted."
 
     def has_group_list(self, list_id: str) -> bool:
         return any(list_id in group.get_list_ids() for group in self.get_all_groups())
+
+    def get_temp_poll_ids(self) -> set:
+        return self._temp_poll_ids
+
+    def get_temp_polls(self, filters="") -> list:
+        user_temp_polls = PollTemplate.get_templates_by_ids(self._temp_poll_ids, filters)
+        return sorted(user_temp_polls, key=lambda temp_poll: temp_poll.name)
+
+    def create_temp_poll(self, name: str, title: str, description: str, options: list,
+                         is_single_response: bool) -> tuple:
+        temp_poll = PollTemplate.create_new(name, title, description, options, is_single_response, self.uid)
+        self._temp_poll_ids.add(temp_poll.temp_id)
+        return temp_poll, f"Poll template {util.make_html_bold(name)} created!"
+
+    def delete_temp_poll(self, temp_poll_id: str) -> str:
+        if temp_poll_id not in self._temp_poll_ids:
+            return "No such poll template exists."
+        self._temp_poll_ids.remove(temp_poll_id)
+
+        temp_poll = PollTemplate.get_template_by_id(temp_poll_id)
+        temp_poll.delete()
+
+        return f"Poll {util.make_html_bold(temp_poll.get_title())} has been deleted."
+
+    def has_temp_poll_with_name(self, name: str) -> bool:
+        return any(temp_poll.name == name for temp_poll in self.get_temp_polls())
 
     def get_all_poll_ids(self) -> set:
         return self.poll_ids.union(self.get_group_poll_ids())
@@ -389,7 +418,8 @@ class User(object):
             db.USER_OWNED_GROUP_IDS: list(self.owned_group_ids),
             db.USER_JOINED_GROUP_IDS: list(self.joined_group_ids),
             db.USER_POLL_IDS: list(self.poll_ids),
-            db.USER_LIST_IDS: list(self.list_ids)
+            db.USER_LIST_IDS: list(self.list_ids),
+            db.USER_TEMP_POLL_IDS: list(self._temp_poll_ids)
         }
 
 
@@ -1342,16 +1372,135 @@ class ListOption(object):
         }
 
 
+class FormatTextCode(object):
+    FORMAT_TYPES = {"d": "digit", "s": "string", "dt": "date"}
+
+    def __init__(self, format_text: str, format_codes: Dict[str, Tuple[str, str]]):
+        self._format_text = format_text
+        self._format_codes = format_codes
+
+    @classmethod
+    def create_new(cls, text: str):
+        format_text, code, is_valid = FormatTextCode.parse_format_text(text)
+        if not is_valid:
+            return cls("", dict())
+        return cls(format_text, code)
+
+    @classmethod
+    def load(cls, format_text: str, code: Dict[str, Lst[str, str]]):
+        formatted_code = {label: tuple(format_details) for label, format_details in code.items()}
+        return cls(format_text, formatted_code)
+
+    @staticmethod
+    def parse_format_text(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[str, str]], None], bool]:
+        format_results = dict()
+
+        all_matches = re.findall(r"%([A-Za-z]+)(#\w+)?(\$\((?:.|\n)+?(?=\)\$)\)\$)?", format_string)
+        for i, match in enumerate(all_matches, 1):
+            format_type, label, default = match[0], match[1][1:], match[2][2:-2].strip()
+
+            if not label:
+                label = str(i)
+            else:
+                label_match = re.match(r"^[A-Za-z]\w{0,11}$", label)
+                if not label_match:
+                    return f"<b>Format String Parse Error</b>\n" \
+                           f"Invalid label <u>{label}</u> found.\n" \
+                           f"<i>Labels must have up to 12 alphanumeric characters, including underscores, " \
+                           f"and must start with a letter.</i>", \
+                           None, False
+                if label in format_results:
+                    return f"<b>Format String Parse Error</b>\n" \
+                           f"Duplicated <u>{label}</u> found.\n" \
+                           f"<i>Labels must be unique.</i>", \
+                           None, False
+
+            # Digit type
+            if format_type == "d":
+                default = default if default else "0"
+                if not default.isdigit():
+                    return f"<b>Format String Parse Error</b>\nDefault value for <u>{label}</u> is not a digit.", \
+                           None, False
+                else:
+                    format_results[label] = (format_type, default)
+            # String type
+            elif format_type == "s":
+                format_results[label] = (format_type, default)
+            # Date type
+            elif format_type == "dt":
+                default = default if default else "1 %d/%m/%y"
+                date_match = re.match(r"^([+|-]{0,3}[1-7])(\s+.+)?$", default)
+                if not date_match:
+                    return f"<b>Format String Parse Error</b>\n" \
+                           f"Default value for <u>{label}</u> is not in the correct date format.\n" \
+                           f"<i>E.g. 1 %d/%m/%y</i>", \
+                           None, False
+                day, date_format = date_match.group(1), date_match.group(2)
+                # Checks if all '+' or all '-'
+                if len(day) > 1 and day[0] * (len(day) - 1) != day[:-1]:
+                    return f"<b>Format String Parse Error</b>\n" \
+                           f"Default value for <u>{label}</u> is not in the correct date format.\n" \
+                           f"<i>E.g. 1 %d/%m/%y</i>", \
+                           None, False
+
+                if not date_format:
+                    format_results[label] = (format_type, f"{day} %d/%m/%y")
+                else:
+                    # Verify if date time format is valid
+                    try:
+                        datetime.now().strftime(date_format.strip())
+                    except ValueError:
+                        return f"<b>Format String Parse Error</b>\n" \
+                               f"Default value for <u>{label}</u> is not in the correct date format.\n" \
+                               f"<i>E.g. 1 %d/%m/%y</i>", \
+                               None, False
+                    format_results[label] = (format_type, default)
+            # Other types
+            else:
+                return f"<b>Format String Parse Error</b>\nInvalid format type found: %{format_type}", None, False
+
+        # Create replaced text
+        for label in format_results:
+            format_string = re.sub(r"%([A-Za-z]+)(#\w+)?(\$\(.+\))?", f"<u>{label}</u>", format_string, count=1)
+
+        return format_string, format_results, True
+
+    @property
+    def format_text(self) -> str:
+        return self._format_text
+
+    @property
+    def format_codes(self) -> Dict[str, Tuple[str, str]]:
+        return self._format_codes
+
+    def display_format_details(self, label: str, format_details: Tuple[str, str]) -> str:
+        format_type, default = format_details
+        return f"<u>{label}</u> - <b>type</b> {self.FORMAT_TYPES.get(format_type, '')}\n<b>default</b> {default}"
+
+    def render_text(self):
+        title = self.format_text
+        body = "\n".join(f"{i}. {self.display_format_details(label, format_details)}"
+                         for i, (label, format_details) in enumerate(format_results.items(), 1))
+        response = "\n\n".join([title] + [f"<b>Details</b>\n{body}"]) if body else header
+        return response
+
+    def to_json(self) -> dict:
+        return {
+            db.FORMAT_TEXT: self.format_text,
+            db.FORMAT_CODES: self.format_codes
+        }
+
+
 class PollTemplate(object):
-    def __init__(self, temp_id: str, name: str, title: str, description: str, options: list, single_response: bool,
-                 creator_id: int) -> None:
-        self.temp_id = temp_id
-        self.name = name
-        self.title = title
-        self.description = description
-        self.options = options
-        self.single_response = single_response
-        self.creator_id = creator_id
+    def __init__(self, temp_id: str, name: str, formatted_title: FormatTextCode, formatted_description: FormatTextCode,
+                 options: list, single_response: bool, creator_id: int) -> None:
+        self._temp_id = temp_id
+        self._name = name
+        self._formatted_title = formatted_title
+        self._formatted_description = formatted_description
+        self._options = options
+        self._is_single_response = single_response
+        self._creator_id = creator_id
 
     @staticmethod
     def get_template_by_id(temp_id: str):
@@ -1360,31 +1509,96 @@ class PollTemplate(object):
     @staticmethod
     def get_templates_by_ids(temp_ids: set, filters="") -> list:
         template_lists = [PollTemplate.get_template_by_id(temp_id) for temp_id in temp_ids]
-        return [template for template in template_lists if filters.lower() in template.get_name().lower()]
+        return [template for template in template_lists if filters.lower() in template.name.lower()]
 
     @classmethod
-    def create_new(cls,  name: str, title: str, description: str, options: list, single_response: bool,
+    def create_new(cls,  name: str, format_title: str, format_description: str, options: list, single_response: bool,
                    creator_id: int):
-        temp_id = util.generate_random_id(POLL_ID_LENGTH, set(template_storage.keys()))
-        template = cls(temp_id, name, title, description, options, single_response, creator_id)
+        temp_id = util.generate_random_id(POLL_ID_LENGTH, set(temp_poll_storage.keys()))
+        formatted_title = FormatTextCode.create_new(format_title)
+        formatted_description = FormatTextCode.create_new(format_description)
+        template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
         template_storage[temp_id] = template
         return template
 
     @classmethod
-    def load(cls, temp_id: str, name: str, title: str, description: str, options: list, single_response: bool,
+    def load(cls, temp_id: str, name: str, title: Dict[str, Dict[str, Lst[str, str]]],
+             description: Dict[str, Dict[str, Lst[str, str]]], options: list, single_response: bool,
              creator_id: int) -> None:
-        template = cls(temp_id, name, title, description, options, single_response, creator_id)
+        formatted_title = FormatTextCode.load(
+            title.get(db.FORMAT_TEXT, ""),
+            title.get(db.FORMAT_CODES, dict())
+        )
+        formatted_description = FormatTextCode.load(
+            description.get(db.FORMAT_TEXT, ""),
+            description.get(db.FORMAT_CODES, dict())
+        )
+
+        template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
         template_storage[temp_id] = template
         return
 
+    def delete(self) -> None:
+        temp_poll_storage.pop(self._temp_id, None)
+
+    @property
+    def temp_id(self) -> str:
+        return self._temp_id
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, new_name: str) -> None:
+        self._name = new_name
+        return
+
+    @property
+    def formatted_title(self) -> FormatTextCode:
+        return self._formatted_title
+
+    @formatted_title.setter
+    def formatted_title(self, new_title: FormatTextCode) -> None:
+        self._formatted_title = new_title
+        return
+
+    @property
+    def formatted_description(self) -> FormatTextCode:
+        return self._formatted_description
+
+    @formatted_description.setter
+    def formatted_description(self, new_description: FormatTextCode) -> None:
+        self._formatted_description = new_description
+        return
+
+    @property
+    def options(self) -> list:
+        return self._options
+
+    @property
+    def is_single_response(self) -> bool:
+        return self._is_single_response
+
+    @property
+    def creator_id(self) -> int:
+        return self._creator_id
+
+    def render_text(self) -> str:
+        header = f"<b>Poll Template ({self.name})</b>"
+        title_body = f"<b>Title</b>\n{self.formatted_title.render_text()}"
+        description_body = f"<b>Description</b>\n{self.formatted_description.render_text()}"
+        response_type_body = f"<b>Response Type</b> - {'Single' if self.is_single_response else 'Multiple'}"
+        return "\n\n".join([header] + [title_body] + [description_body] + [response_type_body])
+
     def to_json(self) -> dict:
         return {
-            db.POLL_ID: self.poll_id,
-            db.POLL_TITLE: self.title,
-            db.POLL_CREATOR_ID: self.creator_id,
-            db.POLL_DESCRIPTION: self.description,
-            db.POLL_OPTIONS: self.options,
-            db.POLL_SINGLE_RESPONSE: self.single_response,
+            db.TEMP_POLL_ID: self._temp_id,
+            db.TEMP_POLL_FORMATTED_TITLE: self._formatted_title.to_json(),
+            db.TEMP_POLL_FORMATTED_DESCRIPTION: self._formatted_description.to_json(),
+            db.TEMP_POLL_OPTIONS: self._options,
+            db.TEMP_POLL_SINGLE_RESPONSE: self._is_single_response,
+            db.TEMP_POLL_CREATOR_ID: self._creator_id,
         }
 
 
@@ -1426,7 +1640,8 @@ class BotManager(object):
                     user_data[db.USER_OWNED_GROUP_IDS],
                     user_data[db.USER_JOINED_GROUP_IDS],
                     user_data[db.USER_POLL_IDS],
-                    user_data[db.USER_LIST_IDS]
+                    user_data[db.USER_LIST_IDS],
+                    user_data[db.USER_TEMP_POLL_IDS]
                 )
 
             groups_data = db.load(db.GROUP_SHEET)

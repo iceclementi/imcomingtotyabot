@@ -3,7 +3,7 @@ import os
 import logging
 import re
 import models
-from models import User, Group, Poll, Option, List, ListOption, PollTemplate, BotManager
+from models import User, Group, Poll, Option, List, ListOption, PollTemplate, FormatTextCode, BotManager
 import util
 from telegram import (
     Update, ParseMode, User as TeleUser, Message, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup,
@@ -43,7 +43,7 @@ QUERY_RESULTS_LIMIT = 20
 
 # region RESPONSES
 
-ACCESS_REQUEST = "To explore the full potential of this bot, please request for access from the creator \U0001f60e"
+ACCESS_REQUEST = "To explore the full potential of this bot, please request for access from the bot admins \U0001f60e"
 ACCESS_ENTER_USER_ID = "Enter the ID of the user you want to give access to."
 ACCESS_DENIED = "Sorry, invalid or expired access key."
 ACCESS_GRANTED = "Woohoo!! \U0001f973 You now have access to the bot!\n\nUse /start to get started."
@@ -1271,14 +1271,10 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
-    text = update.message.text.strip()
+    text = util.strip_html_symbols(update.message.text.strip())
     step, title, description, options, single_response = \
         context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
         context.user_data.get("options", []), context.user_data.get("response", True)
-
-    format_types = {"d": "digit", "s": "string", "dt": "date"}
-    display_format_result = lambda format_type, default: f"<b>type</b> {format_types.get(format_type, '')}, " \
-                                                         f"<b>default</b> {default}"
 
     # Handle title
     if step == 1:
@@ -1289,7 +1285,7 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
             context.user_data.update({"del": reply_message.message_id})
             return
 
-        format_text, format_results, is_valid = util.parse_format_string(util.strip_html_symbols(text))
+        format_text, format_codes, is_valid = FormatTextCode.parse_format_text(text)
 
         if not is_valid:
             response = f"{text}\n\n{format_text}\n\nPlease re-enter the <b>title</b>."
@@ -1299,12 +1295,11 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
             context.user_data.update({"del": reply_message.message_id})
             return
 
-        header = f"<b>Title</b>\n<b>{format_text}</b>"
-        body = "\n".join(f"<u>{label}</u> - {display_format_result(format_result[0], format_result[1])}"
-                         for label, format_result in format_results.items())
+        header = f"<b>Poll Title</b>"
+        format_text_code = FormatTextCode(format_text, format_codes)
+        body = format_text_code.render_text()
         footer = f"<b>Continue</b> to the next step or <b>Edit</b> the title to make changes."
-        response = "\n\n".join([header] + [f"<b>Placeholder</b>\n{body}"] + [footer]) if body \
-            else "\n\n".join([header] + [footer])
+        response = "\n\n".join([f"{header}\n{body}"] + [footer])
 
         reply_message = update.message.reply_html(
             response, reply_markup=util.build_multiple_stacked_buttons_markup(
@@ -1315,12 +1310,12 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
             )
         )
         context.user_data.update(
-            {"title": format_text, "title_res": format_results, "del": reply_message.message_id}
+            {"title": text, "del": reply_message.message_id}
         )
         return
     # Handle description
     elif step == 2:
-        format_text, format_results, is_valid = util.parse_format_string(util.strip_html_symbols(text))
+        format_text, format_codes, is_valid = FormatTextCode.parse_format_text(text)
 
         if not is_valid:
             response = f"{text}\n\n{format_text}\n\nPlease re-enter the <b>description</b>."
@@ -1330,12 +1325,11 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
             context.user_data.update({"del": reply_message.message_id})
             return
 
-        header = f"<b>Description</b>\n{format_text}"
-        body = "\n".join(f"<u>{label}</u>< - {display_format_result(format_result[0], format_result[1])}"
-                         for label, format_result in format_results.items())
+        header = f"<b>Description</b>"
+        format_text_code = FormatTextCode(format_text, format_codes)
+        body = format_text_code.render_text()
         footer = f"<b>Continue</b> to the next step or <b>Edit</b> the description to make changes."
-        response = "\n\n".join([header] + [f"<b>Placeholder</b>\n{body}"] + [footer]) if body \
-            else "\n\n".join([header] + [footer])
+        response = "\n\n".join([f"{header}\n{body}"] + [footer])
 
         reply_message = update.message.reply_html(
             response, reply_markup=util.build_multiple_stacked_buttons_markup(
@@ -1346,7 +1340,7 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
             )
         )
         context.user_data.update(
-            {"descr": format_text, "descr_res": format_results, "del": reply_message.message_id}
+            {"descr": text, "del": reply_message.message_id}
         )
         return
     # Handle option
