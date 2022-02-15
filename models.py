@@ -894,7 +894,7 @@ class Poll(object):
         title = util.make_html_bold(self.title)
         description = util.make_html_italic(self.description)
         header = [f"{title}\n{description}" if description else title]
-        body = [option.render_text() for option in self.options]
+        body = [option.render_details() for option in self.options]
         footer = [f"{EMOJI_PEOPLE} {self.generate_respondents_summary()}"]
         return "\n\n".join(header + body + footer)
 
@@ -1241,7 +1241,7 @@ class List(object):
         title = util.make_html_bold(self.title)
         description = util.make_html_italic(self.description)
         header = [f"{title}\n{description}" if description else title]
-        body = [option.render_text() for option in self.options]
+        body = [option.render_details() for option in self.options]
         footer = [f"{EMOJI_PEOPLE} {self.generate_allocations_summary()}"]
         return "\n\n".join(header + body + footer)
 
@@ -1375,6 +1375,7 @@ class ListOption(object):
 
 class FormatTextCode(object):
     FORMAT_TYPES = {"d": "digit", "s": "string", "dt": "date"}
+    FORMAT_TEXT_ERROR = "<b>Format Code Parse Error</b>"
 
     def __init__(self, format_text: str, format_codes: Dict[str, Tuple[str, str]]):
         self._format_text = format_text
@@ -1405,13 +1406,13 @@ class FormatTextCode(object):
             else:
                 label_match = re.match(r"^[A-Za-z]\w{0,11}$", label)
                 if not label_match:
-                    return f"<b>Format String Parse Error</b>\n" \
+                    return f"{FormatTextCode.FORMAT_TEXT_ERROR}\n" \
                            f"Invalid label <u>{label}</u> found.\n" \
                            f"<i>Labels must have up to 12 alphanumeric characters, including underscores, " \
                            f"and must start with a letter.</i>", \
                            None, False
                 if label in format_codes:
-                    return f"<b>Format String Parse Error</b>\n" \
+                    return f"{FormatTextCode.FORMAT_TEXT_ERROR}\n" \
                            f"Duplicated <u>{label}</u> found.\n" \
                            f"<i>Labels must be unique.</i>", \
                            None, False
@@ -1420,7 +1421,7 @@ class FormatTextCode(object):
             if format_type == "d":
                 default = default if default else "0"
                 if not default.isdigit():
-                    return f"<b>Format String Parse Error</b>\nDefault value for <u>{label}</u> is not a digit.", \
+                    return f"{FormatTextCode.FORMAT_TEXT_ERROR}\nDefault value for <u>{label}</u> is not a digit.", \
                            None, False
                 else:
                     format_codes[label] = (format_type, default)
@@ -1458,7 +1459,7 @@ class FormatTextCode(object):
                     format_codes[label] = (format_type, default)
             # Other types
             else:
-                return f"<b>Format String Parse Error</b>\nInvalid format type found: %{format_type}", None, False
+                return f"{FormatTextCode.FORMAT_TEXT_ERROR}\nInvalid format type found: %{format_type}", None, False
 
         # Create replaced text
         for label in format_codes:
@@ -1479,12 +1480,66 @@ class FormatTextCode(object):
         format_type, default = format_details
         return f"<u>{label}</u> - <b>type</b> {self.FORMAT_TYPES.get(format_type, '')}\n<b>default</b> {default}"
 
-    def render_text(self):
+    def parse_single_format_input(self, label: str, format_input: str) -> Tuple[str, bool]:
+        pass
+
+    def parse_format_input(self, format_inputs: str) -> Tuple[Union[Dict[str, str], str], bool]:
+        labels = list(self.format_codes)
+
+        # Find all single line, or multi-line demarcated by $(...)$
+        all_matches = re.findall(r"(?:(?<=^)|(?<=\n))(.*?(?:\$\((?:.|\n)+?(?=\)\$)\)\$)?)(?=$|\n)", format_inputs)
+
+        if len(all_matches) > len(labels):
+            return f"{FormatTextCode.FORMAT_TEXT_ERROR}\nToo many format inputs. Only {len(labels)} required.", False
+
+        # Parse each format input
+        parsed_formats = dict()
+        for i, match in enumerate(all_matches):
+            # Use default value
+            if match == ".":
+                label, format_input = labels[i], self.format_codes[labels[i]][1]
+            else:
+                # Check for labels
+                format_match = re.match(r"^(\w+)=((?:.|\n)*)$", match)
+                # No label
+                if not format_match:
+                    label, format_input = labels[i], match
+                # Have label
+                else:
+                    label, format_input = format_match.group(1), format_match.group(2)
+            if label in parsed_formats:
+                return f"{FormatTextCode.FORMAT_TEXT_ERROR}\nDuplicate values for <u>{label}</u> given.", False
+            parsed_format, is_valid = self.parse_single_format_input(label, format_input)
+            if not is_valid:
+                return parsed_format, is_valid
+            parsed_formats[label] = parsed_format
+            continue
+
+        return parsed_formats, True
+
+    def render_details(self):
         title = self.format_text
-        body = "\n".join(f"{i}. {self.display_format_details(label, format_details)}"
-                         for i, (label, format_details) in enumerate(self.format_codes.items(), 1))
-        response = "\n\n".join([title] + [f"<b>Details</b>\n{body}"]) if body else title
+        body = util.list_to_indexed_list_string([
+            self.display_format_details(label, format_details) for label, format_details in self.format_codes.items()
+        ])
+        response = "\n\n".join([title] + [f"<b>Details</b>\n{body}"]) if body \
+            else "\n\n".join([title] + [f"<b>Details</b>\n<i>None</i>"])
         return response
+
+    def render_format_text(self, format_inputs: str) -> Tuple[str, bool]:
+        parsed_format, is_valid = self.parse_format_input(format_inputs)
+
+        # Error parsing format input
+        if not is_valid:
+            return parsed_format, is_valid
+
+        new_text = self.format_text
+
+        # Replace label with corresponding values
+        for label, value in parsed_format:
+            new_text = re.sub(f"<u>{label}</u>", value, new_text, count=1)
+
+        return new_text, True
 
     def to_json(self) -> dict:
         return {
@@ -1588,8 +1643,9 @@ class PollTemplate(object):
 
     def render_text(self) -> str:
         header = f"<b>Poll Template ({self.name})</b>"
-        title_body = f"<b>Title</b>\n{self.formatted_title.render_text()}"
-        description_body = f"<b>Description</b>\n{self.formatted_description.render_text()}"
+        title_body = f"<b>Title</b>\n{self.formatted_title.render_details()}"
+        description_body = f"<b>Description</b>\n{self.formatted_description.render_details()}"
+        options_body = f"<b><Options/b>\n{util.list_to_indexed_list_string(self.options)}"
         response_type_body = f"<b>Response Type</b> - {'Single' if self.is_single_response else 'Multiple'}"
         return "\n\n".join([header] + [title_body] + [description_body] + [response_type_body])
 

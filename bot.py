@@ -53,7 +53,7 @@ USER_PROMOTED = "Yay!! \U0001f389 {} is now a bot leader!!"
 NEW_POLL = "Let's create a new poll! First, send me the title."
 NEW_POLL_DESCRIPTION = "{}\n\nNice! Now send me a poll description or skip this step."
 NEW_POLL_OPTION = "{}\n\nAlright, now send me your very first option."
-NEXT_POLL_OPTION = "Nice! {} added!\n\nNow send me another option or press <b>Done</b> to finish."
+NEXT_POLL_OPTION = "Nice! {} added!\n\n{}\n\nNow send me another option or press <b>Done</b> to finish."
 POLL_DONE = "\U0001f44d Poll created! You may now publish it to your friends or share it with a group."
 DELETED_POLL = "Sorry, the poll has been deleted."
 
@@ -385,7 +385,7 @@ def handle_update_pm(update: Update, context: CallbackContext, details: str) -> 
         return
 
     update.message.reply_html(
-        _list.render_text(), reply_markup=_list.build_option_buttons()
+        _list.render_details(), reply_markup=_list.build_option_buttons()
     )
     return
 
@@ -979,7 +979,8 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
 
     if len(options) < MAX_OPTIONS:
         reply_message = update.message.reply_html(
-            NEXT_POLL_OPTION.format(util.make_html_bold(text)), reply_markup=util.build_multiple_buttons_markup(
+            NEXT_POLL_OPTION.format(util.make_html_bold(text), util.list_to_indexed_list_string(options)),
+            reply_markup=util.build_multiple_buttons_markup(
                 util.generate_button_details("Done", models.DONE),
                 util.generate_button_details("Cancel", models.RESET)
             )
@@ -1300,7 +1301,7 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
 
         header = f"<b>Poll Title</b>"
         format_text_code = FormatTextCode(format_text, format_codes)
-        body = format_text_code.render_text()
+        body = format_text_code.render_details()
         footer = f"<b>Continue</b> to the next step or <b>Edit</b> the title to make changes."
         response = "\n\n".join([f"{header}\n{body}"] + [footer])
 
@@ -1330,7 +1331,7 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
 
         header = f"<b>Description</b>"
         format_text_code = FormatTextCode(format_text, format_codes)
-        body = format_text_code.render_text()
+        body = format_text_code.render_details()
         footer = f"<b>Continue</b> to the next step or <b>Edit</b> the description to make changes."
         response = "\n\n".join([f"{header}\n{body}"] + [footer])
 
@@ -1413,13 +1414,13 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
             context.user_data.update({"del": reply_message.message_id})
             return
 
-        poll_template, _ = user.create_temp_poll(text, title, description, options, single_response)
+        poll_template, _ = user.create_temp_poll(text, title, description.strip(), options, single_response)
         update.message.reply_html(
             f"Poll template created! You may now use this template to generate a new poll!",
             reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         update.message.reply_html(
-            poll_template.render_text(),
+            poll_template.render_details(),
             reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         return
@@ -1705,7 +1706,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             POLL_DONE, parse_mode=ParseMode.HTML,
             reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
-        query.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(query.from_user.id))
+        query.message.reply_html(poll.render_details(), reply_markup=poll.build_admin_buttons(query.from_user.id))
         query.answer(text="Poll created successfully!")
 
         # Clear user data
@@ -1748,7 +1749,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
                 LIST_DONE, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Close", models.CLOSE)
             )
-            query.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(query.from_user.id))
+            query.message.reply_html(_list.render_details(), reply_markup=_list.build_admin_buttons(query.from_user.id))
             query.answer(text="List created successfully!")
 
             # Clear user data
@@ -1935,20 +1936,20 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     # Handle poll option button
     if action.isdigit():
         status = poll.toggle(int(action), uid, user_profile)
-        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
+        query.edit_message_text(poll.render_details(), parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
         query.answer(text=status)
         refresh_polls(poll, context)
         return
     # Handle refresh option button
     elif action == models.REFRESH_OPT:
         query.answer(text="Results updated!")
-        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
+        query.edit_message_text(poll.render_details(), parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
         return
     # Handle refresh button
     elif action == models.REFRESH and is_pm:
         query.answer(text="Results updated!")
         query.edit_message_text(
-            poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons(uid)
+            poll.render_details(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons(uid)
         )
         return
     # Handle customise button
@@ -2061,7 +2062,7 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
     if action == models.OPTIONS:
         query.answer(text=None)
         query.edit_message_text(
-            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_option_buttons()
+            _list.render_details(), parse_mode=ParseMode.HTML, reply_markup=_list.build_option_buttons()
         )
         return
     # Handle list option button
@@ -2105,7 +2106,7 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
 
         status = _list.toggle(opt_id, choice_id)
         query.edit_message_text(
-            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_choice_buttons(opt_id)
+            _list.render_details(), parse_mode=ParseMode.HTML, reply_markup=_list.build_choice_buttons(opt_id)
         )
         query.answer(text=status)
         refresh_lists(_list, context)
@@ -2114,21 +2115,21 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
     elif action == models.USER_REFRESH:
         query.answer(text="Results updated!")
         query.edit_message_text(
-            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_update_buttons()
+            _list.render_details(), parse_mode=ParseMode.HTML, reply_markup=_list.build_update_buttons()
         )
         return
     # Handle refresh option button
     elif action == models.REFRESH_OPT and is_pm:
         query.answer(text="Results updated!")
         query.edit_message_text(
-            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_option_buttons()
+            _list.render_details(), parse_mode=ParseMode.HTML, reply_markup=_list.build_option_buttons()
         )
         return
     # Handle admin refresh button
     elif action == models.REFRESH and is_pm:
         query.answer(text="Results updated!")
         query.edit_message_text(
-            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_admin_buttons(uid)
+            _list.render_details(), parse_mode=ParseMode.HTML, reply_markup=_list.build_admin_buttons(uid)
         )
         return
     # Handle customise button
@@ -2674,14 +2675,14 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 query_result = InlineQueryResultArticle(
                     id=f"poll {item.get_poll_id()}", title=item.get_title(),
                     description=item.generate_options_summary(),
-                    input_message_content=InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML),
+                    input_message_content=InputTextMessageContent(item.render_details(), parse_mode=ParseMode.HTML),
                     reply_markup=item.build_option_buttons()
                 )
             elif type(item) == List:
                 query_result = InlineQueryResultArticle(
                     id=f"list {item.get_list_id()}", title=item.get_title(),
                     description=item.generate_options_summary(),
-                    input_message_content=InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML),
+                    input_message_content=InputTextMessageContent(item.render_details(), parse_mode=ParseMode.HTML),
                     reply_markup=item.build_update_buttons()
                 )
             else:
