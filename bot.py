@@ -2,6 +2,7 @@
 import os
 import logging
 import re
+from typing import Tuple, List as Lst, Dict
 import models
 from models import User, Group, Poll, Option, List, ListOption, PollTemplate, FormatTextCode, BotManager
 import util
@@ -1271,6 +1272,8 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
+    user, _, _ = get_user_permissions(update.effective_user.id)
+
     text = util.strip_html_symbols(update.message.text.strip())
     step, title, description, options, single_response = \
         context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
@@ -1394,9 +1397,32 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
         return
     # Handle template name
     elif step == 5:
-        poll_template = PollTemplate.create_new(
-            text, title, description, options, single_response, update.effective_user.id
+        if len(name) > 12:
+            reply_message = update.message.reply_html(
+                "Sorry, please enter a shorter name (maximum 12 characters).",
+                reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        if user.has_temp_poll_with_name(text):
+            reply_message = update.message.reply_html(
+                "Sorry, you already have a poll template with the same name. Please enter a different name.",
+                reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        poll_template, _ = user.create_temp_poll(text, title, description, options, single_response)
+        update.message.reply_html(
+            f"Poll template created! You may now use this template to generate a new poll!",
+            reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
+        update.message.reply_html(
+            poll_template.render_text(),
+            reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+        )
+        return
     # Handle invalid step
     else:
         logger.warning("Error with preset poll conversation step index!!")
@@ -1614,19 +1640,20 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
             elif response_type == "multiple":
                 is_single_response = False
                 query.answer(text="Response type set to multiple response.")
-
-                response_text = "Finally, enter a unique <b>name</b> for your template for reference."
-                reply_message = query.edit_message_text(
-                    response_text, parse_mode=ParseMode.HTML,
-                    reply_markup=util.build_multiple_buttons_markup(
-                        util.generate_button_details("Cancel", models.RESET)
-                    )
-                )
-                context.user_data.update({"step": 5, "response": is_single_response, "del": reply_message.message_id})
             else:
                 query.answer(text="Invalid callback query data in poll template response type!")
                 logger.warning("Invalid callback query data.")
                 return
+
+            response_text = "Finally, enter a unique <b>name</b> for your template for reference."
+            reply_message = query.edit_message_text(
+                response_text, parse_mode=ParseMode.HTML,
+                reply_markup=util.build_multiple_buttons_markup(
+                    util.generate_button_details("Cancel", models.RESET)
+                )
+            )
+            context.user_data.update({"step": 5, "response": is_single_response, "del": reply_message.message_id})
+            return
         else:
             query.answer(text="Invalid callback query data in poll template response type!")
             logger.warning("Invalid callback query data.")
@@ -1781,7 +1808,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
                     , [util.generate_button_details("Cancel", models.RESET)]
                 )
             )
-            query.answer(text=response_text)
+            query.answer(text="Nice! Now choose the response type for your poll template.")
             context.user_data.update({"step": 4})
             return
         else:
@@ -2758,7 +2785,7 @@ def handle_load(update: Update, context: CallbackContext) -> None:
 # region HELPERS
 
 
-def get_user_permissions(uid: int) -> tuple:
+def get_user_permissions(uid: int) -> Tuple[User, bool, bool]:
     """Checks the user's permissions."""
     user = User.get_user_by_id(uid)
     is_leader = user and user.is_leader()

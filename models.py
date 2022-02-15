@@ -1462,7 +1462,8 @@ class FormatTextCode(object):
 
         # Create replaced text
         for label in format_codes:
-            format_string = re.sub(r"%([A-Za-z]+)(#\w+)?(\$\(.+\))?", f"<u>{label}</u>", format_string, count=1)
+            format_string = re.sub(r"%([A-Za-z]+)(#\w+)?(\$\((?:.|\n)+?(?=\)\$)\)\$)?",
+                                   f"<u>{label}</u>", format_string, count=1)
 
         return format_string, format_codes, True
 
@@ -1519,7 +1520,7 @@ class PollTemplate(object):
         formatted_title = FormatTextCode.create_new(format_title)
         formatted_description = FormatTextCode.create_new(format_description)
         template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
-        template_storage[temp_id] = template
+        temp_poll_storage[temp_id] = template
         return template
 
     @classmethod
@@ -1536,7 +1537,7 @@ class PollTemplate(object):
         )
 
         template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
-        template_storage[temp_id] = template
+        temp_poll_storage[temp_id] = template
         return
 
     def delete(self) -> None:
