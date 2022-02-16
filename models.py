@@ -33,6 +33,11 @@ USER_SUBJECT = "u"
 POLL_SUBJECT = "p"
 LIST_SUBJECT = "l"
 GROUP_SUBJECT = "g"
+TEMP_POLL_SUBJECT = "tp"
+TEMP_LIST_SUBJECT = "tl"
+POLL = "poll"
+LIST = "list"
+GROUP = " group"
 PUBLISH = "publish"
 REFRESH = "refresh"
 TITLE = "title"
@@ -54,7 +59,7 @@ REMOVE_MEMBER = "delMember"
 VIEW_GROUP_POLLS = "polls"
 ADD_POLL = "poll"
 REMOVE_POLL = "delPoll"
-GROUP_SETTINGS = "set"
+SETTINGS = "set"
 CHANGE_SECRET = "pass"
 GROUP_INVITE = "invite"
 LEAVE_GROUP = "leave"
@@ -68,9 +73,13 @@ UPDATE_DONE = "updateDone"
 SHOW = "show"
 HIDE = "hide"
 PRESET = "preset"
-PRESET_POLL = "prePoll"
-PRESET_LIST = "preList"
+TEMP_POLL = "tPoll"
+TEMP_LIST = "tList"
 PRESET_GUIDE = "preGuide"
+TEMP_TITLE = "tTitle"
+TEMP_DESCRIPTION = "tDescr"
+TEMP_TITLE_CODE = "tTitleCode"
+TEMP_DESCRIPTION_CODE = "tDescrCode"
 EDIT = "edit"
 
 # endregion
@@ -636,7 +645,7 @@ class Group(object):
     def build_group_details_buttons(self) -> InlineKeyboardMarkup:
         view_members_button = util.build_button("View Members", GROUP_SUBJECT, VIEW_MEMBERS, self.gid)
         view_polls_button = util.build_button("View Polls", GROUP_SUBJECT, VIEW_GROUP_POLLS, self.gid)
-        settings_button = util.build_button("Settings", GROUP_SUBJECT, GROUP_SETTINGS, self.gid)
+        settings_button = util.build_button("Settings", GROUP_SUBJECT, SETTINGS, self.gid)
         close_button = util.build_button("Close", GROUP_SUBJECT, CLOSE, self.gid)
         buttons = [[view_members_button], [view_polls_button], [settings_button, close_button]]
         return InlineKeyboardMarkup(buttons)
@@ -812,6 +821,9 @@ class Poll(object):
 
     def is_single_response(self) -> bool:
         return self.single_response
+
+    def set_single_response(self, single_response: bool) -> None:
+        self.single_response = single_response
 
     def toggle_response_type(self) -> str:
         # if any(option.has_votes() for option in self.options):
@@ -1547,11 +1559,12 @@ class FormatTextCode(object):
 
         return self.convert_format_input(label, format_type, format_input)
 
-    def parse_format_input(self, format_inputs: str) -> Tuple[Union[Dict[str, str], str], bool]:
+    def parse_format_inputs(self, format_inputs: str) -> Tuple[Union[Dict[str, str], str], bool]:
         labels = list(self.format_codes)
 
         # Find all single line, or multi-line demarcated by $(...)$
         all_matches = re.findall(r"(?:(?<=^)|(?<=\n))(.*?(?:\$\((?:.|\n)+?(?=\)\$)\)\$)?) *(?=$|\n)", format_inputs)
+        all_matches = [match for match in all_matches if match]
 
         if len(all_matches) > len(labels):
             return f"{self.FORMAT_TEXT_ERROR}\nToo many format inputs. Only {len(labels)} required.", False
@@ -1586,6 +1599,14 @@ class FormatTextCode(object):
             parsed_formats[label] = parsed_format
             continue
 
+        # Parse remaining format inputs that were not given
+        for label in labels:
+            if label not in parsed_formats:
+                parsed_format, is_valid = self.parse_single_format_input(label, self.format_codes[label][1])
+                if not is_valid:
+                    return parsed_format, is_valid
+                parsed_formats[label] = parsed_format
+
         return parsed_formats, True
 
     def render_details(self):
@@ -1598,7 +1619,7 @@ class FormatTextCode(object):
         return response
 
     def render_format_text(self, format_inputs: str) -> Tuple[str, bool]:
-        parsed_format, is_valid = self.parse_format_input(format_inputs)
+        parsed_format, is_valid = self.parse_format_inputs(format_inputs)
 
         # Error parsing format input
         if not is_valid:
@@ -1712,13 +1733,63 @@ class PollTemplate(object):
     def creator_id(self) -> int:
         return self._creator_id
 
+    def create_poll(self, title: str, description: str, uid: int) -> Poll:
+        user: User = User.get_user_by_id(uid)
+        poll, _ = user.create_poll(title, description, self.options)
+        poll.set_single_response(self.is_single_response)
+        return poll
+
     def render_text(self) -> str:
         header = f"<b>Poll Template ({self.name})</b>"
         title_body = f"<b>Title</b>\n{self.formatted_title.render_details()}"
         description_body = f"<b>Description</b>\n{self.formatted_description.render_details()}"
         options_body = f"<b><Options/b>\n{util.list_to_indexed_list_string(self.options)}"
         response_type_body = f"<b>Response Type</b> - {'Single' if self.is_single_response else 'Multiple'}"
-        return "\n\n".join([header] + [title_body] + [description_body] + [response_type_body])
+        return "\n\n".join([header] + [title_body] + [description_body] + [options_body] + [response_type_body])
+
+    def render_title_code(self) -> str:
+        return f"<b>Title</b>\n{self.formatted_title.render_details()}"
+
+    def render_description_code(self) -> str:
+        return f"<b>Description</b>\n{self.formatted_description.render_details()}"
+
+    def render_title(self, format_inputs="") -> Tuple[str, bool]:
+        return self.formatted_title.parse_format_inputs(format_inputs)
+
+    def render_description(self, format_inputs="") -> Tuple[str, bool]:
+        return self.formatted_description.parse_format_inputs(format_inputs)
+
+    def build_main_buttons(self) -> InlineKeyboardMarkup:
+        generate_poll_button = util.build_button("Generate Poll", TEMP_POLL_SUBJECT, POLL, self.temp_id)
+        settings_buttons = util.build_button("Settings", TEMP_POLL_SUBJECT, SETTINGS, self.temp_id)
+        close_button = util.build_button("Close", TEMP_POLL_SUBJECT, CLOSE, self.temp_id)
+        buttons = [[generate_poll_button], [settings_buttons], [close_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_format_title_buttons(self) -> InlineKeyboardMarkup:
+        title_code_button = util.build_button(
+            "View Title Format Details", TEMP_POLL_SUBJECT, TEMP_TITLE_CODE, self.temp_id
+        )
+        continue_button = util.build_button("Continue", TEMP_POLL_SUBJECT, DONE, self.temp_id)
+        cancel_button = util.build_button("Cancel", TEMP_POLL_SUBJECT, RESET, self.temp_id)
+        buttons = [[title_code_button], [cancel_button, continue_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_format_description_buttons(self) -> InlineKeyboardMarkup:
+        description_code_button = util.build_button(
+            "View Description Format Details", TEMP_POLL_SUBJECT, TEMP_DESCRIPTION_CODE, self.temp_id
+        )
+        build_button = util.build_button("Create", TEMP_POLL_SUBJECT, DONE, self.temp_id)
+        cancel_button = util.build_button("Cancel", TEMP_POLL_SUBJECT, RESET, self.temp_id)
+        skip_button = util.build_button("Skip", TEMP_POLL_SUBJECT, SKIP, self.temp_id)
+        buttons = [[description_code_button], [skip_button], [cancel_button, build_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_format_back_buttons(self, back_action: str):
+        back_button = util.build_button("Back", TEMP_POLL_SUBJECT, back_action, self.temp_id)
+        cancel_button = util.build_button("Cancel", TEMP_POLL_SUBJECT, RESET, self.temp_id)
+        buttons = [[cancel_button, back_button]]
+        return InlineKeyboardMarkup(buttons)
 
     def to_json(self) -> dict:
         return {

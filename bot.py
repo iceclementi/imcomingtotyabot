@@ -809,8 +809,8 @@ def handle_preset(update: Update, context: CallbackContext) -> None:
     response_text = "Which <b>template</b> do you want to create?"
     buttons = util.build_multiple_stacked_buttons_markup(
         [
-            util.generate_button_details("Poll", models.PRESET_POLL),
-            util.generate_button_details("List", models.PRESET_LIST)
+            util.generate_button_details("Poll", models.TEMP_POLL),
+            util.generate_button_details("List", models.TEMP_LIST)
         ],
         [util.generate_button_details("Preset Format Guide", models.PRESET_GUIDE)],
         [util.generate_button_details("Close", models.CLOSE)]
@@ -891,8 +891,8 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     elif action == "pass" and is_leader:
         handle_change_secret_conversation(update, context)
         return
-    elif action == models.PRESET_POLL and user:
-        handle_preset_poll_conversation(update, context)
+    elif action == models.TEMP_POLL and user:
+        handle_temp_poll_conversation(update, context)
         return
     if is_private_chat(update.message):
         handle_help(update, context)
@@ -1268,7 +1268,7 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
     return
 
 
-def handle_preset_poll_conversation(update: Update, context: CallbackContext) -> None:
+def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the user to create a poll template."""
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
@@ -1276,9 +1276,10 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
     user, _, _ = get_user_permissions(update.effective_user.id)
 
     text = util.strip_html_symbols(update.message.text.strip())
-    step, title, description, options, single_response = \
+    step, title, description, options, single_response, temp_id = \
         context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
-        context.user_data.get("options", []), context.user_data.get("response", True)
+        context.user_data.get("options", []), context.user_data.get("response", True), \
+        context.user_data.get("tempId", "")
 
     # Handle title
     if step == 1:
@@ -1421,8 +1422,49 @@ def handle_preset_poll_conversation(update: Update, context: CallbackContext) ->
         )
         update.message.reply_html(
             poll_template.render_details(),
-            reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+            reply_markup=poll_template.build_main_buttons()
         )
+        return
+    # Handle format title
+    elif step == 11:
+        template: PollTemplate = PollTemplate.get_template_by_id(temp_id)
+        if not template:
+            context.user_data.clear()
+            handle_help(update, context)
+            return
+        title_text, is_valid = template.render_title(text)
+        if not is_valid:
+            reply_message = update.message.reply_html(
+                title_text, reply_markup=template.build_format_back_buttons(models.TEMP_TITLE)
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+        title = f"<b>Current Poll Title</b>\n{title_text}"
+        body = f"Enter another format input to change the title or <b>Continue</b> to go to the next step."
+        response = "\n\n".join([title] + [body])
+        reply_message = update.message.reply_html(response, reply_markup=template.build_format_title_buttons())
+        context.user_data.update({"titleCode": text, "del": reply_message.message_id})
+        return
+    # Handle format description
+    elif step == 12:
+        template: PollTemplate = PollTemplate.get_template_by_id(temp_id)
+        if not template:
+            context.user_data.clear()
+            handle_help(update, context)
+            return
+        description_text, is_valid = template.render_title(text)
+        if not is_valid:
+            reply_message = update.message.reply_html(
+                description_text, reply_markup=template.build_format_back_buttons(models.TEMP_DESCRIPTION)
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+        title = f"<b>Current Poll Description</b>\n{description_text}"
+        body = f"Enter another format input to change the description, or <b>Create</b> the poll, " \
+               f"or <b>Skip</b> the description and create the poll."
+        response = "\n\n".join([title] + [body])
+        reply_message = update.message.reply_html(response, reply_markup=template.build_format_description_buttons())
+        context.user_data.update({"descrCode": text, "del": reply_message.message_id})
         return
     # Handle invalid step
     else:
@@ -1486,17 +1528,23 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
 
     if subject == models.USER_SUBJECT:
         handle_user_callback_query(query, context, action, identifier)
+        return
     elif subject == models.POLL_SUBJECT:
         handle_poll_callback_query(query, context, action, identifier)
+        return
     elif subject == models.LIST_SUBJECT:
         handle_list_callback_query(query, context, action, identifier)
+        return
     elif subject == models.GROUP_SUBJECT:
         handle_group_callback_query(query, context, action, identifier)
+        return
+    elif subject == models.TEMP_POLL_SUBJECT:
+        handle_temp_poll_callback_query(query, context, action, identifier)
+        return
     else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
-
-    return
+        return
 
 
 def handle_general_callback_query(query: CallbackQuery, context: CallbackContext, action: str) -> None:
@@ -1569,16 +1617,16 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         response_text = "Which <b>template</b> do you want to create?"
         buttons = util.build_multiple_stacked_buttons_markup(
             [
-                util.generate_button_details("Poll", models.PRESET_POLL),
-                util.generate_button_details("List", models.PRESET_LIST)
+                util.generate_button_details("Poll", models.TEMP_POLL),
+                util.generate_button_details("List", models.TEMP_LIST)
             ],
             [util.generate_button_details("Preset Format Guide", models.PRESET_GUIDE)],
             [util.generate_button_details("Close", models.CLOSE)]
         )
         query.edit_message_text(response_text, parse_mode=ParseMode.HTML, reply_markup=buttons)
     # Handle preset poll button
-    elif action == models.PRESET_POLL:
-        context.user_data.update({"action": models.PRESET_POLL, "step": 1, "title": "", "descr": "", "options": []})
+    elif action == models.TEMP_POLL:
+        context.user_data.update({"action": models.TEMP_POLL, "step": 1, "title": "", "descr": "", "options": []})
         response_text = "You're about to build a new <b>poll template</b>.\n\nFirst, enter a <b>title</b> for the poll."
         reply_message = query.edit_message_text(
             response_text, parse_mode=ParseMode.HTML,
@@ -1599,7 +1647,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
     # Handle edit button
     elif action == models.EDIT:
         user_action, step = context.user_data.get("action", ""), context.user_data.get("step", 0)
-        if user_action == models.PRESET_POLL:
+        if user_action == models.TEMP_POLL:
             if not step:
                 query.answer(text="Invalid callback query data in preset poll edit!")
                 logger.warning("Invalid callback query data.")
@@ -1634,7 +1682,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
     elif action.startswith(f"{models.RESPONSE}_"):
         _, response_type = action.split("_", 1)
         user_action, step = context.user_data.get("action", ""), context.user_data.get("step", 0)
-        if user_action == models.PRESET_POLL and step == 4:
+        if user_action == models.TEMP_POLL and step == 4:
             if response_type == "single":
                 is_single_response = True
                 query.answer(text="Response type set to single response.")
@@ -1761,7 +1809,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             logger.warning("Invalid callback query data.")
             return
     # Handle preset poll
-    elif action == models.PRESET_POLL:
+    elif action == models.TEMP_POLL:
         step, title, description, options = \
             context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
             context.user_data.get("options", [])
@@ -2342,20 +2390,20 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             query.answer(text="Select a poll you wish to remove.")
         return
     # Handle settings button
-    elif action == models.GROUP_SETTINGS:
+    elif action == models.SETTINGS:
         query.edit_message_reply_markup(group.build_settings_buttons(is_owner=is_owner))
         query.answer(text=None)
         return
     # Handle delete group button
     elif action == models.DELETE and is_owner:
         query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
-            delete_text="Delete", delete_action=action, back_action=models.GROUP_SETTINGS)
+            delete_text="Delete", delete_action=action, back_action=models.SETTINGS)
         )
         query.answer(text="Confirm delete group?")
     # Handle leave group button
     elif action == models.LEAVE_GROUP:
         query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
-            delete_text="Leave", delete_action=action, back_action=models.GROUP_SETTINGS)
+            delete_text="Leave", delete_action=action, back_action=models.SETTINGS)
         )
         query.answer(text="Confirm leave group?")
     # Handle change password button
@@ -2383,6 +2431,176 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         query.edit_message_reply_markup(None)
         return
 
+
+def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackContext, action: str, temp_id: str) -> None:
+    """Handles a poll template callback query."""
+    template: PollTemplate = PollTemplate.get_template_by_id(temp_id)
+
+    # Poll is deleted or has error
+    if not template:
+        query.edit_message_reply_markup(None)
+        query.answer(text="Sorry, the poll template has been deleted.")
+        return
+
+    uid, user_profile = extract_user_data(query.from_user)
+    message = query.message
+
+    action, step, title, title_code, description, description_code, temp_id = \
+        context.user_data.get("action", ""), context.user_data.get("step", 0), context.user_data.get("title", ""), \
+        context.user_data.get("titleCode", ""), context.user_data.get("descr", ""), \
+        context.user_data.get("descrCode", ""), context.user_data.get("tempId", "")
+
+    if action != models.TEMP_POLL or temp_id != template.temp_id:
+        step, title, title_code, description, description_code = 0, "", "", "", ""
+
+    # Handle generate poll button
+    if action == models.POLL:
+        title_text, is_valid = template.render_title()
+        if not is_valid:
+            message.reply_html(title_text, reply_markup=template.build_format_back_buttons(models.TEMP_TITLE))
+            query.answer(text="Error parsing title format.")
+            return
+        title = f"<b>Current Poll Title</b>\n{title_text}"
+        body = f"Enter another format input to change the title or <b>Continue</b> to go to the next step."
+        response = "\n\n".join([title] + [body])
+        reply_message = message.reply_html(response, reply_markup=template.build_format_title_buttons())
+        query.answer(text="Change the title or continue to the next step.")
+        context.user_data.update(
+            {"action": models.TEMP_POLL, "step": 11, "title": title_text, "del": reply_message.message_id,
+             "tempId": template.temp_id}
+        )
+        return
+    # Handle format title button
+    elif action == models.TEMP_TITLE:
+        title_text, is_valid = template.render_title(title_code)
+        if not is_valid:
+            reply_message = \
+                message.edit_text(title_text, reply_markup=template.build_format_back_buttons(models.TEMP_TITLE))
+            query.answer(text="Error parsing title format.")
+            context.user_data.update({"del": reply_message.message_id})
+            return
+        title = f"<b>Current Poll Title</b>\n{title_text}"
+        body = f"Enter another format input to change the title or <b>Continue</b> to go to the next step."
+        response = "\n\n".join([title] + [body])
+        reply_message = message.edit_text(response, reply_markup=template.build_format_title_buttons())
+        query.answer(text=None)
+        context.user_data.update({"del": reply_message.message_id})
+        return
+    # Handle format title code button
+    elif action == models.TEMP_TITLE_CODE:
+        response = template.render_title_code()
+        reply_message = message.edit_text(response, reply_markup=template.build_format_back_buttons(models.TEMP_TITLE))
+        query.answer(text=None)
+        context.user_data.update({"del": reply_message.message_id})
+        return
+    # Handle format description button
+    elif action == models.TEMP_DESCRIPTION:
+        if not title:
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            message.delete()
+            return
+
+        descr_text, is_valid = template.render_description(description_code)
+        if not is_valid:
+            reply_message = \
+                message.edit_text(descr_text, reply_markup=template.build_format_back_buttons(models.TEMP_DESCRIPTION))
+            query.answer(text="Error parsing description format.")
+            context.user_data.update({"del": reply_message.message_id})
+            return
+        title = f"<b>Current Poll Description</b>\n{descr_text}"
+        body = f"Enter another format input to change the description, or <b>Create</b> the poll, " \
+               f"or <b>Skip</b> the description and create the poll."
+        response = "\n\n".join([title] + [body])
+        reply_message = message.edit_text(response, reply_markup=template.build_format_description_buttons())
+        query.answer(text=None)
+        context.user_data.update({"del": reply_message.message_id})
+        return
+    # Handle format description code button
+    elif action == models.TEMP_DESCRIPTION_CODE:
+        response = template.render_description_code()
+        reply_message = \
+            message.edit_text(response, reply_markup=template.build_format_back_buttons(models.TEMP_DESCRIPTION))
+        query.answer(text=None)
+        context.user_data.update({"del": reply_message.message_id})
+        return
+    # Handle skip button
+    elif action == models.SKIP:
+        if not title:
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            message.delete()
+            return
+        poll = template.create_poll(title, "", uid)
+        message.edit_text(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+        message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(uid))
+        context.user_data.clear()
+        return
+    # Handle done button
+    elif action == models.DONE:
+        if step == 11 and title:
+            descr_text, is_valid = template.render_description(description_code)
+            if not is_valid:
+                reply_message = message.edit_text(
+                    descr_text, reply_markup=template.build_format_back_buttons(models.TEMP_DESCRIPTION)
+                )
+                query.answer(text="Error parsing description format.")
+                context.user_data.update({"step": 12, "del": reply_message.message_id})
+                return
+            title = f"<b>Current Poll Description</b>\n{descr_text}"
+            body = f"Enter another format input to change the description, or <b>Create</b> the poll, " \
+                   f"or <b>Skip</b> the description and create the poll."
+            response = "\n\n".join([title] + [body])
+            reply_message = message.edit_text(response, reply_markup=template.build_format_description_buttons())
+            query.answer(text="Change the description, skip, or create the poll.")
+            context.user_data.update(
+                {"step": 12, "descr": descr_text, "del": reply_message.message_id}
+            )
+            return
+        elif step == 12 and title:
+            poll = template.create_poll(title, description, uid)
+            message.edit_text(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+            message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(uid))
+            context.user_data.clear()
+            return
+        else:
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            message.delete()
+            return
+    # Handle refresh button
+    elif action == models.REFRESH:
+        query.answer(text="Results updated!")
+        query.edit_message_text(
+            template.render_details(), parse_mode=ParseMode.HTML, reply_markup=template.build_admin_buttons(uid)
+        )
+        return
+    # Handle settings button
+    elif action == models.SETTINGS:
+        query.answer(text=None)
+        return
+    # Handle back button
+    elif action == models.BACK:
+        query.edit_message_reply_markup(template.build_main_buttons())
+        query.answer(text=None)
+        return
+    # Handle close button
+    elif action == models.CLOSE:
+        message.delete()
+        query.answer(text=None)
+        return
+    # Handle reset button
+    elif action == models.RESET:
+        message.delete()
+        context.user_data.clear()
+        query.answer(text=None)
+        return
+    # Handle other cases
+    else:
+        logger.warning("Invalid callback query data.")
+        query.answer(text="Invalid callback query data!")
+        query.edit_message_reply_markup(None)
+        return
 
 # endregion
 
