@@ -1,6 +1,6 @@
 """Backend models"""
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import OrderedDict
 import re
 from typing import Tuple, Dict, List as Lst, Union
@@ -1420,7 +1420,7 @@ class FormatTextCode(object):
             # Digit type
             if format_type == "d":
                 default = default if default else "0"
-                if not default.isdigit():
+                if not bool(re.match(r"^[+|-]?\d+$", default)):
                     return f"{FormatTextCode.FORMAT_TEXT_ERROR}\nDefault value for <u>{label}</u> is not a digit.", \
                            None, False
                 else:
@@ -1433,14 +1433,14 @@ class FormatTextCode(object):
                 default = default if default else "0 %d/%m/%y"
                 date_match = re.match(r"^([+|-]{0,3}[0-7])(\s+.+)?$", default)
                 if not date_match:
-                    return f"<b>Format String Parse Error</b>\n" \
+                    return f"{FormatTextCode.FORMAT_TEXT_ERROR}\n" \
                            f"Default value for <u>{label}</u> is not in the correct date format.\n" \
                            f"<i>E.g. 1 %d/%m/%y</i>", \
                            None, False
                 day, date_format = date_match.group(1), date_match.group(2)
                 # Checks if all '+' or all '-'
                 if len(day) > 1 and day[0] * (len(day) - 1) != day[:-1]:
-                    return f"<b>Format String Parse Error</b>\n" \
+                    return f"{FormatTextCode.FORMAT_TEXT_ERROR}\n" \
                            f"Default value for <u>{label}</u> is not in the correct date format.\n" \
                            f"<i>E.g. 1 %d/%m/%y</i>", \
                            None, False
@@ -1452,7 +1452,7 @@ class FormatTextCode(object):
                     try:
                         datetime.now().strftime(date_format.strip())
                     except ValueError:
-                        return f"<b>Format String Parse Error</b>\n" \
+                        return f"{FormatTextCode.FORMAT_TEXT_ERROR}\n" \
                                f"Default value for <u>{label}</u> is not in the correct date format.\n" \
                                f"<i>E.g. 1 %d/%m/%y</i>", \
                                None, False
@@ -1480,38 +1480,109 @@ class FormatTextCode(object):
         format_type, default = format_details
         return f"<u>{label}</u> - <b>type</b> {self.FORMAT_TYPES.get(format_type, '')}\n<b>default</b> {default}"
 
+    def convert_format_input(self, label: str, format_type: str, format_input: str) -> Tuple[str, bool]:
+        if format_type == "d":
+            if not bool(re.match(r"^[+|-]?\d+$", format_input)):
+                return f"{self.FORMAT_TEXT_ERROR}\nFormat input for <u>{label}</u> is not a digit.\n" \
+                       f"<i>{format_input}</i>", False
+            return format_input, True
+        elif format_type == "s":
+            return format_input, True
+        elif format_type == "dt":
+            date_match = re.match(r"^([+|-]{0,3})([0-7])(\s+.+)?$", default)
+            if not date_match:
+                return f"{self.FORMAT_TEXT_ERROR}\n" \
+                       f"Format input for <u>{label}</u> is not in the correct date format.\n" \
+                       f"<i>{format_input}</i>\n<i>E.g. 1 %d/%m/%y</i>", False
+            week_offset_symbols, day, date_format = date_match.group(1), date_match.group(2), date_match.group(3)
+            # Checks if all '+' or all '-'
+            if week_offset_symbols and week_offset_symbols[0] * len(week_offset_symbols) != week_offset_symbols:
+                return f"{self.FORMAT_TEXT_ERROR}\n" \
+                       f"Format input for <u>{label}</u> is not in the correct date format.\n" \
+                       f"<i>{format_input}</i>\n<i>E.g. 1 %d/%m/%y</i>", False
+
+            if not date_format:
+                date_format = "%d/%m/%y"
+
+            # Verify if date time format is valid
+            try:
+                datetime.now().strftime(date_format.strip())
+            except ValueError:
+                return f"{self.FORMAT_TEXT_ERROR}\n" \
+                       f"Format input for <u>{label}</u> is not in the correct date format.\n" \
+                       f"<i>{format_input}</i>\n<i>E.g. 1 %d/%m/%y</i>", False
+
+            # Get the date offset
+            week_offset = len(week_offset_symbols) * (1 if week_offset_symbols[0] == "+" else -1) \
+                if week_offset_symbols else 0
+            day = datetime.now().isoweekday() if day == 0 else day
+            days_offset = (int(day) - datetime.now().isoweekday()) + week_offset * 7
+            new_date = datetime.now() + timedelta(days_offset)
+            return new_date.strftime(date_format.strip()), True
+        # Handle other format types as string for now
+        else:
+            return format_input, True
+
     def parse_single_format_input(self, label: str, format_input: str) -> Tuple[str, bool]:
-        pass
+        format_type, default = self.format_codes.get(label, ("", ""))
+
+        # Handle non-existent label
+        if not format_type:
+            return f"{self.FORMAT_TEXT_ERROR}\nLabel <u>{label}</u> does not exist.", False
+
+        # Checks if format input is multi-line
+        multi_line_match = re.match(r"^(.*?)\$\(((?:.|\n)*?)(?=\)\$)\)\$(.*)$", format_input)
+        if multi_line_match:
+            head, middle, tail = multi_line_match.group(1), multi_line_match.group(2), multi_line_match.group(3)
+
+            # Handle incorrect format
+            if head or tail:
+                return f"{self.FORMAT_TEXT_ERROR}\nMulti-line format input for <u>{label}</u> has excess " \
+                       f"wrapping characters.\n<i>{format_input}</i>", False
+
+            return self.convert_format_input(label, format_type, format_input)
+
+        if not format_input:
+            format_input = default
+
+        return self.convert_format_input(label, format_type, format_input)
 
     def parse_format_input(self, format_inputs: str) -> Tuple[Union[Dict[str, str], str], bool]:
         labels = list(self.format_codes)
 
         # Find all single line, or multi-line demarcated by $(...)$
-        all_matches = re.findall(r"(?:(?<=^)|(?<=\n))(.*?(?:\$\((?:.|\n)+?(?=\)\$)\)\$)?)(?=$|\n)", format_inputs)
+        all_matches = re.findall(r"(?:(?<=^)|(?<=\n))(.*?(?:\$\((?:.|\n)+?(?=\)\$)\)\$)?) *(?=$|\n)", format_inputs)
 
         if len(all_matches) > len(labels):
-            return f"{FormatTextCode.FORMAT_TEXT_ERROR}\nToo many format inputs. Only {len(labels)} required.", False
+            return f"{self.FORMAT_TEXT_ERROR}\nToo many format inputs. Only {len(labels)} required.", False
 
         # Parse each format input
         parsed_formats = dict()
         for i, match in enumerate(all_matches):
+            # Removing leading and trailing spaces
+            match = match.strip()
+
             # Use default value
             if match == ".":
                 label, format_input = labels[i], self.format_codes[labels[i]][1]
             else:
                 # Check for labels
-                format_match = re.match(r"^(\w+)=((?:.|\n)*)$", match)
+                format_match = re.match(r"^(\w+)\s*=\s*((?:.|\n)*)$", match)
                 # No label
                 if not format_match:
                     label, format_input = labels[i], match
                 # Have label
                 else:
                     label, format_input = format_match.group(1), format_match.group(2)
+
+            # Handle any errors
             if label in parsed_formats:
-                return f"{FormatTextCode.FORMAT_TEXT_ERROR}\nDuplicate values for <u>{label}</u> given.", False
+                return f"{self.FORMAT_TEXT_ERROR}\nDuplicate values for <u>{label}</u> given.", False
             parsed_format, is_valid = self.parse_single_format_input(label, format_input)
             if not is_valid:
                 return parsed_format, is_valid
+
+            # Store parsed format into dictionary
             parsed_formats[label] = parsed_format
             continue
 
