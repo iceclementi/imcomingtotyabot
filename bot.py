@@ -2492,12 +2492,12 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     uid, user_profile = extract_user_data(query.from_user)
     message = query.message
 
-    action, step, title, title_code, description, description_code, temp_id = \
+    user_action, step, title, title_code, description, description_code, context_id = \
         context.user_data.get("action", ""), context.user_data.get("step", 0), context.user_data.get("title", ""), \
         context.user_data.get("titleCode", ""), context.user_data.get("descr", ""), \
         context.user_data.get("descrCode", ""), context.user_data.get("tempId", "")
 
-    if action != models.TEMP_POLL or temp_id != template.temp_id:
+    if user_action != models.TEMP_POLL or context_id != temp_id:
         step, title, title_code, description, description_code = 0, "", "", "", ""
 
     # Handle generate poll button
