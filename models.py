@@ -318,6 +318,10 @@ class User(object):
         poll.set_single_response(temp_poll.is_single_response)
         return poll
 
+    def get_templates(self, filters="") -> list:
+        temp_polls = self.get_temp_polls(filters)
+        return sorted(temp_polls, key=lambda item: item.name.lower())
+
     def get_all_poll_ids(self) -> set:
         return self.poll_ids.union(self.get_group_poll_ids())
 

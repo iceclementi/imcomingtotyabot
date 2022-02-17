@@ -139,16 +139,18 @@ LOAD_COMMAND = "load"
 
 START_GUIDE = "<b>/start</b>\nView the bot's welcome message"
 KEYBOARD_GUIDE = "<b>/keyboard</b>\nChoose between showing or hiding the command keyboard"
-POLL_GUIDE = "<b>/poll</b> &lt;title&gt;\nBuild a new poll with an optional title"
+POLL_GUIDE = "<b>/poll</b> [title]\nBuild a new poll with an optional title"
 POLLS_GUIDE = "<b>/polls</b>\nView all the polls you have built"
-LIST_GUIDE = "<b>/list</b> &lt;title&gt;\nBuild a new list with an optional title"
+LIST_GUIDE = "<b>/list</b> [title]\nBuild a new list with an optional title"
 LISTS_GUIDE = "<b>/lists</b>\nView all the lists you have built"
-GROUP_GUIDE = "<b>/group</b> &lt;name&gt\nCreate a new group with an optional name"
+GROUP_GUIDE = "<b>/group</b> [name]\nCreate a new group with an optional name"
 GROUPS_GUIDE = "<b>/groups</b>\nView all the groups you are in"
 GROUP_POLLS_GUIDE = "<b>/gpolls</b>\nView all your group polls"
 GROUP_LISTS_GUIDE = "<b>/glists</b>\nView all your group lists"
 INVITE_GUIDE = "<b>/invite</b>\nSend an invite link to your friends to join your group"
-TEMPLATE_GUIDE = "<b>/temp</b>\nCreate templates for your polls and lists"
+TEMPLATE_GUIDE = "<b>/temp</b> [{p|l} name]\nCreate templates for your polls and lists, " \
+                 "or create a poll or list based on the template\n" \
+                 "<i>E.g. /temp p xyz</i>"
 TEMPLATES_GUIDE = "<b>/temps</b>\nView all the templates you have created"
 HELP_GUIDE = "<b>/help</b>\nView this help message"
 
@@ -243,6 +245,12 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
         return
     elif command == INVITE_COMMAND:
         handle_invite(update, context)
+        return
+    elif command == TEMPLATE_COMMAND:
+        handle_template(update, context)
+        return
+    elif command == TEMPLATES_COMMAND:
+        handle_templates(update, context)
         return
     elif command == ENROL_COMMAND:
         handle_enrol(update, context)
@@ -903,10 +911,10 @@ def handle_help(update: Update, context: CallbackContext) -> None:
     if user:
         if is_leader:
             body += [POLL_GUIDE, POLLS_GUIDE, LIST_GUIDE, LISTS_GUIDE, GROUP_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
-                     GROUP_LISTS_GUIDE, INVITE_GUIDE]
+                     GROUP_LISTS_GUIDE, INVITE_GUIDE, TEMPLATE_GUIDE, TEMPLATES_GUIDE]
         else:
             body += [POLL_GUIDE, POLLS_GUIDE, LIST_GUIDE, LISTS_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
-                     GROUP_LISTS_GUIDE, INVITE_GUIDE]
+                     GROUP_LISTS_GUIDE, INVITE_GUIDE, TEMPLATE_GUIDE, TEMPLATES_GUIDE]
     body += [HELP_GUIDE]
 
     if not user:
@@ -1988,22 +1996,25 @@ def handle_show_command_callback_query(query: CallbackQuery, context: CallbackCo
             [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}"],
             [f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
             [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
-            [f"/{ACCESS_COMMAND}", f"/{ENROL_COMMAND}", f"/{PROMOTE_COMMAND}"],
-            [f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}", "."]
+            [f"/{TEMPLATE_COMMAND}", f"/{TEMPLATES_COMMAND}", f"/{ACCESS_COMMAND}"],
+            [f"/{ENROL_COMMAND}", f"/{PROMOTE_COMMAND}", f"/{SAVE_COMMAND}"],
+            [f"/{LOAD_COMMAND}", ".", "."]
         )
     elif is_leader:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
             [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}"],
             [f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"]
+            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
+            [f"/{TEMPLATE_COMMAND}", f"/{TEMPLATES_COMMAND}", "."]
         )
     else:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
             [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}"],
             [f"/{LISTS_COMMAND}", f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}"],
-            [f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}", "."]
+            [f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}", f"/{TEMPLATE_COMMAND}"],
+            [f"/{TEMPLATES_COMMAND}", ".", "."]
         )
 
     reply_message = query.message.reply_html("Loading command keyboard...", reply_markup=ReplyKeyboardRemove())
@@ -2797,6 +2808,20 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 input_message_content=InputTextMessageContent("/invite")
             )
             results.append(query_result)
+        # Handle template query
+        if TEMPLATE_COMMAND[:-1].startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id="tempcom", title="/temp", description="Create a new poll or list template",
+                input_message_content=InputTextMessageContent("/temp")
+            )
+            results.append(query_result)
+        # Handle templates query
+        if TEMPLATES_COMMAND[:-1].startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id="tempscom", title="/template", description="View all the templates you have created",
+                input_message_content=InputTextMessageContent("/temps")
+            )
+            results.append(query_result)
         # Handle access query
         if ACCESS_COMMAND[:-1].startswith(command) and is_admin:
             query_result = InlineQueryResultArticle(
@@ -2805,7 +2830,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             )
             results.append(query_result)
         # Handle invite access query
-        if INVITE_COMMAND[:-1].startswith(command) and is_admin:
+        if ENROL_COMMAND[:-1].startswith(command) and is_admin:
             query_result = InlineQueryResultArticle(
                 id="enrolcom", title="/enrol", description="Send a bot access invite to your friends",
                 input_message_content=InputTextMessageContent("/enrol")
@@ -2828,8 +2853,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
 
     # Display complete commands as pm text
     match = \
-        re.match(r"^/(start|keyboard|poll|polls|list|lists|group|groups|gpolls|glists|invite|enrol|promote|help)"
-                 r"(\s+.+)?$", text)
+        re.match(r"^/(\w+)(?:\s+((?:.|\n)+))?$", text)
     if match:
         command, details = match.group(1), match.group(2)
         details = details.strip() if details else ""
@@ -2925,6 +2949,45 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 )
                 results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your group lists", switch_pm_parameter=command)
+            return
+        # Handle template query
+        elif command == TEMPLATE_COMMAND and user and is_sender:
+            create_match = re.match(r"^(p|poll|l|list)\s+(\w+)\s*(\n(?:\n|.)*)?$", details)
+            if not create_match:
+                query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
+                return
+
+            template_type, name, format_inputs = match.group(1), match.group(2), match.group(3)
+            if template_type in ("p", "poll"):
+                temp_poll = user.get_temp_poll_by_name(name)
+                if not temp_poll:
+                    query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
+                    return
+
+                title, description, is_valid = temp_poll.render_title_and_description(format_inputs)
+                if not is_valid:
+                    query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
+                    return
+
+                query_result = InlineQueryResultArticle(
+                    id=f"temp_poll", title=title,
+                    description="Create poll from template",
+                    input_message_content=InputTextMessageContent(f"/temp {template_type} {name}\n{format_inputs}")
+                )
+                results.append(query_result)
+
+            query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
+            return
+        # Handle templates query
+        elif command == TEMPLATES_COMMAND and user and is_sender:
+            for template in user.get_templates(details)[:QUERY_RESULTS_LIMIT]:
+                query_result = InlineQueryResultArticle(
+                    id=f"temp_{template.temp_id}", title=template.name,
+                    description="Poll template",
+                    input_message_content=InputTextMessageContent(f"/temp_{template.temp_id}")
+                )
+                results.append(query_result)
+            query.answer(results, switch_pm_text="Click to view all your templates", switch_pm_parameter=command)
             return
         # Handle invite query
         elif command == INVITE_COMMAND and user:
