@@ -1749,7 +1749,7 @@ class PollTemplate(object):
         header = f"<b>Poll Template ({self.name})</b>"
         title_body = f"<b>Title</b>\n{self.formatted_title.render_details()}"
         description_body = f"<b>Description</b>\n{self.formatted_description.render_details()}"
-        options_body = f"<b><Options/b>\n{util.list_to_indexed_list_string(self.options)}"
+        options_body = f"<b><Options</b>\n{util.list_to_indexed_list_string(self.options)}"
         response_type_body = f"<b>Response Type</b> - {'Single' if self.is_single_response else 'Multiple'}"
         return "\n\n".join([header] + [title_body] + [description_body] + [options_body] + [response_type_body])
 
