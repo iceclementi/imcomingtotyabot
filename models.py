@@ -1508,15 +1508,15 @@ class FormatTextCode(object):
         return f"<u>{label}</u> - <b>type</b> {self.FORMAT_TYPES.get(format_type, '')}\n<b>default</b> {default}"
 
     def convert_format_input(self, label: str, format_type: str, format_input: str) -> Tuple[str, bool]:
-        if format_type == "d":
+        if format_type == "dg":
             if not bool(re.match(r"^[+|-]?\d+$", format_input)):
                 return f"{self.FORMAT_TEXT_ERROR}\nFormat input for <u>{label}</u> is not a digit.\n" \
                        f"<i>{format_input}</i>", False
             return format_input, True
-        elif format_type == "s":
+        elif format_type == "st":
             return format_input, True
         elif format_type == "dt":
-            date_match = re.match(r"^([+|-]{0,3})([0-7])(\s+.+)?$", default)
+            date_match = re.match(r"^([+|-]{0,3})([0-7])(\s+.+)?$", format_input)
             if not date_match:
                 return f"{self.FORMAT_TEXT_ERROR}\n" \
                        f"Format input for <u>{label}</u> is not in the correct date format.\n" \

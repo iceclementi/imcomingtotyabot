@@ -2646,7 +2646,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
-        query.edit_message_reply_markup(None)
+        message.delete()
         return
 
 # endregion
