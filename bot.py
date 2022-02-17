@@ -124,7 +124,8 @@ GROUPS_COMMAND = "groups"
 GROUP_POLLS_COMMAND = "gpolls"
 GROUP_LISTS_COMMAND = "glists"
 INVITE_COMMAND = "invite"
-PRESET_COMMAND = "preset"
+TEMPLATE_COMMAND = "temp"
+TEMPLATES_COMMAND = "temps"
 HELP_COMMAND = "help"
 ACCESS_COMMAND = "access"
 ENROL_COMMAND = "enrol"
@@ -147,7 +148,8 @@ GROUPS_GUIDE = "<b>/groups</b>\nView all the groups you are in"
 GROUP_POLLS_GUIDE = "<b>/gpolls</b>\nView all your group polls"
 GROUP_LISTS_GUIDE = "<b>/glists</b>\nView all your group lists"
 INVITE_GUIDE = "<b>/invite</b>\nSend an invite link to your friends to join your group"
-PRESET_GUIDE = "<b>/preset</b>\nPreset templates to build a poll or list"
+TEMPLATE_GUIDE = "<b>/temp</b>\nCreate templates for your polls and lists"
+TEMPLATES_GUIDE = "<b>/temps</b>\nView all the templates you have created"
 HELP_GUIDE = "<b>/help</b>\nView this help message"
 
 # endregion
@@ -794,7 +796,7 @@ def handle_invite(update: Update, context: CallbackContext) -> None:
     return
 
 
-def handle_preset(update: Update, context: CallbackContext) -> None:
+def handle_template(update: Update, context: CallbackContext) -> None:
     """Creates custom templates to build polls and lists."""
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
@@ -816,6 +818,47 @@ def handle_preset(update: Update, context: CallbackContext) -> None:
         [util.generate_button_details("Close", models.CLOSE)]
     )
     update.message.reply_html(response_text, reply_markup=buttons)
+    return
+
+
+def handle_templates(update: Update, context: CallbackContext) -> None:
+    """Views all the user's templates."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, _, _ = get_user_permissions(update.effective_user.id)
+
+    if not user:
+        handle_help(update, context)
+        return
+
+    update.message.reply_html(
+        user.render_template_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+    )
+    return
+
+
+def handle_temp_poll_view(update: Update, context: CallbackContext) -> None:
+    """Displays the poll template identified by its template id"""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    text = update.message.text
+
+    temp_id = re.match(r"^/ptemp_(\w+)$", text).group(1)
+    template: PollTemplate = PollTemplate.get_template_by_id(temp_id)
+    if not template:
+        handle_help(update, context)
+        return
+
+    if template.creator_id == user.get_uid():
+        update.message.reply_html(template.render_text(), reply_markup=template.build_main_buttons())
+        return
+
+    handle_help(update, context)
     return
 
 
@@ -862,10 +905,6 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if not text:
         return
 
-    if text == ".":
-        update.message.delete()
-        return
-
     user, is_leader, is_admin = get_user_permissions(update.effective_user.id)
 
     # Handle messages according to their action type
@@ -895,6 +934,9 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         handle_temp_poll_conversation(update, context)
         return
     if is_private_chat(update.message):
+        if text == ".":
+            update.message.delete()
+            return
         handle_help(update, context)
         return
 
@@ -1399,9 +1441,10 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
         return
     # Handle template name
     elif step == 5:
-        if len(text) > 12:
+        name_match = re.match(r"^\w{1,12}$", text)
+        if not name_match:
             reply_message = update.message.reply_html(
-                "Sorry, please enter a shorter name (maximum 12 characters).",
+                "Sorry, please ensure that the name consists only a maximum of 12 alphanumeric characters.",
                 reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
@@ -3184,7 +3227,8 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler(GROUP_POLLS_COMMAND, handle_group_polls, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(GROUP_LISTS_COMMAND, handle_group_lists, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(INVITE_COMMAND, handle_invite, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(PRESET_COMMAND, handle_preset, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(TEMPLATE_COMMAND, handle_template, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(TEMPLATES_COMMAND, handle_templates, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(HELP_COMMAND, handle_help, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(ACCESS_COMMAND, handle_access, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler(ENROL_COMMAND, handle_enrol, filters=Filters.chat_type.private))
@@ -3194,13 +3238,16 @@ def main() -> None:
 
     # Message handlers
     dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/poll_\w+.*$") & Filters.chat_type.private), handle_poll_view)
+        MessageHandler((Filters.regex(r"^\/poll_\w+$") & Filters.chat_type.private), handle_poll_view)
     )
     dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/list_\w+.*$") & Filters.chat_type.private), handle_list_view)
+        MessageHandler((Filters.regex(r"^\/list_\w+$") & Filters.chat_type.private), handle_list_view)
     )
     dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/group_\w+.*$") & Filters.chat_type.private), handle_group_view)
+        MessageHandler((Filters.regex(r"^\/group_\w+$") & Filters.chat_type.private), handle_group_view)
+    )
+    dispatcher.add_handler(
+        MessageHandler((Filters.regex(r"^\/ptemp_\w+$") & Filters.chat_type.private), handle_temp_poll_view)
     )
     dispatcher.add_handler(MessageHandler((Filters.text & Filters.chat_type.private), handle_message))
 

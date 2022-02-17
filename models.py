@@ -22,6 +22,7 @@ EMOJI_PEOPLE = "\U0001f465"
 EMOJI_GROUP = "\U0001fac2"
 EMOJI_POLL = "\U0001f4ca"
 EMOJI_LIST = "\U0001f4dd"
+EMOJI_TEMPLATE = "\U0001f4c3"
 EMOJI_CROWN = "\U0001f451"
 EMOJI_HAPPY = "\U0001f60a"
 SESSION_EXPIRY = 1  # In hours
@@ -406,6 +407,20 @@ class User(object):
         else:
             joined_groups_list = util.make_html_italic("You have not joined any group!")
         return f"{joined_groups_title}\n{joined_groups_list}"
+
+    def render_template_list(self) -> str:
+        header = "<b>Your Templates</b>"
+
+        user_templates = self.get_temp_polls()
+        if user_templates:
+            body = [f"{i}. {template.generate_linked_summary()}" for i, template in enumerate(user_templates, 1)]
+        else:
+            body = ["<i>You have no templates! Use /temp to create a new template.</i>"]
+
+        template_count = len(user_templates)
+        footer = f"{EMOJI_TEMPLATE} {template_count} template{'' if template_count == 1 else 's'} in total"
+
+        return "\n\n".join([header] + body + [footer])
 
     def build_invite_text_and_buttons(self) -> tuple:
         close_button = InlineKeyboardButton("Close", callback_data=CLOSE)
@@ -1620,6 +1635,10 @@ class FormatTextCode(object):
         body = util.list_to_indexed_list_string([
             self.display_format_details(label, format_details) for label, format_details in self.format_codes.items()
         ])
+
+        if not title:
+            return f"<i>None</i>"
+
         response = "\n\n".join([title] + [f"<b>Details</b>\n{body}"]) if body \
             else "\n\n".join([title] + [f"<b>Details</b>\n<i>None</i>"])
         return response
@@ -1744,6 +1763,12 @@ class PollTemplate(object):
         poll, _ = user.create_poll(title, description, self.options)
         poll.set_single_response(self.is_single_response)
         return poll
+
+    def generate_linked_summary(self, include_creator=False) -> str:
+        title = f"<b>{self.name} {EMOJI_POLL}</b>"
+        creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
+        link = f"/ptemp_{self.temp_id}"
+        return "\n".join([title] + [creator] + [link]) if include_creator else "\n".join([title] + [link])
 
     def render_text(self) -> str:
         header = f"<b>Poll Template ({self.name})</b>"
