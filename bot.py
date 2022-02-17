@@ -1303,15 +1303,15 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
         header = f"<b>Poll Title</b>"
         format_text_code = FormatTextCode(format_text, format_codes)
         body = format_text_code.render_details()
-        footer = f"<b>Continue</b> to the next step or <b>Edit</b> the title to make changes."
+        footer = f"<b>Continue</b> to the next step or re-enter the title to make changes."
         response = "\n\n".join([f"{header}\n{body}"] + [footer])
 
         reply_message = update.message.reply_html(
             response, reply_markup=util.build_multiple_stacked_buttons_markup(
                 [
-                    util.generate_button_details("Edit", models.EDIT),
-                    util.generate_button_details("Continue", models.DONE)
-                ], [util.generate_button_details("Cancel", models.RESET)]
+                    util.generate_button_details("Cancel", models.RESET),
+                    util.generate_button_details("Continue", models.DONE),
+                ]
             )
         )
         context.user_data.update(
@@ -1333,15 +1333,15 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
         header = f"<b>Description</b>"
         format_text_code = FormatTextCode(format_text, format_codes)
         body = format_text_code.render_details()
-        footer = f"<b>Continue</b> to the next step or <b>Edit</b> the description to make changes."
+        footer = f"<b>Continue</b> to the next step or re-enter the description to make changes."
         response = "\n\n".join([f"{header}\n{body}"] + [footer])
 
         reply_message = update.message.reply_html(
             response, reply_markup=util.build_multiple_stacked_buttons_markup(
                 [
-                    util.generate_button_details("Edit", models.EDIT),
-                    util.generate_button_details("Continue", models.DONE)
-                ], [util.generate_button_details("Cancel", models.RESET)]
+                    util.generate_button_details("Cancel", models.RESET),
+                    util.generate_button_details("Continue", models.DONE),
+                ]
             )
         )
         context.user_data.update(
@@ -1421,7 +1421,7 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
             reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
         update.message.reply_html(
-            poll_template.render_details(),
+            poll_template.render_text(),
             reply_markup=poll_template.build_main_buttons()
         )
         return
@@ -1634,6 +1634,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
                 util.generate_button_details("Cancel", models.RESET)
             )
         )
+        query.answer(text="Enter a format title for your poll template.")
         context.user_data.update({"del": reply_message.message_id})
         return
     # Handle preset format guide button
@@ -1706,6 +1707,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         else:
             query.answer(text="Invalid callback query data in poll template response type!")
             logger.warning("Invalid callback query data.")
+            query.message.delete()
             return
     # Handle other cases
     else:
@@ -1830,6 +1832,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
                     ]
                 )
             )
+            query.answer(text="Enter a format description for the poll template.")
             context.user_data.update({"step": 2, "del": reply_message.message_id})
         elif step == 2:
             if not description:
@@ -1843,6 +1846,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
                     util.generate_button_details("Cancel", models.RESET)
                 )
             )
+            query.answer(text="Enter your first option.")
             context.user_data.update({"step": 3, "del": reply_message.message_id})
             return
         elif step == 3 and options:

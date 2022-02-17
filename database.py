@@ -26,6 +26,8 @@ users_sheet = database_spreadsheet.worksheet("User Data")
 groups_sheet = database_spreadsheet.worksheet("Group Data")
 polls_sheet = database_spreadsheet.worksheet("Poll Data")
 lists_sheet = database_spreadsheet.worksheet("List Data")
+temp_polls_sheet = database_spreadsheet.worksheet("Poll Template Data")
+temp_lists_sheet = database_spreadsheet.worksheet("List Template Data")
 
 # User database fields
 USER_SHEET = "user"
@@ -106,6 +108,7 @@ LIST_OPTION_FIELDS = [LIST_OPTION_TITLE, LIST_OPTION_ALLOCATIONS]
 # Poll template database fields
 TEMP_POLL_SHEET = "temp_poll"
 TEMP_POLL_ID = "temp_id"
+TEMP_POLL_NAME = "name"
 TEMP_POLL_FORMATTED_TITLE = "formatted_title"
 TEMP_POLL_FORMATTED_DESCRIPTION = "formatted_description"
 TEMP_POLL_OPTIONS = "options"
@@ -136,6 +139,8 @@ def save(data: dict, sheet_name: str) -> None:
         return save_to_sheet(data, polls_sheet, POLL_FIELDS)
     elif sheet_name == LIST_SHEET:
         return save_to_sheet(data, lists_sheet, LIST_FIELDS)
+    elif sheet_name == TEMP_POLL_SHEET:
+        return save_to_sheet(data, temp_polls_sheet, TEMP_POLL_FIELDS)
     else:
         return
 
@@ -161,6 +166,8 @@ def load(sheet_name: str) -> list:
         return load_from_sheet(polls_sheet, POLL_FIELDS)
     elif sheet_name == LIST_SHEET:
         return load_from_sheet(lists_sheet, LIST_FIELDS)
+    elif sheet_name == TEMP_POLL_SHEET:
+        return load_from_sheet(temp_polls_sheet, TEMP_POLL_FIELDS)
     else:
         return list()
 

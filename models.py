@@ -1848,6 +1848,7 @@ class BotManager(object):
             db.save(group_storage, db.GROUP_SHEET)
             db.save(poll_storage, db.POLL_SHEET)
             db.save(list_storage, db.LIST_SHEET)
+            db.save(temp_poll_storage, db.TEMP_POLL_SHEET)
             return "Data saved successfully."
         except (TypeError, json.JSONDecodeError) as error:
             return f"Error saving data: {error}"
@@ -1910,6 +1911,18 @@ class BotManager(object):
                     list_data[db.LIST_MESSAGE_DETAILS],
                     list_data[db.LIST_EXPIRY],
                     list_data[db.LIST_CREATED_DATE],
+                )
+
+            temp_polls_data = db.load(db.TEMP_POLL_SHEET)
+            for temp_poll_data in temp_polls_data:
+                PollTemplate.load(
+                    temp_poll_data[db.TEMP_POLL_ID],
+                    temp_poll_data[db.TEMP_POLL_NAME],
+                    temp_poll_data[db.TEMP_POLL_FORMATTED_TITLE],
+                    temp_poll_data[db.TEMP_POLL_FORMATTED_DESCRIPTION],
+                    temp_poll_data[db.TEMP_POLL_OPTIONS],
+                    temp_poll_data[db.TEMP_POLL_SINGLE_RESPONSE],
+                    temp_poll_data[db.TEMP_POLL_CREATOR_ID]
                 )
 
             return "Data loaded successfully."
