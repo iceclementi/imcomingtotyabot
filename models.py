@@ -1386,7 +1386,7 @@ class ListOption(object):
 
 
 class FormatTextCode(object):
-    FORMAT_TYPES = {"d": "digit", "s": "string", "dt": "date"}
+    FORMAT_TYPES = {"dg": "digit", "st": "string", "dt": "date"}
     FORMAT_TEXT_ERROR = "<b>Format Code Parse Error</b>"
 
     def __init__(self, format_text: str, format_codes: Dict[str, Tuple[str, str]]):
@@ -1409,7 +1409,7 @@ class FormatTextCode(object):
     def parse_format_text(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[str, str]], None], bool]:
         format_codes = dict()
 
-        all_matches = re.findall(r"%([A-Za-z]+)(#\w+)?(\$\((?:.|\n)+?(?=\)\$)\)\$)?", format_string)
+        all_matches = re.findall(r"%(st|dg|dt)(#\w+)?(\$\((?:.|\n)+?(?=\)\$)\)\$)?", format_string)
         for i, match in enumerate(all_matches, 1):
             format_type, label, default = match[0], match[1][1:], match[2][2:-2].strip()
 
@@ -1430,7 +1430,7 @@ class FormatTextCode(object):
                            None, False
 
             # Digit type
-            if format_type == "d":
+            if format_type == "dg":
                 default = default if default else "0"
                 if not bool(re.match(r"^[+|-]?\d+$", default)):
                     return f"{FormatTextCode.FORMAT_TEXT_ERROR}\nDefault value for <u>{label}</u> is not a digit.", \
@@ -1438,7 +1438,7 @@ class FormatTextCode(object):
                 else:
                     format_codes[label] = (format_type, default)
             # String type
-            elif format_type == "s":
+            elif format_type == "st":
                 format_codes[label] = (format_type, default)
             # Date type
             elif format_type == "dt":
@@ -1475,7 +1475,7 @@ class FormatTextCode(object):
 
         # Create replaced text
         for label in format_codes:
-            format_string = re.sub(r"%([A-Za-z]+)(#\w+)?(\$\((?:.|\n)+?(?=\)\$)\)\$)?",
+            format_string = re.sub(r"%(st|dg|dt)(#\w+)?(\$\((?:.|\n)+?(?=\)\$)\)\$)?",
                                    f"<u>{label}</u>", format_string, count=1)
 
         return format_string, format_codes, True
@@ -1559,7 +1559,7 @@ class FormatTextCode(object):
 
         return self.convert_format_input(label, format_type, format_input)
 
-    def parse_format_inputs(self, format_inputs: str) -> Tuple[Union[Dict[str, str], str], bool]:
+    def parse_format_inputs(self, format_inputs="", offset=0) -> Tuple[Union[Dict[str, str], str], bool]:
         labels = list(self.format_codes)
 
         # Find all single line, or multi-line demarcated by $(...)$
@@ -1587,6 +1587,12 @@ class FormatTextCode(object):
                 # Have label
                 else:
                     label, format_input = format_match.group(1), format_match.group(2)
+                    # Convert label index to label name
+                    if label.isdigit():
+                        if 1 <= int(label) - offset <= len(labels):
+                            label = labels[int(label) - offset - 1]
+                        else:
+                            return f"{self.FORMAT_TEXT_ERROR}\nLabel index out of range: <i>{label}</i>.", False
 
             # Handle any errors
             if label in parsed_formats:
@@ -1758,6 +1764,26 @@ class PollTemplate(object):
 
     def render_description(self, format_inputs="") -> Tuple[str, bool]:
         return self.formatted_description.parse_format_inputs(format_inputs)
+
+    def render_title_and_description(self, format_inputs="") -> Tuple[str, str, bool]:
+        offset = len(self.formatted_title.format_codes)
+
+        # Separate title and description format inputs using ".." as separator
+        match = re.match(r"^((?:.|\n)*)(?:(?<=^)|(?<=\n))\.\.(?=$|\n)((?:.|\n)*)$", format_inputs)
+        if not match:
+            title_result, is_title_valid = self.formatted_title.parse_format_inputs(format_inputs.strip())
+            description_result, is_description_valid = self.formatted_description.parse_format_inputs()
+        else:
+            title_result, is_title_valid = self.formatted_title.parse_format_inputs(match.group(1).strip())
+            description_result, is_description_valid = \
+                self.formatted_description.parse_format_inputs(match.group(2).strip(), offset=offset)
+
+        if not is_title_valid:
+            return title_result, "", False
+        elif not is_description_valid:
+            return description_result, "", False
+        else:
+            return title_result, description_result, True
 
     def build_main_buttons(self) -> InlineKeyboardMarkup:
         generate_poll_button = util.build_button("Generate Poll", TEMP_POLL_SUBJECT, POLL, self.temp_id)
