@@ -413,7 +413,7 @@ class User(object):
         return f"{owned_groups_title}\n{owned_groups_list}"
 
     def render_joined_groups_list(self) -> str:
-        joined_groups_title = util.make_html_bold("Joined Groups") + f" ({len(self.owned_group_ids)} {EMOJI_GROUP})"
+        joined_groups_title = util.make_html_bold("Joined Groups") + f" ({len(self.joined_group_ids)} {EMOJI_GROUP})"
         joined_groups = self.get_joined_groups()
         if joined_groups:
             joined_groups_list = "\n\n".join(

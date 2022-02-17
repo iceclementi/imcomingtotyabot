@@ -2818,7 +2818,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         # Handle templates query
         if TEMPLATES_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
-                id="tempscom", title="/template", description="View all the templates you have created",
+                id="tempscom", title="/temps", description="View all the templates you have created",
                 input_message_content=InputTextMessageContent("/temps")
             )
             results.append(query_result)
@@ -2957,7 +2957,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
                 return
 
-            template_type, name, format_inputs = match.group(1), match.group(2), match.group(3)
+            template_type, name, format_inputs = create_match.group(1), create_match.group(2), create_match.group(3)
             if template_type in ("p", "poll"):
                 temp_poll = user.get_temp_poll_by_name(name)
                 if not temp_poll:
