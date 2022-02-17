@@ -1495,7 +1495,7 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
             context.user_data.clear()
             handle_help(update, context)
             return
-        description_text, is_valid = template.render_title(text)
+        description_text, is_valid = template.render_description(text)
         if not is_valid:
             reply_message = update.message.reply_html(
                 description_text, reply_markup=template.build_format_back_buttons(models.TEMP_DESCRIPTION)
@@ -2577,7 +2577,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     elif action == models.TEMP_DESCRIPTION_CODE:
         response = template.render_description_code()
         reply_message = message.edit_text(
-            response, parse_mode=ParseMode.HMTL,
+            response, parse_mode=ParseMode.HTML,
             reply_markup=template.build_format_back_buttons(models.TEMP_DESCRIPTION)
         )
         query.answer(text=None)

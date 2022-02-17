@@ -1521,7 +1521,7 @@ class FormatTextCode(object):
                 return f"{self.FORMAT_TEXT_ERROR}\n" \
                        f"Format input for <u>{label}</u> is not in the correct date format.\n" \
                        f"<i>{format_input}</i>\n<i>E.g. 1 %d/%m/%y</i>", False
-            week_offset_symbols, day, date_format = date_match.group(1), date_match.group(2), date_match.group(3)
+            week_offset_symbols, day, date_format = date_match.group(1), int(date_match.group(2)), date_match.group(3)
             # Checks if all '+' or all '-'
             if week_offset_symbols and week_offset_symbols[0] * len(week_offset_symbols) != week_offset_symbols:
                 return f"{self.FORMAT_TEXT_ERROR}\n" \
@@ -1543,7 +1543,7 @@ class FormatTextCode(object):
             week_offset = len(week_offset_symbols) * (1 if week_offset_symbols[0] == "+" else -1) \
                 if week_offset_symbols else 0
             day = datetime.now().isoweekday() if day == 0 else day
-            days_offset = (int(day) - datetime.now().isoweekday()) + week_offset * 7
+            days_offset = (day - datetime.now().isoweekday()) + week_offset * 7
             new_date = datetime.now() + timedelta(days_offset)
             return new_date.strftime(date_format.strip()), True
         # Handle other format types as string for now
