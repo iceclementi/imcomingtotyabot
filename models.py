@@ -1774,7 +1774,7 @@ class PollTemplate(object):
         header = f"<b>Poll Template ({self.name})</b>"
         title_body = f"<b>Title</b>\n{self.formatted_title.render_details()}"
         description_body = f"<b>Description</b>\n{self.formatted_description.render_details()}"
-        options_body = f"<b><Options</b>\n{util.list_to_indexed_list_string(self.options)}"
+        options_body = f"<b>Options</b>\n{util.list_to_indexed_list_string(self.options)}"
         response_type_body = f"<b>Response Type</b> - {'Single' if self.is_single_response else 'Multiple'}"
         return "\n\n".join([header] + [title_body] + [description_body] + [options_body] + [response_type_body])
 
@@ -1844,12 +1844,13 @@ class PollTemplate(object):
 
     def to_json(self) -> dict:
         return {
-            db.TEMP_POLL_ID: self._temp_id,
-            db.TEMP_POLL_FORMATTED_TITLE: self._formatted_title.to_json(),
-            db.TEMP_POLL_FORMATTED_DESCRIPTION: self._formatted_description.to_json(),
-            db.TEMP_POLL_OPTIONS: self._options,
-            db.TEMP_POLL_SINGLE_RESPONSE: self._is_single_response,
-            db.TEMP_POLL_CREATOR_ID: self._creator_id,
+            db.TEMP_POLL_ID: self.temp_id,
+            db.TEMP_POLL_NAME: self.name,
+            db.TEMP_POLL_FORMATTED_TITLE: self.formatted_title.to_json(),
+            db.TEMP_POLL_FORMATTED_DESCRIPTION: self.formatted_description.to_json(),
+            db.TEMP_POLL_OPTIONS: self.options,
+            db.TEMP_POLL_SINGLE_RESPONSE: self.is_single_response,
+            db.TEMP_POLL_CREATOR_ID: self.creator_id,
         }
 
 
