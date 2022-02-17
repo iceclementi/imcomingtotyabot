@@ -1,6 +1,7 @@
 """Backend models"""
 import json
 from datetime import datetime, timedelta
+import pytz
 from collections import OrderedDict
 import re
 from typing import Tuple, Dict, List as Lst, Union
@@ -28,6 +29,7 @@ EMOJI_HAPPY = "\U0001f60a"
 SESSION_EXPIRY = 1  # In hours
 EXPIRY = 720
 BOT_NAME = "imcomingtotyabot"
+tz = pytz.timezone("Asia/Singapore")
 
 # Button Actions
 USER_SUBJECT = "u"
@@ -487,7 +489,7 @@ class Group(object):
     @classmethod
     def create_new(cls, name: str, uid: int, password=""):
         gid = util.generate_random_id(GROUP_ID_LENGTH, set(group_storage.keys()))
-        group = cls(gid, name, uid, password, {uid}, set(), set(), datetime.now())
+        group = cls(gid, name, uid, password, {uid}, set(), set(), datetime.now(tz=tz))
         group_storage[gid] = group
         return group
 
@@ -789,7 +791,7 @@ class Poll(object):
     @classmethod
     def create_new(cls, title: str, uid: int, description: str, option_titles: list):
         poll_id = util.generate_random_id(POLL_ID_LENGTH, set(poll_storage.keys()))
-        poll = cls(poll_id, title, uid, description, list(), True, set(), EXPIRY, datetime.now())
+        poll = cls(poll_id, title, uid, description, list(), True, set(), EXPIRY, datetime.now(tz=tz))
 
         for option_title in option_titles:
             poll.add_option(Option.create_new(option_title))
@@ -1145,7 +1147,7 @@ class List(object):
     @classmethod
     def create_new(cls, title: str, uid: int, description: str, option_titles: list, choices: list):
         list_id = util.generate_random_id(LIST_ID_LENGTH, set(list_storage.keys()))
-        _list = cls(list_id, title, uid, description, list(), choices, True, set(), EXPIRY, datetime.now())
+        _list = cls(list_id, title, uid, description, list(), choices, True, set(), EXPIRY, datetime.now(tz=tz))
 
         for option_title in option_titles:
             _list.add_option(ListOption.create_new(option_title))
@@ -1557,9 +1559,9 @@ class FormatTextCode(object):
             # Get the date offset
             week_offset = len(week_offset_symbols) * (1 if week_offset_symbols[0] == "+" else -1) \
                 if week_offset_symbols else 0
-            day = datetime.now().isoweekday() if day == 0 else day
-            days_offset = (day - datetime.now().isoweekday()) + week_offset * 7
-            new_date = datetime.now() + timedelta(days_offset)
+            day = datetime.now(tz=tz).isoweekday() if day == 0 else day
+            days_offset = (day - datetime.now(tz=tz).isoweekday()) + week_offset * 7
+            new_date = datetime.now(tz=tz) + timedelta(days_offset)
             return new_date.strftime(date_format.strip()), True
         # Handle other format types as string for now
         else:
