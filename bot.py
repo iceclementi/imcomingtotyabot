@@ -387,7 +387,7 @@ def handle_update_pm(update: Update, context: CallbackContext, details: str) -> 
         return
 
     update.message.reply_html(
-        _list.render_details(), reply_markup=_list.build_option_buttons()
+        _list.render_text(), reply_markup=_list.build_option_buttons()
     )
     return
 
@@ -1504,7 +1504,7 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
             return
         title = f"<b>Current Poll Description</b>\n{description_text}"
         body = f"Enter another format input to change the description, or <b>Create</b> the poll, " \
-               f"or <b>Skip</b> the description and create the poll."
+               f"or <b>Skip</b> to create the poll without a description."
         response = "\n\n".join([title] + [body])
         reply_message = update.message.reply_html(response, reply_markup=template.build_format_description_buttons())
         context.user_data.update({"descrCode": text, "del": reply_message.message_id})
@@ -1799,7 +1799,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             POLL_DONE, parse_mode=ParseMode.HTML,
             reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
-        query.message.reply_html(poll.render_details(), reply_markup=poll.build_admin_buttons(query.from_user.id))
+        query.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(query.from_user.id))
         query.answer(text="Poll created successfully!")
 
         # Clear user data
@@ -1842,7 +1842,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
                 LIST_DONE, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Close", models.CLOSE)
             )
-            query.message.reply_html(_list.render_details(), reply_markup=_list.build_admin_buttons(query.from_user.id))
+            query.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(query.from_user.id))
             query.answer(text="List created successfully!")
 
             # Clear user data
@@ -2031,20 +2031,20 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     # Handle poll option button
     if action.isdigit():
         status = poll.toggle(int(action), uid, user_profile)
-        query.edit_message_text(poll.render_details(), parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
+        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
         query.answer(text=status)
         refresh_polls(poll, context)
         return
     # Handle refresh option button
     elif action == models.REFRESH_OPT:
         query.answer(text="Results updated!")
-        query.edit_message_text(poll.render_details(), parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
+        query.edit_message_text(poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_option_buttons())
         return
     # Handle refresh button
     elif action == models.REFRESH and is_pm:
         query.answer(text="Results updated!")
         query.edit_message_text(
-            poll.render_details(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons(uid)
+            poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons(uid)
         )
         return
     # Handle customise button
@@ -2157,7 +2157,7 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
     if action == models.OPTIONS:
         query.answer(text=None)
         query.edit_message_text(
-            _list.render_details(), parse_mode=ParseMode.HTML, reply_markup=_list.build_option_buttons()
+            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_option_buttons()
         )
         return
     # Handle list option button
@@ -2201,7 +2201,7 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
 
         status = _list.toggle(opt_id, choice_id)
         query.edit_message_text(
-            _list.render_details(), parse_mode=ParseMode.HTML, reply_markup=_list.build_choice_buttons(opt_id)
+            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_choice_buttons(opt_id)
         )
         query.answer(text=status)
         refresh_lists(_list, context)
@@ -2210,21 +2210,21 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
     elif action == models.USER_REFRESH:
         query.answer(text="Results updated!")
         query.edit_message_text(
-            _list.render_details(), parse_mode=ParseMode.HTML, reply_markup=_list.build_update_buttons()
+            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_update_buttons()
         )
         return
     # Handle refresh option button
     elif action == models.REFRESH_OPT and is_pm:
         query.answer(text="Results updated!")
         query.edit_message_text(
-            _list.render_details(), parse_mode=ParseMode.HTML, reply_markup=_list.build_option_buttons()
+            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_option_buttons()
         )
         return
     # Handle admin refresh button
     elif action == models.REFRESH and is_pm:
         query.answer(text="Results updated!")
         query.edit_message_text(
-            _list.render_details(), parse_mode=ParseMode.HTML, reply_markup=_list.build_admin_buttons(uid)
+            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_admin_buttons(uid)
         )
         return
     # Handle customise button
@@ -2565,7 +2565,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
             return
         title = f"<b>Current Poll Description</b>\n{descr_text}"
         body = f"Enter another format input to change the description, or <b>Create</b> the poll, " \
-               f"or <b>Skip</b> the description and create the poll."
+               f"or <b>Skip</b> to create the poll without a description."
         response = "\n\n".join([title] + [body])
         reply_message = message.edit_text(
             response, parse_mode=ParseMode.HTML, reply_markup=template.build_format_description_buttons()
@@ -2611,7 +2611,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
                 return
             title = f"<b>Current Poll Description</b>\n{descr_text}"
             body = f"Enter another format input to change the description, or <b>Create</b> the poll, " \
-                   f"or <b>Skip</b> the description and create the poll."
+                   f"or <b>Skip</b> to create the poll without a description."
             response = "\n\n".join([title] + [body])
             reply_message = message.edit_text(
                 response, parse_mode=ParseMode.HTML, reply_markup=template.build_format_description_buttons()
@@ -2960,14 +2960,14 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 query_result = InlineQueryResultArticle(
                     id=f"poll {item.get_poll_id()}", title=item.get_title(),
                     description=item.generate_options_summary(),
-                    input_message_content=InputTextMessageContent(item.render_details(), parse_mode=ParseMode.HTML),
+                    input_message_content=InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML),
                     reply_markup=item.build_option_buttons()
                 )
             elif type(item) == List:
                 query_result = InlineQueryResultArticle(
                     id=f"list {item.get_list_id()}", title=item.get_title(),
                     description=item.generate_options_summary(),
-                    input_message_content=InputTextMessageContent(item.render_details(), parse_mode=ParseMode.HTML),
+                    input_message_content=InputTextMessageContent(item.render_text(), parse_mode=ParseMode.HTML),
                     reply_markup=item.build_update_buttons()
                 )
             else:
