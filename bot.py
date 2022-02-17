@@ -820,6 +820,7 @@ def handle_template(update: Update, context: CallbackContext) -> None:
     match = re.match(r"^/temp\s+(p|poll|l|list)\s+(\w+)\s*(\n(?:\n|.)*)?$", update.message.text.strip())
     if match:
         template_type, name, format_inputs = match.group(1), match.group(2), match.group(3)
+        format_inputs = format_inputs if format_inputs else ""
         if template_type in ("p", "poll"):
             temp_poll = user.get_temp_poll_by_name(name)
             if not temp_poll:
@@ -2958,6 +2959,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 return
 
             template_type, name, format_inputs = create_match.group(1), create_match.group(2), create_match.group(3)
+            format_inputs = format_inputs if format_inputs else ""
             if template_type in ("p", "poll"):
                 temp_poll = user.get_temp_poll_by_name(name)
                 if not temp_poll:
