@@ -288,6 +288,9 @@ class User(object):
         user_temp_polls = PollTemplate.get_templates_by_ids(self._temp_poll_ids, filters)
         return sorted(user_temp_polls, key=lambda temp_poll: temp_poll.name.lower())
 
+    def get_temp_poll_by_name(self, name: str):
+        return next((temp_poll for temp_poll in self.get_temp_polls() if temp_poll.name.lower() == name.lower()), None)
+
     def create_temp_poll(self, name: str, title: str, description: str, options: list,
                          is_single_response: bool) -> tuple:
         temp_poll = PollTemplate.create_new(name, title, description, options, is_single_response, self.uid)
@@ -305,7 +308,15 @@ class User(object):
         return f"Poll {util.make_html_bold(temp_poll.get_title())} has been deleted."
 
     def has_temp_poll_with_name(self, name: str) -> bool:
-        return any(temp_poll.name == name for temp_poll in self.get_temp_polls())
+        return any(temp_poll.name.lower() == name.lower() for temp_poll in self.get_temp_polls())
+
+    def create_poll_from_template(self, temp_id: str, title: str, description: str):
+        if temp_id not in self._temp_poll_ids:
+            return None
+        temp_poll = PollTemplate.get_template_by_id(temp_id)
+        poll, _ = self.create_poll(title, description, temp_poll.options)
+        poll.set_single_response(temp_poll.is_single_response)
+        return poll
 
     def get_all_poll_ids(self) -> set:
         return self.poll_ids.union(self.get_group_poll_ids())
@@ -1757,12 +1768,6 @@ class PollTemplate(object):
     @property
     def creator_id(self) -> int:
         return self._creator_id
-
-    def create_poll(self, title: str, description: str, uid: int) -> Poll:
-        user: User = User.get_user_by_id(uid)
-        poll, _ = user.create_poll(title, description, self.options)
-        poll.set_single_response(self.is_single_response)
-        return poll
 
     def generate_linked_summary(self, include_creator=False) -> str:
         title = f"<b>{self.name} {EMOJI_POLL}</b>"

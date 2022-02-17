@@ -808,6 +808,32 @@ def handle_template(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
+    # Try to match the command to create a poll or list from a template
+    match = re.match(r"^/temp\s+(p|poll|l|list)\s+(\w+)\s*(\n(?:\n|.)*)?$", update.message.text.strip())
+    if match:
+        template_type, name, format_inputs = match.group(1), match.group(2), match.group(3)
+        if template_type in ("p", "poll"):
+            temp_poll = user.get_temp_poll_by_name(name)
+            if not temp_poll:
+                response = f"No poll template with name <b>{name}</b> exists.\nUse /temps to view all your templates."
+                reply_message = update.message.reply_html(
+                    response, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+
+            title, description, is_valid = temp_poll.render_title_and_description(format_inputs)
+            if not is_valid:
+                reply_message = update.message.reply_html(
+                    title, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+            poll: Poll = user.create_poll_from_template(temp_poll.temp_id, title, description)
+            update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+            update.message.reply_html(poll.render_text(), poll.build_admin_buttons(user.get_uid()))
+            return
+
     response_text = "Which <b>template</b> do you want to create?"
     buttons = util.build_multiple_stacked_buttons_markup(
         [
@@ -2590,7 +2616,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
             query.answer(text="Invalid callback query data!")
             message.delete()
             return
-        poll = template.create_poll(title, "", uid)
+        poll = user.create_poll_from_template(temp_id, title, "")
         message.edit_text(
             POLL_DONE, parse_mode=ParseMode.HTML, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
@@ -2622,7 +2648,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
             )
             return
         elif step == 12 and title:
-            poll = template.create_poll(title, description, uid)
+            poll = user.create_poll_from_template(temp_id, title, description)
             message.edit_text(
                 POLL_DONE, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Close", models.CLOSE)
@@ -2660,7 +2686,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     elif action == models.RESET:
         message.delete()
         context.user_data.clear()
-        query.answer(text=None)
+        query.answer(text="Process cancelled.")
         return
     # Handle other cases
     else:
