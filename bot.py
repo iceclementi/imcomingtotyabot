@@ -831,7 +831,7 @@ def handle_template(update: Update, context: CallbackContext) -> None:
                 return
             poll: Poll = user.create_poll_from_template(temp_poll.temp_id, title, description)
             update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
-            update.message.reply_html(poll.render_text(), poll.build_admin_buttons(user.get_uid()))
+            update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(user.get_uid()))
             return
 
     response_text = "Which <b>template</b> do you want to create?"
