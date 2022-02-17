@@ -1643,8 +1643,8 @@ class FormatTextCode(object):
             else "\n\n".join([title] + [f"<b>Details</b>\n<i>None</i>"])
         return response
 
-    def render_format_text(self, format_inputs: str) -> Tuple[str, bool]:
-        parsed_format, is_valid = self.parse_format_inputs(format_inputs)
+    def render_format_text(self, format_inputs="", offset=0) -> Tuple[str, bool]:
+        parsed_format, is_valid = self.parse_format_inputs(format_inputs, offset)
 
         # Error parsing format input
         if not is_valid:
@@ -1785,10 +1785,10 @@ class PollTemplate(object):
         return f"<b>Description</b>\n{self.formatted_description.render_details()}"
 
     def render_title(self, format_inputs="") -> Tuple[str, bool]:
-        return self.formatted_title.parse_format_inputs(format_inputs)
+        return self.formatted_title.render_format_text(format_inputs)
 
     def render_description(self, format_inputs="") -> Tuple[str, bool]:
-        return self.formatted_description.parse_format_inputs(format_inputs)
+        return self.formatted_description.render_format_text(format_inputs)
 
     def render_title_and_description(self, format_inputs="") -> Tuple[str, str, bool]:
         offset = len(self.formatted_title.format_codes)
@@ -1796,12 +1796,12 @@ class PollTemplate(object):
         # Separate title and description format inputs using ".." as separator
         match = re.match(r"^((?:.|\n)*)(?:(?<=^)|(?<=\n))\.\.(?=$|\n)((?:.|\n)*)$", format_inputs)
         if not match:
-            title_result, is_title_valid = self.formatted_title.parse_format_inputs(format_inputs.strip())
-            description_result, is_description_valid = self.formatted_description.parse_format_inputs()
+            title_result, is_title_valid = self.formatted_title.render_format_text(format_inputs.strip())
+            description_result, is_description_valid = self.formatted_description.render_format_text()
         else:
-            title_result, is_title_valid = self.formatted_title.parse_format_inputs(match.group(1).strip())
+            title_result, is_title_valid = self.formatted_title.render_format_text(match.group(1).strip())
             description_result, is_description_valid = \
-                self.formatted_description.parse_format_inputs(match.group(2).strip(), offset=offset)
+                self.formatted_description.render_format_text(match.group(2).strip(), offset=offset)
 
         if not is_title_valid:
             return title_result, "", False

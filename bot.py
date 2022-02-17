@@ -2521,22 +2521,28 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     elif action == models.TEMP_TITLE:
         title_text, is_valid = template.render_title(title_code)
         if not is_valid:
-            reply_message = \
-                message.edit_text(title_text, reply_markup=template.build_format_back_buttons(models.TEMP_TITLE))
+            reply_message = message.edit_text(
+                    title_text, parse_mode=ParseMode.HTML,
+                    reply_markup=template.build_format_back_buttons(models.TEMP_TITLE)
+                )
             query.answer(text="Error parsing title format.")
             context.user_data.update({"del": reply_message.message_id})
             return
         title = f"<b>Current Poll Title</b>\n{title_text}"
         body = f"Enter another format input to change the title or <b>Continue</b> to go to the next step."
         response = "\n\n".join([title] + [body])
-        reply_message = message.edit_text(response, reply_markup=template.build_format_title_buttons())
+        reply_message = message.edit_text(
+            response, parse_mode=ParseMode.HTML, reply_markup=template.build_format_title_buttons()
+        )
         query.answer(text=None)
         context.user_data.update({"del": reply_message.message_id})
         return
     # Handle format title code button
     elif action == models.TEMP_TITLE_CODE:
         response = template.render_title_code()
-        reply_message = message.edit_text(response, reply_markup=template.build_format_back_buttons(models.TEMP_TITLE))
+        reply_message = message.edit_text(
+            response, parse_mode=ParseMode.HTML, reply_markup=template.build_format_back_buttons(models.TEMP_TITLE)
+        )
         query.answer(text=None)
         context.user_data.update({"del": reply_message.message_id})
         return
@@ -2550,8 +2556,10 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
 
         descr_text, is_valid = template.render_description(description_code)
         if not is_valid:
-            reply_message = \
-                message.edit_text(descr_text, reply_markup=template.build_format_back_buttons(models.TEMP_DESCRIPTION))
+            reply_message = message.edit_text(
+                descr_text, parse_mode=ParseMode.HTML,
+                reply_markup=template.build_format_back_buttons(models.TEMP_DESCRIPTION)
+            )
             query.answer(text="Error parsing description format.")
             context.user_data.update({"del": reply_message.message_id})
             return
@@ -2559,15 +2567,19 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         body = f"Enter another format input to change the description, or <b>Create</b> the poll, " \
                f"or <b>Skip</b> the description and create the poll."
         response = "\n\n".join([title] + [body])
-        reply_message = message.edit_text(response, reply_markup=template.build_format_description_buttons())
+        reply_message = message.edit_text(
+            response, parse_mode=ParseMode.HTML, reply_markup=template.build_format_description_buttons()
+        )
         query.answer(text=None)
         context.user_data.update({"del": reply_message.message_id})
         return
     # Handle format description code button
     elif action == models.TEMP_DESCRIPTION_CODE:
         response = template.render_description_code()
-        reply_message = \
-            message.edit_text(response, reply_markup=template.build_format_back_buttons(models.TEMP_DESCRIPTION))
+        reply_message = message.edit_text(
+            response, parse_mode=ParseMode.HMTL,
+            reply_markup=template.build_format_back_buttons(models.TEMP_DESCRIPTION)
+        )
         query.answer(text=None)
         context.user_data.update({"del": reply_message.message_id})
         return
@@ -2579,7 +2591,9 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
             message.delete()
             return
         poll = template.create_poll(title, "", uid)
-        message.edit_text(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+        message.edit_text(
+            POLL_DONE, parse_mode=ParseMode.HTML, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+        )
         message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(uid))
         context.user_data.clear()
         return
@@ -2589,7 +2603,8 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
             descr_text, is_valid = template.render_description(description_code)
             if not is_valid:
                 reply_message = message.edit_text(
-                    descr_text, reply_markup=template.build_format_back_buttons(models.TEMP_DESCRIPTION)
+                    descr_text, parse_mode=ParseMode.HTML,
+                    reply_markup=template.build_format_back_buttons(models.TEMP_DESCRIPTION)
                 )
                 query.answer(text="Error parsing description format.")
                 context.user_data.update({"step": 12, "del": reply_message.message_id})
@@ -2598,7 +2613,9 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
             body = f"Enter another format input to change the description, or <b>Create</b> the poll, " \
                    f"or <b>Skip</b> the description and create the poll."
             response = "\n\n".join([title] + [body])
-            reply_message = message.edit_text(response, reply_markup=template.build_format_description_buttons())
+            reply_message = message.edit_text(
+                response, parse_mode=ParseMode.HTML, reply_markup=template.build_format_description_buttons()
+            )
             query.answer(text="Change the description, skip, or create the poll.")
             context.user_data.update(
                 {"step": 12, "descr": descr_text, "del": reply_message.message_id}
@@ -2606,7 +2623,10 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
             return
         elif step == 12 and title:
             poll = template.create_poll(title, description, uid)
-            message.edit_text(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+            message.edit_text(
+                POLL_DONE, parse_mode=ParseMode.HTML,
+                reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+            )
             message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(uid))
             context.user_data.clear()
             return
