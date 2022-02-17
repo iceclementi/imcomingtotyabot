@@ -1653,7 +1653,7 @@ class FormatTextCode(object):
         new_text = self.format_text
 
         # Replace label with corresponding values
-        for label, value in parsed_format:
+        for label, value in parsed_format.items():
             new_text = re.sub(f"<u>{label}</u>", value, new_text, count=1)
 
         return new_text, True
