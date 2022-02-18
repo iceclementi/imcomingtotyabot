@@ -44,6 +44,7 @@ GROUP = " group"
 PUBLISH = "publish"
 REFRESH = "refresh"
 TITLE = "title"
+DESCRIPTION = "descr"
 OPTION = "opt"
 OPTIONS = "opts"
 CHOICE = "choice"
@@ -54,7 +55,7 @@ RESPONSE = "response"
 COMMENT = "comment"
 EDIT_COMMENT = "editComment"
 VOTE = "vote"
-DELETE = "delete"
+DELETE = "del"
 DELETE_YES = "delYes"
 BACK = "back"
 VIEW_MEMBERS = "members"
@@ -84,6 +85,8 @@ TEMP_DESCRIPTION = "tDescr"
 TEMP_TITLE_CODE = "tTitleCode"
 TEMP_DESCRIPTION_CODE = "tDescrCode"
 EDIT = "edit"
+RENAME = "rename"
+ADD = "add"
 
 # endregion
 
@@ -299,12 +302,12 @@ class User(object):
         self._temp_poll_ids.add(temp_poll.temp_id)
         return temp_poll, f"Poll template {util.make_html_bold(name)} created!"
 
-    def delete_temp_poll(self, temp_poll_id: str) -> str:
-        if temp_poll_id not in self._temp_poll_ids:
+    def delete_temp_poll(self, temp_id: str) -> str:
+        if temp_id not in self._temp_poll_ids:
             return "No such poll template exists."
-        self._temp_poll_ids.remove(temp_poll_id)
+        self._temp_poll_ids.remove(temp_id)
 
-        temp_poll = PollTemplate.get_template_by_id(temp_poll_id)
+        temp_poll = PollTemplate.get_template_by_id(temp_id)
         temp_poll.delete()
 
         return f"Poll {util.make_html_bold(temp_poll.get_title())} has been deleted."
@@ -967,9 +970,9 @@ class Poll(object):
 
         if uid == self.creator_id:
             delete_button = util.build_button("Delete", POLL_SUBJECT, DELETE, self.poll_id)
-            buttons = [[publish_button], [customise_button], [delete_button], [refresh_button, close_button]]
+            buttons = [[publish_button], [customise_button], [delete_button, refresh_button], [close_button]]
         else:
-            buttons = [[publish_button], [customise_button], [refresh_button, close_button]]
+            buttons = [[publish_button], [customise_button], [refresh_button], [close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_customise_buttons(self) -> InlineKeyboardMarkup:
@@ -1313,9 +1316,9 @@ class List(object):
 
         if uid == self.creator_id:
             delete_button = util.build_button("Delete", LIST_SUBJECT, DELETE, self.list_id)
-            buttons = [[publish_button], [customise_button], [delete_button], [refresh_button, close_button]]
+            buttons = [[publish_button], [customise_button], [delete_button, refresh_button], [close_button]]
         else:
-            buttons = [[publish_button], [customise_button], [refresh_button, close_button]]
+            buttons = [[publish_button], [customise_button], [refresh_button], [close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_customise_buttons(self) -> InlineKeyboardMarkup:
@@ -1533,17 +1536,12 @@ class FormatTextCode(object):
         elif format_type == "st":
             return format_input, True
         elif format_type == "dt":
-            date_match = re.match(r"^([+|-]{0,3})([0-7])(\s+.+)?$", format_input)
+            date_match = re.match(r"^(\+{0,3}|-{0,3})([0-7])(\s+.+)?$", format_input)
             if not date_match:
                 return f"{self.FORMAT_TEXT_ERROR}\n" \
                        f"Format input for <u>{label}</u> is not in the correct date format.\n" \
                        f"<i>{format_input}</i>\n<i>E.g. 1 %d/%m/%y</i>", False
             week_offset_symbols, day, date_format = date_match.group(1), int(date_match.group(2)), date_match.group(3)
-            # Checks if all '+' or all '-'
-            if week_offset_symbols and week_offset_symbols[0] * len(week_offset_symbols) != week_offset_symbols:
-                return f"{self.FORMAT_TEXT_ERROR}\n" \
-                       f"Format input for <u>{label}</u> is not in the correct date format.\n" \
-                       f"<i>{format_input}</i>\n<i>E.g. 1 %d/%m/%y</i>", False
 
             if not date_format:
                 date_format = "%d/%m/%y"
@@ -1750,8 +1748,8 @@ class PollTemplate(object):
         return self._formatted_title
 
     @formatted_title.setter
-    def formatted_title(self, new_title: FormatTextCode) -> None:
-        self._formatted_title = new_title
+    def formatted_title(self, new_title: str) -> None:
+        self._formatted_title = FormatTextCode.create_new(new_title)
         return
 
     @property
@@ -1759,8 +1757,8 @@ class PollTemplate(object):
         return self._formatted_description
 
     @formatted_description.setter
-    def formatted_description(self, new_description: FormatTextCode) -> None:
-        self._formatted_description = new_description
+    def formatted_description(self, new_description: str) -> None:
+        self._formatted_description = FormatTextCode.create_new(new_description)
         return
 
     @property
@@ -1771,9 +1769,19 @@ class PollTemplate(object):
     def is_single_response(self) -> bool:
         return self._is_single_response
 
+    @is_single_response.setter
+    def is_single_response(self, new_response_type: bool) -> None:
+        self._is_single_response = new_response_type
+        return
+
     @property
     def creator_id(self) -> int:
         return self._creator_id
+
+    def toggle_response_type(self) -> str:
+        self.is_single_response = not self.is_single_response
+        status = "single response" if self.is_single_response else "multi-response"
+        return f"Response type is changed to {status}."
 
     def generate_linked_summary(self, include_creator=False) -> str:
         title = f"<b>{self.name} {EMOJI_POLL}</b>"
@@ -1789,11 +1797,13 @@ class PollTemplate(object):
         response_type_body = f"<b>Response Type</b> - {'Single' if self.is_single_response else 'Multiple'}"
         return "\n\n".join([header] + [title_body] + [description_body] + [options_body] + [response_type_body])
 
-    def render_title_code(self) -> str:
-        return f"<b>Title</b>\n{self.formatted_title.render_details()}"
+    def render_title_code(self, header="") -> str:
+        return f"<b>{header}</b>\n{self.formatted_title.render_details()}" if header \
+            else f"<b>Title Format</b>\n{self.formatted_title.render_details()}"
 
-    def render_description_code(self) -> str:
-        return f"<b>Description</b>\n{self.formatted_description.render_details()}"
+    def render_description_code(self, header="") -> str:
+        return f"<b>{header}</b>\n{self.formatted_description.render_details()}" if header \
+            else f"<b>Description Format</b>\n{self.formatted_description.render_details()}"
 
     def render_title(self, format_inputs="") -> Tuple[str, bool]:
         return self.formatted_title.render_format_text(format_inputs)
@@ -1822,36 +1832,85 @@ class PollTemplate(object):
             return title_result, description_result, True
 
     def build_main_buttons(self) -> InlineKeyboardMarkup:
-        generate_poll_button = util.build_button("Generate Poll", TEMP_POLL_SUBJECT, POLL, self.temp_id)
-        settings_buttons = util.build_button("Settings", TEMP_POLL_SUBJECT, SETTINGS, self.temp_id)
-        close_button = util.build_button("Close", TEMP_POLL_SUBJECT, CLOSE, self.temp_id)
-        buttons = [[generate_poll_button], [settings_buttons], [close_button]]
+        generate_poll_button = self.build_button("Generate Poll", POLL)
+        settings_buttons = self.build_button("Settings", SETTINGS)
+        delete_template_button = self.build_button("Delete Template", DELETE)
+        refresh_button = self.build_button("Refresh", REFRESH)
+        close_button = self.build_button("Close", CLOSE)
+        buttons = [[generate_poll_button], [settings_buttons], [delete_template_button, refresh_button], [close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_format_title_buttons(self) -> InlineKeyboardMarkup:
-        title_code_button = util.build_button(
-            "View Title Format Details", TEMP_POLL_SUBJECT, TEMP_TITLE_CODE, self.temp_id
-        )
-        continue_button = util.build_button("Continue", TEMP_POLL_SUBJECT, DONE, self.temp_id)
-        cancel_button = util.build_button("Cancel", TEMP_POLL_SUBJECT, RESET, self.temp_id)
+        title_code_button = self.build_button("View Title Format Details", TEMP_TITLE_CODE)
+        continue_button = self.build_button("Continue", DONE)
+        cancel_button = self.build_button("Cancel", RESET)
         buttons = [[title_code_button], [cancel_button, continue_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_format_description_buttons(self) -> InlineKeyboardMarkup:
-        description_code_button = util.build_button(
-            "View Description Format Details", TEMP_POLL_SUBJECT, TEMP_DESCRIPTION_CODE, self.temp_id
-        )
-        build_button = util.build_button("Create", TEMP_POLL_SUBJECT, DONE, self.temp_id)
-        cancel_button = util.build_button("Cancel", TEMP_POLL_SUBJECT, RESET, self.temp_id)
-        skip_button = util.build_button("Skip", TEMP_POLL_SUBJECT, SKIP, self.temp_id)
+        description_code_button = self.build_button("View Description Format Details", TEMP_DESCRIPTION_CODE)
+        build_button = self.build_button("Create", DONE)
+        cancel_button = self.build_button("Cancel", RESET)
+        skip_button = self.build_button("Skip", SKIP)
         buttons = [[description_code_button], [skip_button], [cancel_button, build_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_format_back_buttons(self, back_action: str):
+    def build_settings_buttons(self) -> InlineKeyboardMarkup:
+        edit_title_button = self.build_button("Edit Title", f"{EDIT}_{TITLE}")
+        edit_description_button = self.build_button("Edit Description", f"{EDIT}_{DESCRIPTION}")
+        edit_options_button = self.build_button("Edit Options", f"{EDIT}_{OPTIONS}")
+        response_text = "Multi-Response" if self.is_single_response else "Single Response"
+        toggle_response_button = self.build_button(f"Change to {response_text}", f"{EDIT}_{RESPONSE}")
+        back_button = self.build_button("Back", BACK)
+        buttons = [
+            [edit_title_button], [edit_description_button], [edit_options_button],
+            [toggle_response_button], [back_button]
+        ]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_edit_title_buttons(self) -> InlineKeyboardMarkup:
+        change_title_button = self.build_button("Change Format Title", f"{RENAME}_{TITLE}")
+        back_button = self.build_button("Back", SETTINGS)
+        buttons = [[change_title_button], [back_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_edit_description_buttons(self) -> InlineKeyboardMarkup:
+        if self.formatted_description:
+            change_description_button = self.build_button("Change Format Description", f"{RENAME}_{DESCRIPTION}")
+            remove_description_button = self.build_button("Remove Format Description", f"{DELETE}_{DESCRIPTION}")
+            buttons = [[change_description_button], [remove_description_button]]
+        else:
+            add_description_button = self.build_button("Add Format Description", f"{ADD}_{DESCRIPTION}")
+            buttons = [[add_description_button]]
+        back_button = self.build_button("Back", SETTINGS)
+        buttons.append([back_button])
+        return InlineKeyboardMarkup(buttons)
+
+    def build_format_back_buttons(self, back_action: str) -> InlineKeyboardMarkup:
         back_button = util.build_button("Back", TEMP_POLL_SUBJECT, back_action, self.temp_id)
         cancel_button = util.build_button("Cancel", TEMP_POLL_SUBJECT, RESET, self.temp_id)
         buttons = [[cancel_button, back_button]]
         return InlineKeyboardMarkup(buttons)
+
+    def build_edit_confirm_buttons(self, back_action: str) -> InlineKeyboardMarkup:
+        confirm_button = self.build_button("Confirm", DONE)
+        back_button = self.build_button("Back", back_action)
+        buttons = [[back_button, confirm_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_single_back_button(self, back_action: str) -> InlineKeyboardMarkup:
+        back_button = self.build_button("Back", back_action)
+        return InlineKeyboardMarkup([[back_button]])
+
+    def build_delete_confirm_buttons(self, delete_action: str, back_action: str, delete_text="Delete", back_text="No") \
+            -> InlineKeyboardMarkup:
+        delete_button = self.build_button(delete_text, f"{DELETE_YES}_{delete_action}")
+        back_button = self.build_button(back_text, back_action)
+        buttons = [[delete_button, back_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_button(self, text: str, action: str) -> InlineKeyboardButton:
+        return util.build_button(text, TEMP_POLL_SUBJECT, action, self.temp_id)
 
     def to_json(self) -> dict:
         return {
