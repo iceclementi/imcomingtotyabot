@@ -1834,7 +1834,7 @@ class PollTemplate(object):
     def build_main_buttons(self) -> InlineKeyboardMarkup:
         generate_poll_button = self.build_button("Generate Poll", POLL)
         settings_buttons = self.build_button("Settings", SETTINGS)
-        delete_template_button = self.build_button("Delete Template", DELETE)
+        delete_template_button = self.build_button("Delete", DELETE)
         refresh_button = self.build_button("Refresh", REFRESH)
         close_button = self.build_button("Close", CLOSE)
         buttons = [[generate_poll_button], [settings_buttons], [delete_template_button, refresh_button], [close_button]]
@@ -1875,7 +1875,7 @@ class PollTemplate(object):
         return InlineKeyboardMarkup(buttons)
 
     def build_edit_description_buttons(self) -> InlineKeyboardMarkup:
-        if self.formatted_description:
+        if self.formatted_description.format_text:
             change_description_button = self.build_button("Change Format Description", f"{RENAME}_{DESCRIPTION}")
             remove_description_button = self.build_button("Remove Format Description", f"{DELETE}_{DESCRIPTION}")
             buttons = [[change_description_button], [remove_description_button]]

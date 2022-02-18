@@ -2787,19 +2787,19 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     # Handle delete template button
     elif action == models.DELETE:
         query.edit_message_reply_markup(
-            template.build_delete_confirm_buttons(models.TEMP_POLL, models.SETTINGS)
+            template.build_delete_confirm_buttons(models.TEMP_POLL, models.BACK)
         )
         query.answer(text="Confirm delete?")
         return
     # Handle edit title button
     elif action == f"{models.EDIT}_{models.TITLE}":
-        query.edit_message_reply_markup(template.build_edit_title_buttons())
+        query.edit_message_text(template.render_text(), reply_markup=template.build_edit_title_buttons())
         query.answer(text=None)
         context.user_data.clear()
         return
     # Handle edit description button
     elif action == f"{models.EDIT}_{models.DESCRIPTION}":
-        query.edit_message_reply_markup(template.build_edit_description_buttons())
+        query.edit_message_text(template.render_text(), reply_markup=template.build_edit_description_buttons())
         query.answer(text=None)
         context.user_data.clear()
         return
@@ -2811,7 +2811,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     elif action == f"{models.EDIT}_{models.RESPONSE}":
         status = template.toggle_response_type()
         query.answer(text=status)
-        query.edit_message_reply_markup(template.build_settings_buttons())
+        query.edit_message_text(template.render_text(), reply_markup=template.build_settings_buttons())
         return
     # Handle rename title button
     elif action == f"{models.RENAME}_{models.TITLE}":
@@ -3403,7 +3403,6 @@ def edit_conversation_message(update: Update, context: CallbackContext, text: st
         update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
         context.user_data.clear()
         return
-    context.user_data.pop("ed")
     return
 
 
