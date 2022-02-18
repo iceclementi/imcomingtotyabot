@@ -2793,13 +2793,16 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle edit title button
     elif action == f"{models.EDIT}_{models.TITLE}":
-        query.edit_message_text(template.render_text(), reply_markup=template.build_edit_title_buttons())
+        query.edit_message_text(
+            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_edit_title_buttons())
         query.answer(text=None)
         context.user_data.clear()
         return
     # Handle edit description button
     elif action == f"{models.EDIT}_{models.DESCRIPTION}":
-        query.edit_message_text(template.render_text(), reply_markup=template.build_edit_description_buttons())
+        query.edit_message_text(
+            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_edit_description_buttons()
+        )
         query.answer(text=None)
         context.user_data.clear()
         return
@@ -2811,7 +2814,9 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     elif action == f"{models.EDIT}_{models.RESPONSE}":
         status = template.toggle_response_type()
         query.answer(text=status)
-        query.edit_message_text(template.render_text(), reply_markup=template.build_settings_buttons())
+        query.edit_message_text(
+            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_settings_buttons()
+        )
         return
     # Handle rename title button
     elif action == f"{models.RENAME}_{models.TITLE}":
