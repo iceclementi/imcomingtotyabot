@@ -2656,13 +2656,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         context.user_data.update({"del": reply_message.message_id})
         return
     # Handle format description button
-    elif action == models.TEMP_DESCRIPTION:
-        if not title:
-            logger.warning("Invalid callback query data.")
-            query.answer(text="Invalid callback query data!")
-            message.delete()
-            return
-
+    elif action == models.TEMP_DESCRIPTION and title:
         descr_text, is_valid = template.render_description(description_code)
         if not is_valid:
             reply_message = message.edit_text(

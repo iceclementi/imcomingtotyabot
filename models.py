@@ -1478,20 +1478,14 @@ class FormatTextCode(object):
             # Date type
             elif format_type == "dt":
                 default = default if default else "0 %d/%m/%y"
-                date_match = re.match(r"^([+|-]{0,3}[0-7])(\s+.+)?$", default)
+                date_match = re.match(r"^((?:\+{0,3}|-{0,3})[0-7])(\s+(?:.|\n)*)?$", default)
                 if not date_match:
                     return f"{FormatTextCode.FORMAT_TEXT_ERROR}\n" \
                            f"Default value for <u>{label}</u> is not in the correct date format.\n" \
                            f"<i>E.g. 1 %d/%m/%y</i>", \
                            None, False
-                day, date_format = date_match.group(1), date_match.group(2)
-                # Checks if all '+' or all '-'
-                if len(day) > 1 and day[0] * (len(day) - 1) != day[:-1]:
-                    return f"{FormatTextCode.FORMAT_TEXT_ERROR}\n" \
-                           f"Default value for <u>{label}</u> is not in the correct date format.\n" \
-                           f"<i>E.g. 1 %d/%m/%y</i>", \
-                           None, False
 
+                day, date_format = date_match.group(1), date_match.group(2)
                 if not date_format:
                     format_codes[label] = (format_type, f"{day} %d/%m/%y")
                 else:
@@ -1536,15 +1530,17 @@ class FormatTextCode(object):
         elif format_type == "st":
             return format_input, True
         elif format_type == "dt":
-            date_match = re.match(r"^(\+{0,3}|-{0,3})([0-7])(\s+.+)?$", format_input)
+            date_match = re.match(r"^(\+{0,3}|-{0,3})([0-7])(\s+(?:.|\n)*)?$", format_input)
             if not date_match:
                 return f"{self.FORMAT_TEXT_ERROR}\n" \
                        f"Format input for <u>{label}</u> is not in the correct date format.\n" \
                        f"<i>{format_input}</i>\n<i>E.g. 1 %d/%m/%y</i>", False
             week_offset_symbols, day, date_format = date_match.group(1), int(date_match.group(2)), date_match.group(3)
 
+            # Get the default date format if not given
             if not date_format:
-                date_format = "%d/%m/%y"
+                date_format = \
+                    re.match(r"^(?:\+{0,3}|-{0,3})[0-7](\s+(?:.|\n)*)?$", self.format_codes[label][1]).group(1).strip()
 
             # Verify if date time format is valid
             try:
