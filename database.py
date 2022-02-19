@@ -41,9 +41,10 @@ USER_JOINED_GROUP_IDS = "joined_group_ids"
 USER_POLL_IDS = "poll_ids"
 USER_LIST_IDS = "list_ids"
 USER_TEMP_POLL_IDS = "temp_poll_ids"
+USER_TEMP_LIST_IDS = "temp_list_ids"
 USER_FIELDS = [
-    USER_ID, USER_FIRST_NAME, USER_LAST_NAME, USER_USERNAME, USER_IS_LEADER,
-    USER_OWNED_GROUP_IDS, USER_JOINED_GROUP_IDS, USER_POLL_IDS, USER_LIST_IDS, USER_TEMP_POLL_IDS
+    USER_ID, USER_FIRST_NAME, USER_LAST_NAME, USER_USERNAME, USER_IS_LEADER, USER_OWNED_GROUP_IDS,
+    USER_JOINED_GROUP_IDS, USER_POLL_IDS, USER_LIST_IDS, USER_TEMP_POLL_IDS, USER_TEMP_LIST_IDS
 ]
 
 # Group database fields
@@ -119,6 +120,21 @@ TEMP_POLL_FIELDS = [
     TEMP_POLL_SINGLE_RESPONSE, TEMP_POLL_CREATOR_ID
 ]
 
+# List template database fields
+TEMP_LIST_SHEET = "temp_poll"
+TEMP_LIST_ID = "temp_id"
+TEMP_LIST_NAME = "name"
+TEMP_LIST_FORMATTED_TITLE = "formatted_title"
+TEMP_LIST_FORMATTED_DESCRIPTION = "formatted_description"
+TEMP_LIST_OPTIONS = "options"
+TEMP_LIST_CHOICES = "choices"
+TEMP_LIST_SINGLE_RESPONSE = "is_single_response"
+TEMP_LIST_CREATOR_ID = "creator_id"
+TEMP_LIST_FIELDS = [
+    TEMP_LIST_ID, TEMP_LIST_NAME, TEMP_LIST_FORMATTED_TITLE, TEMP_LIST_FORMATTED_DESCRIPTION, TEMP_LIST_OPTIONS,
+    TEMP_LIST_CHOICES, TEMP_LIST_SINGLE_RESPONSE, TEMP_LIST_CREATOR_ID
+]
+
 # Format text code fields
 FORMAT_TEXT = "format_text"
 FORMAT_CODES = "format_codes"
@@ -141,6 +157,8 @@ def save(data: dict, sheet_name: str) -> None:
         return save_to_sheet(data, lists_sheet, LIST_FIELDS)
     elif sheet_name == TEMP_POLL_SHEET:
         return save_to_sheet(data, temp_polls_sheet, TEMP_POLL_FIELDS)
+    elif sheet_name == TEMP_LIST_SHEET:
+        return save_to_sheet(data, temp_lists_sheet, TEMP_LIST_FIELDS)
     else:
         return
 
@@ -168,6 +186,8 @@ def load(sheet_name: str) -> list:
         return load_from_sheet(lists_sheet, LIST_FIELDS)
     elif sheet_name == TEMP_POLL_SHEET:
         return load_from_sheet(temp_polls_sheet, TEMP_POLL_FIELDS)
+    elif sheet_name == TEMP_LIST_SHEET:
+        return load_from_sheet(temp_lists_sheet, TEMP_LIST_FIELDS)
     else:
         return list()
 
