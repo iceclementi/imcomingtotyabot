@@ -121,7 +121,7 @@ TEMP_POLL_FIELDS = [
 ]
 
 # List template database fields
-TEMP_LIST_SHEET = "temp_poll"
+TEMP_LIST_SHEET = "temp_list"
 TEMP_LIST_ID = "temp_id"
 TEMP_LIST_NAME = "name"
 TEMP_LIST_FORMATTED_TITLE = "formatted_title"
