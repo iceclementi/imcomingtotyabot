@@ -164,7 +164,7 @@ class User(object):
     def get_owned_group_ids(self) -> Set[str]:
         return self.groups
 
-    def get_owned_groups(self, filters="") -> list:
+    def get_owned_groups(self, filters="") -> Lst[Group]:
         owned_groups = Group.get_groups_by_ids(self.owned_group_ids, filters)
         return sorted(owned_groups, key=lambda group: group.get_name().lower())
 
@@ -191,7 +191,7 @@ class User(object):
     def get_joined_group_ids(self) -> Set[str]:
         return self.joined_group_ids
 
-    def get_joined_groups(self, filters="") -> list:
+    def get_joined_groups(self, filters="") -> Lst[Group]:
         joined_groups = Group.get_groups_by_ids(self.joined_group_ids, filters)
         return sorted(joined_groups, key=lambda group: group.get_name().lower())
 
@@ -209,7 +209,7 @@ class User(object):
     def get_all_group_ids(self) -> Set[str]:
         return set.union(self.owned_group_ids, self.joined_group_ids)
 
-    def get_all_groups(self, filters="") -> list:
+    def get_all_groups(self, filters="") -> Lst[Group]:
         all_user_groups = Group.get_groups_by_ids(self.get_all_group_ids(), filters)
         return sorted(all_user_groups, key=lambda group: group.get_name().lower())
 
@@ -440,16 +440,20 @@ class User(object):
         return "\n\n".join(header + body + footer)
 
     def render_group_list(self) -> str:
-        header = [util.make_html_bold("Your Groups")]
+        header = util.make_html_bold("Your Groups")
 
-        owned_groups_list = self.render_owned_groups_list()
-        joined_groups_list = self.render_joined_groups_list()
-        body = [owned_groups_list] + [joined_groups_list]
+        all_groups = self.get_all_groups()
+        if all_groups:
+            body = util.list_to_indexed_list_string(
+                [group.generate_linked_summary(True) for group in all_groups], line_spacing=2
+            )
+        else:
+            body = f"<i><You are not in any group!/i>"
 
-        group_count = len(self.owned_group_ids) + len(self.joined_group_ids)
-        footer = [f"{EMOJI_GROUP} {group_count} group{'' if group_count == 1 else 's'} in total"]
+        group_count = len(self.get_all_group_ids())
+        footer = f"{EMOJI_GROUP} {group_count} group{'' if group_count == 1 else 's'} in total"
 
-        return "\n\n".join(header + body + footer)
+        return "\n\n".join([header] + [body] + [footer])
 
     def render_owned_groups_list(self) -> str:
         owned_groups_title = util.make_html_bold("Owned Groups") + f" ({len(self.owned_group_ids)} {EMOJI_CROWN})"
@@ -600,10 +604,10 @@ class Group(object):
                 self.poll_ids.remove(poll_id)
         return f"{user.get_name()} has been removed from the group."
 
-    def get_poll_ids(self) -> set:
+    def get_poll_ids(self) -> Set[str]:
         return self.poll_ids
 
-    def get_polls(self, filters="") -> list:
+    def get_polls(self, filters="") -> Lst[Poll]:
         group_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
         filtered_polls = [poll for poll in group_polls if filters.lower() in poll.get_title().lower()]
         return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)
@@ -621,10 +625,10 @@ class Group(object):
         title = Poll.get_poll_by_id(poll_id).get_title()
         return f"Poll \"{title}\" has been removed from the group."
 
-    def get_list_ids(self) -> set:
+    def get_list_ids(self) -> Set[str]:
         return self.list_ids
 
-    def get_lists(self, filters="") -> list:
+    def get_lists(self, filters="") -> Lst[List]:
         group_lists = [Poll.get_list_by_id(list_id) for list_id in self.list_ids]
         filtered_lists = [_list for _list in group_lists if filters.lower() in _list.get_title().lower()]
         return sorted(filtered_lists, key=lambda _list: _list.get_created_date(), reverse=True)
@@ -642,10 +646,11 @@ class Group(object):
         title = List.get_list_by_id(list_id).get_title()
         return f"List \"{title}\" has been removed from the group."
 
-    def generate_linked_summary(self) -> str:
-        short_bold_title = util.make_html_bold(self.name)[:60]
+    def generate_linked_summary(self, include_creator=False) -> str:
+        header = f"<b>{self.name[:60]}</b> ({len(self.member_ids)})"
         link = f"/group_{self.gid}"
-        return f"{short_bold_title} ({len(self.member_ids)} {EMOJI_PEOPLE})\n{link}"
+        creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
+        return "\n".join([header] + [f"{link} {creator}"]) if include_creator else "\n".join([header] + [link])
 
     def generate_group_members_list(self) -> str:
         members_list = []
@@ -975,10 +980,10 @@ class Poll(object):
 
     def generate_linked_summary(self, include_creator=False) -> str:
         short_bold_title = util.make_html_bold(self.title)[:60]
-        header = [f"{short_bold_title} ({self.get_respondent_count()} {EMOJI_PEOPLE})"]
-        creator = [f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"]
-        link = [f"/poll_{self.poll_id}"]
-        return "\n".join(header + creator + link) if include_creator else "\n".join(header + link)
+        header = f"{short_bold_title} ({self.get_respondent_count()} {EMOJI_PEOPLE})"
+        link = f"/poll_{self.poll_id}"
+        creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
+        return "\n".join([header] + [f"{link} {creator}"]) if include_creator else "\n".join([header] + [link])
 
     def generate_options_summary(self) -> str:
         return " / ".join(option.get_title() for option in self.options)
@@ -1325,10 +1330,10 @@ class List(object):
 
     def generate_linked_summary(self, include_creator=False) -> str:
         short_bold_title = util.make_html_bold(self.title)[:60]
-        header = [f"{short_bold_title} ({self.get_allocation_count()} {EMOJI_PEOPLE})"]
-        creator = [f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"]
-        link = [f"/list_{self.list_id}"]
-        return "\n".join(header + creator + link) if include_creator else "\n".join(header + link)
+        header = f"{short_bold_title} ({self.get_allocation_count()} {EMOJI_PEOPLE})"
+        link = f"/list_{self.list_id}"
+        creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
+        return "\n".join([header] + [f"{link} {creator}"]) if include_creator else "\n".join([header] + [link])
 
     def generate_options_summary(self) -> str:
         return " / ".join(option.get_title() for option in self.options)
@@ -1830,9 +1835,9 @@ class PollTemplate(object):
 
     def generate_linked_summary(self, include_creator=False) -> str:
         title = f"<b>{self.name} {EMOJI_POLL}</b>"
-        creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
         link = f"/ptemp_{self.temp_id}"
-        return "\n".join([title] + [creator] + [link]) if include_creator else "\n".join([title] + [link])
+        creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
+        return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
 
     def render_text(self) -> str:
         header = f"<b>Poll Template ({self.name})</b>"
@@ -2081,9 +2086,9 @@ class ListTemplate(object):
 
     def generate_linked_summary(self, include_creator=False) -> str:
         title = f"<b>{self.name} {EMOJI_POLL}</b>"
-        creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
         link = f"/ltemp_{self.temp_id}"
-        return "\n".join([title] + [creator] + [link]) if include_creator else "\n".join([title] + [link])
+        creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
+        return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
 
     def render_text(self) -> str:
         header = f"<b>List Template ({self.name})</b>"

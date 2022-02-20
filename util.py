@@ -160,9 +160,10 @@ def list_to_dict(_list: List[str]) -> dict:
     return {i: item for i, item in enumerate(_list)}
 
 
-def list_to_indexed_list_string(_list: List[str], start=1) -> str:
+def list_to_indexed_list_string(_list: List[str], start=1, line_spacing=1) -> str:
+    spacing = "\n" * line_spacing
     indexed_list = [f"{i}. {item}" for i, item in enumerate(_list, start)]
-    return "\n".join(indexed_list)
+    return spacing.join(indexed_list)
 
 
 def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[str, str]], None], bool]:

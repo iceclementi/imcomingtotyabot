@@ -2836,6 +2836,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     if not group:
         query.edit_message_reply_markup(None)
         query.answer(text=DELETED_GROUP)
+        query.message.delete()
         return
 
     uid, user_profile = extract_user_data(query.from_user)
@@ -2846,6 +2847,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     if uid not in group.get_member_ids():
         query.edit_message_reply_markup(None)
         query.answer(text="You are not a member of this group.")
+        query.message.delete()
         return
 
     # Handle view members button
@@ -3899,41 +3901,28 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             template_type, name, format_inputs = create_match.group(1), create_match.group(2), create_match.group(3)
             format_inputs = format_inputs if format_inputs else ""
             if template_type in ("p", "poll"):
-                temp_poll = user.get_temp_poll_by_name(name)
-                if not temp_poll:
-                    query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
-                    return
-
-                title, description, is_valid = temp_poll.render_title_and_description(format_inputs)
-                if not is_valid:
-                    query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
-                    return
-
-                query_result = InlineQueryResultArticle(
-                    id=f"temp_poll", title=title,
-                    description="Create poll from template",
-                    input_message_content=InputTextMessageContent(f"/temp {template_type} {name}\n{format_inputs}")
-                )
-                results.append(query_result)
+                template = user.get_temp_poll_by_name(name)
             elif template_type in ("l", "list"):
-                temp_list = user.get_temp_list_by_name(name)
-                if not temp_list:
-                    query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
-                    return
+                template = user.get_temp_list_by_name(name)
+            else:
+                query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
+                return
 
-                title, description, is_valid = temp_list.render_title_and_description(format_inputs)
-                if not is_valid:
-                    query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
-                    return
+            if not template:
+                query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
+                return
 
-                query_result = InlineQueryResultArticle(
-                    id=f"temp_list", title=title,
-                    description="Create list from template",
-                    input_message_content=InputTextMessageContent(f"/temp {template_type} {name}\n{format_inputs}")
-                )
-                results.append(query_result)
+            title, description, is_valid = template.render_title_and_description(format_inputs)
+            if not is_valid:
+                query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
+                return
 
-            query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
+            query_result = InlineQueryResultArticle(
+                id=f"temp_{name}", title=title, description=description,
+                input_message_content=InputTextMessageContent(f"/temp {template_type} {name}\n{format_inputs}")
+            )
+
+            results.append(query_result)
             return
         # Handle templates query
         elif command == TEMPLATES_COMMAND and user and is_sender:
