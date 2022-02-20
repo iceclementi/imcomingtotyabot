@@ -26,6 +26,8 @@ users_sheet = database_spreadsheet.worksheet("User Data")
 groups_sheet = database_spreadsheet.worksheet("Group Data")
 polls_sheet = database_spreadsheet.worksheet("Poll Data")
 lists_sheet = database_spreadsheet.worksheet("List Data")
+temp_polls_sheet = database_spreadsheet.worksheet("Poll Template Data")
+temp_lists_sheet = database_spreadsheet.worksheet("List Template Data")
 
 # User database fields
 USER_SHEET = "user"
@@ -38,9 +40,11 @@ USER_OWNED_GROUP_IDS = "owned_group_ids"
 USER_JOINED_GROUP_IDS = "joined_group_ids"
 USER_POLL_IDS = "poll_ids"
 USER_LIST_IDS = "list_ids"
+USER_TEMP_POLL_IDS = "temp_poll_ids"
+USER_TEMP_LIST_IDS = "temp_list_ids"
 USER_FIELDS = [
-    USER_ID, USER_FIRST_NAME, USER_LAST_NAME, USER_USERNAME, USER_IS_LEADER,
-    USER_OWNED_GROUP_IDS, USER_JOINED_GROUP_IDS, USER_POLL_IDS, USER_LIST_IDS
+    USER_ID, USER_FIRST_NAME, USER_LAST_NAME, USER_USERNAME, USER_IS_LEADER, USER_OWNED_GROUP_IDS,
+    USER_JOINED_GROUP_IDS, USER_POLL_IDS, USER_LIST_IDS, USER_TEMP_POLL_IDS, USER_TEMP_LIST_IDS
 ]
 
 # Group database fields
@@ -102,6 +106,40 @@ LIST_OPTION_TITLE = "title"
 LIST_OPTION_ALLOCATIONS = "allocations"
 LIST_OPTION_FIELDS = [LIST_OPTION_TITLE, LIST_OPTION_ALLOCATIONS]
 
+# Poll template database fields
+TEMP_POLL_SHEET = "temp_poll"
+TEMP_POLL_ID = "temp_id"
+TEMP_POLL_NAME = "name"
+TEMP_POLL_FORMATTED_TITLE = "formatted_title"
+TEMP_POLL_FORMATTED_DESCRIPTION = "formatted_description"
+TEMP_POLL_OPTIONS = "options"
+TEMP_POLL_SINGLE_RESPONSE = "is_single_response"
+TEMP_POLL_CREATOR_ID = "creator_id"
+TEMP_POLL_FIELDS = [
+    TEMP_POLL_ID, TEMP_POLL_NAME, TEMP_POLL_FORMATTED_TITLE, TEMP_POLL_FORMATTED_DESCRIPTION, TEMP_POLL_OPTIONS,
+    TEMP_POLL_SINGLE_RESPONSE, TEMP_POLL_CREATOR_ID
+]
+
+# List template database fields
+TEMP_LIST_SHEET = "temp_list"
+TEMP_LIST_ID = "temp_id"
+TEMP_LIST_NAME = "name"
+TEMP_LIST_FORMATTED_TITLE = "formatted_title"
+TEMP_LIST_FORMATTED_DESCRIPTION = "formatted_description"
+TEMP_LIST_OPTIONS = "options"
+TEMP_LIST_CHOICES = "choices"
+TEMP_LIST_SINGLE_RESPONSE = "is_single_response"
+TEMP_LIST_CREATOR_ID = "creator_id"
+TEMP_LIST_FIELDS = [
+    TEMP_LIST_ID, TEMP_LIST_NAME, TEMP_LIST_FORMATTED_TITLE, TEMP_LIST_FORMATTED_DESCRIPTION, TEMP_LIST_OPTIONS,
+    TEMP_LIST_CHOICES, TEMP_LIST_SINGLE_RESPONSE, TEMP_LIST_CREATOR_ID
+]
+
+# Format text code fields
+FORMAT_TEXT = "format_text"
+FORMAT_CODES = "format_codes"
+FORMAT_TEXT_CODE_FIELDS = [FORMAT_TEXT, FORMAT_CODES]
+
 
 # endregion
 
@@ -117,6 +155,10 @@ def save(data: dict, sheet_name: str) -> None:
         return save_to_sheet(data, polls_sheet, POLL_FIELDS)
     elif sheet_name == LIST_SHEET:
         return save_to_sheet(data, lists_sheet, LIST_FIELDS)
+    elif sheet_name == TEMP_POLL_SHEET:
+        return save_to_sheet(data, temp_polls_sheet, TEMP_POLL_FIELDS)
+    elif sheet_name == TEMP_LIST_SHEET:
+        return save_to_sheet(data, temp_lists_sheet, TEMP_LIST_FIELDS)
     else:
         return
 
@@ -142,6 +184,10 @@ def load(sheet_name: str) -> list:
         return load_from_sheet(polls_sheet, POLL_FIELDS)
     elif sheet_name == LIST_SHEET:
         return load_from_sheet(lists_sheet, LIST_FIELDS)
+    elif sheet_name == TEMP_POLL_SHEET:
+        return load_from_sheet(temp_polls_sheet, TEMP_POLL_FIELDS)
+    elif sheet_name == TEMP_LIST_SHEET:
+        return load_from_sheet(temp_lists_sheet, TEMP_LIST_FIELDS)
     else:
         return list()
 
