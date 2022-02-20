@@ -1677,7 +1677,7 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
         context.user_data.get("options", []), context.user_data.get("choices", []), \
         context.user_data.get("response", True), context.user_data.get("tempId", "")
 
-    template: PollTemplate = PollTemplate.get_template_by_id(temp_id)
+    template: ListTemplate = ListTemplate.get_template_by_id(temp_id)
 
     # Handle title
     if step == 1:
@@ -3224,14 +3224,17 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     # Handle edit title button
     elif action == f"{models.EDIT}_{models.TITLE}":
         query.edit_message_text(
-            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_edit_title_buttons())
+            template.render_title_code("Current Title Format"), parse_mode=ParseMode.HTML,
+            reply_markup=template.build_edit_title_buttons()
+        )
         query.answer(text=None)
         context.user_data.clear()
         return
     # Handle edit description button
     elif action == f"{models.EDIT}_{models.DESCRIPTION}":
         query.edit_message_text(
-            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_edit_description_buttons()
+            template.render_description_code("Current Description Format"), parse_mode=ParseMode.HTML,
+            reply_markup=template.build_edit_description_buttons()
         )
         query.answer(text=None)
         context.user_data.clear()
@@ -3310,8 +3313,10 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle back button
     elif action == models.BACK:
-        query.edit_message_reply_markup(template.build_main_buttons())
         query.answer(text=None)
+        query.edit_message_text(
+            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_main_buttons()
+        )
         return
     # Handle close button
     elif action == models.CLOSE:
@@ -3522,14 +3527,17 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
     # Handle edit title button
     elif action == f"{models.EDIT}_{models.TITLE}":
         query.edit_message_text(
-            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_edit_title_buttons())
+            template.render_title_code("Current Title Format"), parse_mode=ParseMode.HTML,
+            reply_markup=template.build_edit_title_buttons()
+        )
         query.answer(text=None)
         context.user_data.clear()
         return
     # Handle edit description button
     elif action == f"{models.EDIT}_{models.DESCRIPTION}":
         query.edit_message_text(
-            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_edit_description_buttons()
+            template.render_description_code("Current Description Format"), parse_mode=ParseMode.HTML,
+            reply_markup=template.build_edit_description_buttons()
         )
         query.answer(text=None)
         context.user_data.clear()
@@ -3612,8 +3620,10 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle back button
     elif action == models.BACK:
-        query.edit_message_reply_markup(template.build_main_buttons())
         query.answer(text=None)
+        query.edit_message_text(
+            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_main_buttons()
+        )
         return
     # Handle close button
     elif action == models.CLOSE:
