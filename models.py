@@ -1274,6 +1274,9 @@ class List(object):
     def is_single_response(self) -> bool:
         return self.single_response
 
+    def set_single_response(self, single_response: bool) -> None:
+        self.single_response = single_response
+
     def toggle_response_type(self) -> str:
         # if any(option.is_allocated() for option in self.options):
         #     return "Cannot change response type for non-empty list."

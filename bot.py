@@ -3173,7 +3173,8 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         elif step == 21 and title:
             template.formatted_title = title
             query.edit_message_text(
-                template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_edit_title_buttons()
+                template.render_description_code("Current Title Format"), parse_mode=ParseMode.HTML,
+                reply_markup=template.build_edit_title_buttons()
             )
             query.answer(text="Title format changed successfully!")
             context.user_data.clear()
@@ -3181,7 +3182,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         elif step == 22 and description:
             template.formatted_description = description
             query.edit_message_text(
-                template.render_text(), parse_mode=ParseMode.HTML,
+                template.render_description_code("Current Description Format"), parse_mode=ParseMode.HTML,
                 reply_markup=template.build_edit_description_buttons()
             )
             query.answer(text="Description format changed successfully!")
@@ -3190,7 +3191,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         elif step == 23 and description:
             template.formatted_description = description
             query.edit_message_text(
-                template.render_text(), parse_mode=ParseMode.HTML,
+                template.render_description_code("Current Description Format"), parse_mode=ParseMode.HTML,
                 reply_markup=template.build_edit_description_buttons()
             )
             query.answer(text="Description format added successfully!")
@@ -3211,7 +3212,9 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle settings button
     elif action == models.SETTINGS:
-        query.edit_message_reply_markup(template.build_settings_buttons())
+        query.edit_message_text(
+            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_settings_buttons()
+        )
         query.answer(text=None)
         return
     # Handle delete template button
@@ -3314,9 +3317,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     # Handle back button
     elif action == models.BACK:
         query.answer(text=None)
-        query.edit_message_text(
-            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_main_buttons()
-        )
+        query.edit_message_reply_markup(template.build_main_buttons())
         return
     # Handle close button
     elif action == models.CLOSE:
@@ -3476,7 +3477,8 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         elif step == 21 and title:
             template.formatted_title = title
             query.edit_message_text(
-                template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_edit_title_buttons()
+                template.render_title_code("Current Title Format"), parse_mode=ParseMode.HTML,
+                reply_markup=template.build_edit_title_buttons()
             )
             query.answer(text="Title format changed successfully!")
             context.user_data.clear()
@@ -3484,7 +3486,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         elif step == 22 and description:
             template.formatted_description = description
             query.edit_message_text(
-                template.render_text(), parse_mode=ParseMode.HTML,
+                template.render_description_code("Current Description Format"), parse_mode=ParseMode.HTML,
                 reply_markup=template.build_edit_description_buttons()
             )
             query.answer(text="Description format changed successfully!")
@@ -3493,7 +3495,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         elif step == 23 and description:
             template.formatted_description = description
             query.edit_message_text(
-                template.render_text(), parse_mode=ParseMode.HTML,
+                template.render_description_code("Current Description Format"), parse_mode=ParseMode.HTML,
                 reply_markup=template.build_edit_description_buttons()
             )
             query.answer(text="Description format added successfully!")
@@ -3514,7 +3516,9 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle settings button
     elif action == models.SETTINGS:
-        query.edit_message_reply_markup(template.build_settings_buttons())
+        query.edit_message_text(
+            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_settings_buttons()
+        )
         query.answer(text=None)
         return
     # Handle delete template button
@@ -3621,9 +3625,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
     # Handle back button
     elif action == models.BACK:
         query.answer(text=None)
-        query.edit_message_text(
-            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_main_buttons()
-        )
+        query.edit_message_reply_markup(template.build_main_buttons())
         return
     # Handle close button
     elif action == models.CLOSE:
