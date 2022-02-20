@@ -4334,7 +4334,7 @@ def main() -> None:
         MessageHandler((Filters.regex(r"^\/ptemp_\w+$") & Filters.chat_type.private), handle_temp_poll_view)
     )
     dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/ltemp_\w+$") & Filters.chat_type.private), handle_temp_poll_view)
+        MessageHandler((Filters.regex(r"^\/ltemp_\w+$") & Filters.chat_type.private), handle_temp_list_view)
     )
     dispatcher.add_handler(MessageHandler((Filters.text & Filters.chat_type.private), handle_message))
 
