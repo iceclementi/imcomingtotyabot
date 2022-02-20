@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import pytz
 from collections import OrderedDict
 import re
-from typing import Tuple, Dict, Set, List as Lst, Union
+from typing import Tuple, Dict, Set, List as Lst, Union, List
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 import database as db
@@ -120,17 +120,17 @@ class User(object):
         self._temp_list_ids = temp_list_ids
 
     @staticmethod
-    def get_user_by_id(uid: int):
+    def get_user_by_id(uid: int) -> User:
         return user_storage.get(uid, None)
 
     @staticmethod
-    def get_users_by_name(name="") -> list:
+    def get_users_by_name(name="") -> Lst[User]:
         sorted_users = sorted(user_storage.values(), key=lambda user: user.get_name().lower())
         filtered_users = [user for user in sorted_users if name in user.get_name()]
         return filtered_users
 
     @classmethod
-    def register(cls, uid: int, first_name: str, last_name="", username=""):
+    def register(cls, uid: int, first_name: str, last_name="", username="") -> User:
         user = cls(uid, first_name, last_name, username, False, set(), set(), set(), set(), set(), set())
         user_storage[uid] = user
         return user
@@ -173,7 +173,7 @@ class User(object):
     def has_group_with_name(self, name: str) -> bool:
         return any(group.get_name() == name for group in self.get_owned_groups())
 
-    def create_group(self, name: str, password="") -> tuple:
+    def create_group(self, name: str, password="") -> Tuple[Group | None, str]:
         if self.has_group_with_name(name):
             return None, "You already have a group with the same name."
         if len(self.owned_group_ids) >= MAX_GROUPS_PER_USER:
@@ -218,7 +218,7 @@ class User(object):
     def get_poll_ids(self) -> Set[str]:
         return self.poll_ids
 
-    def get_polls(self, filters="") -> list:
+    def get_polls(self, filters="") -> Lst[Poll]:
         user_polls = Poll.get_polls_by_ids(self.poll_ids, filters)
         return sorted(user_polls, key=lambda poll: poll.get_created_date(), reverse=True)
 
@@ -228,11 +228,11 @@ class User(object):
             group_poll_ids.update(group.get_poll_ids())
         return group_poll_ids
 
-    def get_group_polls(self, filters="") -> list:
+    def get_group_polls(self, filters="") -> Lst[Poll]:
         group_polls = Poll.get_polls_by_ids(self.get_group_poll_ids(), filters)
         return sorted(group_polls, key=lambda poll: poll.get_created_date(), reverse=True)
 
-    def create_poll(self, title: str, description: str, options: list) -> tuple:
+    def create_poll(self, title: str, description: str, options: list) -> Tuple[Poll, str]:
         poll = Poll.create_new(title, self.uid, description, options)
         self.poll_ids.add(poll.get_poll_id())
         return poll, f"Poll {util.make_html_bold(title)} created!"
@@ -258,7 +258,7 @@ class User(object):
     def get_list_ids(self) -> Set[str]:
         return self.list_ids
 
-    def get_lists(self, filters="") -> list:
+    def get_lists(self, filters="") -> Lst[List]:
         user_lists = List.get_lists_by_ids(self.list_ids, filters)
         return sorted(user_lists, key=lambda _list: _list.get_created_date(), reverse=True)
 
@@ -268,11 +268,11 @@ class User(object):
             group_list_ids.update(group.get_list_ids())
         return group_list_ids
 
-    def get_group_lists(self, filters="") -> list:
+    def get_group_lists(self, filters="") -> Lst[List]:
         group_lists = List.get_lists_by_ids(self.get_group_list_ids(), filters)
         return sorted(group_lists, key=lambda _list: _list.get_created_date(), reverse=True)
 
-    def create_list(self, title: str, description: str, options: list, choices: list) -> tuple:
+    def create_list(self, title: str, description: str, options: list, choices: list) -> Tuple[List, str]:
         _list = List.create_new(title, self.uid, description, options, choices)
         self.list_ids.add(_list.get_list_id())
         return _list, f"List {util.make_html_bold(title)} created!"
@@ -298,15 +298,15 @@ class User(object):
     def get_temp_poll_ids(self) -> Set[str]:
         return self._temp_poll_ids
 
-    def get_temp_polls(self, filters="") -> list:
+    def get_temp_polls(self, filters="") -> Lst[PollTemplate]:
         user_temp_polls = PollTemplate.get_templates_by_ids(self._temp_poll_ids, filters)
         return sorted(user_temp_polls, key=lambda temp_poll: temp_poll.name.lower())
 
-    def get_temp_poll_by_name(self, name: str):
+    def get_temp_poll_by_name(self, name: str) -> PollTemplate:
         return next((temp_poll for temp_poll in self.get_temp_polls() if temp_poll.name.lower() == name.lower()), None)
 
     def create_temp_poll(self, name: str, title: str, description: str, options: list,
-                         is_single_response: bool) -> tuple:
+                         is_single_response: bool) -> Tuple[PollTemplate, str]:
         temp_poll = PollTemplate.create_new(name, title, description, options, is_single_response, self.uid)
         self._temp_poll_ids.add(temp_poll.temp_id)
         return temp_poll, f"Poll template {util.make_html_bold(name)} created!"
@@ -324,7 +324,7 @@ class User(object):
     def has_temp_poll_with_name(self, name: str) -> bool:
         return any(temp_poll.name.lower() == name.lower() for temp_poll in self.get_temp_polls())
 
-    def create_poll_from_template(self, temp_id: str, title: str, description: str):
+    def create_poll_from_template(self, temp_id: str, title: str, description: str) -> Poll | None:
         if temp_id not in self._temp_poll_ids:
             return None
         temp_poll = PollTemplate.get_template_by_id(temp_id)
@@ -335,15 +335,15 @@ class User(object):
     def get_temp_list_ids(self) -> Set[str]:
         return self._temp_list_ids
 
-    def get_temp_lists(self, filters="") -> list:
+    def get_temp_lists(self, filters="") -> Lst[ListTemplate]:
         user_temp_lists = ListTemplate.get_templates_by_ids(self._temp_list_ids, filters)
         return sorted(user_temp_lists, key=lambda temp_list: temp_list.name.lower())
 
-    def get_temp_list_by_name(self, name: str):
+    def get_temp_list_by_name(self, name: str) -> ListTemplate:
         return next((temp_list for temp_list in self.get_temp_lists() if temp_list.name.lower() == name.lower()), None)
 
     def create_temp_list(self, name: str, title: str, description: str, options: Lst[str], choices: Lst[str],
-                         is_single_response: bool) -> tuple:
+                         is_single_response: bool) -> Tuple[ListTemplate, str]:
         temp_list = ListTemplate.create_new(name, title, description, options, choices, is_single_response, self.uid)
         self._temp_list_ids.add(temp_list.temp_id)
         return temp_list, f"List template {util.make_html_bold(name)} created!"
@@ -361,7 +361,7 @@ class User(object):
     def has_temp_list_with_name(self, name: str) -> bool:
         return any(temp_list.name.lower() == name.lower() for temp_list in self.get_temp_lists())
 
-    def create_list_from_template(self, temp_id: str, title: str, description: str):
+    def create_list_from_template(self, temp_id: str, title: str, description: str) -> List | None:
         if temp_id not in self._temp_list_ids:
             return None
         temp_list = ListTemplate.get_template_by_id(temp_id)
@@ -369,7 +369,7 @@ class User(object):
         _list.set_single_response(temp_list.is_single_response)
         return _list
 
-    def get_templates(self, filters="") -> list:
+    def get_templates(self, filters="") -> Lst[Template]:
         temp_polls = self.get_temp_polls(filters)
         temp_lists = self.get_temp_lists(filters)
         return sorted(temp_polls + temp_lists, key=lambda item: item.name.lower())
@@ -728,7 +728,7 @@ class Group(object):
         return "\n\n".join([header] + [body] + [footer])
 
     def render_group_members_text(self) -> str:
-        header = util.make_html_bold(f"{self.name} Members")
+        header = util.make_html_bold(f"Group Members ({self.name})")
         body = self.generate_group_members_list()
 
         if len(self.member_ids) == 0:
@@ -1002,16 +1002,16 @@ class Poll(object):
         self.created_date = created_date
 
     @staticmethod
-    def get_poll_by_id(poll_id: str):
+    def get_poll_by_id(poll_id: str) -> Poll:
         return poll_storage.get(poll_id, None)
 
     @staticmethod
-    def get_polls_by_ids(poll_ids: set, filters="") -> list:
+    def get_polls_by_ids(poll_ids: set, filters="") -> Lst[Poll]:
         poll_lists = [Poll.get_poll_by_id(poll_id) for poll_id in poll_ids]
         return [poll for poll in poll_lists if filters.lower() in poll.get_title().lower()]
 
     @classmethod
-    def create_new(cls, title: str, uid: int, description: str, option_titles: list):
+    def create_new(cls, title: str, uid: int, description: str, option_titles: list) -> Poll:
         poll_id = util.generate_random_id(POLL_ID_LENGTH, set(poll_storage.keys()))
         poll = cls(poll_id, title, uid, description, list(), True, set(), EXPIRY, datetime.now(tz=tz))
 
@@ -1058,7 +1058,7 @@ class Poll(object):
     def set_description(self, description: str) -> None:
         self.description = description
 
-    def get_options(self) -> list:
+    def get_options(self) -> Lst[Option]:
         return self.options
 
     def add_option(self, option) -> None:
@@ -1108,7 +1108,7 @@ class Poll(object):
                     option.remove_user(uid)
         return self.options[opt_id].toggle(uid, user_profile, comment)
 
-    def is_voted_by_user(self, opt_id: int, uid: int):
+    def is_voted_by_user(self, opt_id: int, uid: int) -> bool:
         if opt_id < len(self.options):
             return self.options[opt_id].is_voted_by_user(uid)
         return False
@@ -1237,9 +1237,8 @@ class Poll(object):
 
         return response, InlineKeyboardMarkup(buttons)
 
-    def build_single_button(self, text: str, action: str):
-        button = util.build_button(text, POLL_SUBJECT, action, self.poll_id)
-        return InlineKeyboardMarkup([[button]])
+    def build_button(self, text: str, action: str) -> InlineKeyboardButton:
+        return util.build_button(text, POLL_SUBJECT, action, self.poll_id)
 
     def to_json(self) -> dict:
         return {
@@ -1358,16 +1357,16 @@ class List(object):
         self.created_date = created_date
 
     @staticmethod
-    def get_list_by_id(list_id: str):
+    def get_list_by_id(list_id: str) -> List:
         return list_storage.get(list_id, None)
 
     @staticmethod
-    def get_lists_by_ids(list_ids: set, filters="") -> list:
+    def get_lists_by_ids(list_ids: set, filters="") -> Lst[List]:
         list_lists = [List.get_list_by_id(list_id) for list_id in list_ids]
         return [_list for _list in list_lists if filters.lower() in _list.get_title().lower()]
 
     @classmethod
-    def create_new(cls, title: str, uid: int, description: str, option_titles: list, choices: list):
+    def create_new(cls, title: str, uid: int, description: str, option_titles: list, choices: list) -> List:
         list_id = util.generate_random_id(LIST_ID_LENGTH, set(list_storage.keys()))
         _list = cls(list_id, title, uid, description, list(), choices, True, set(), EXPIRY, datetime.now(tz=tz))
 
@@ -1414,10 +1413,10 @@ class List(object):
     def set_description(self, description: str) -> None:
         self.description = description
 
-    def get_options(self) -> list:
+    def get_options(self) -> Lst[ListOption]:
         return self.options
 
-    def get_option(self, opt_id):
+    def get_option(self, opt_id) -> ListOption:
         return self.options[opt_id] if self.is_valid_option(opt_id) else None
 
     def add_option(self, option) -> None:
@@ -1426,7 +1425,7 @@ class List(object):
     def is_valid_option(self, opt_id: int) -> bool:
         return 0 <= opt_id < len(self.options)
 
-    def get_choices(self) -> list:
+    def get_choices(self) -> Lst[str]:
         return self.choices
 
     def get_choice(self, choice_id: int) -> str:
@@ -1435,7 +1434,7 @@ class List(object):
     def is_valid_choice(self, choice_id: int) -> bool:
         return 0 <= choice_id < len(self.choices)
 
-    def get_message_details(self) -> set:
+    def get_message_details(self) -> Set[str]:
         return self.message_details
 
     def add_message_details(self, mid: str) -> None:

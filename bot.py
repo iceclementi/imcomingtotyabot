@@ -4,7 +4,9 @@ import logging
 import re
 from typing import Tuple, List as Lst, Dict
 import models
-from models import User, Group, Poll, Option, List, ListOption, PollTemplate, ListTemplate, FormatTextCode, BotManager
+from models import (
+    User, Group, Poll, Option, List, ListOption, Template, PollTemplate, ListTemplate, FormatTextCode, BotManager
+)
 import util
 from telegram import (
     Update, ParseMode, User as TeleUser, Message, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup,
@@ -2828,6 +2830,10 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
 def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, action: str, gid: str) -> None:
     """Handles a group callback query."""
     if not is_private_chat(query.message):
+        logger.warning("Invalid callback query data - group message not in private chat")
+        query.answer(text="Invalid callback query data!")
+        query.edit_message_reply_markup(None)
+        query.message.delete()
         return
 
     group = Group.get_group_by_id(gid)
@@ -2836,46 +2842,272 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     if not group:
         query.edit_message_reply_markup(None)
         query.answer(text=DELETED_GROUP)
+        query.edit_message_reply_markup(None)
         query.message.delete()
         return
 
-    uid, user_profile = extract_user_data(query.from_user)
-    message = query.message
-    is_owner = group.get_owner() == uid
+    user, _, _ = get_user_permissions(query.from_user.id)
+    is_owner = group.get_owner() == user.get_uid()
 
     # User is no longer in the group
-    if uid not in group.get_member_ids():
-        query.edit_message_reply_markup(None)
+    if user.get_uid() not in group.get_member_ids():
         query.answer(text="You are not a member of this group.")
+        query.edit_message_reply_markup(None)
         query.message.delete()
         return
 
+    # Handle view button
+    if action == models.VIEW:
+        query.edit_message_reply_markup(group.build_view_buttons())
+        query.answer(text=None)
+        return
     # Handle view members button
-    if action == models.MEMBER:
+    elif action == models.MEMBER:
         query.edit_message_text(
             group.render_group_members_text(), parse_mode=ParseMode.HTML,
-            reply_markup=group.build_view_members_buttons(back_action=models.BACK, is_owner=is_owner)
+            reply_markup=group.build_view_members_buttons(is_owner=is_owner)
         )
         query.answer(text=None)
         return
     # Handle remove member button
-    elif action == models.REMOVE_MEMBER and is_owner:
+    elif action == f"{models.DELETE}_{models.MEMBER}" and is_owner:
         query.edit_message_reply_markup(
-            group.build_members_buttons(models.REMOVE_MEMBER, back_action=models.MEMBER)
+            group.build_members_buttons(f"{models.DELETE}_{models.MEMBER}", back_action=models.MEMBER)
         )
         query.answer(text="Select a member to remove.")
         return
     # Handle remove member choice button
-    elif action.startswith(f"{models.REMOVE_MEMBER}_") and is_owner:
+    elif action.startswith(f"{models.DELETE}_{models.MEMBER}_") and is_owner:
         _, uid = action.rsplit("_", 1)
         member_name = User.get_user_by_id(uid).get_name()
         query.edit_message_reply_markup(
-            group.build_delete_confirmation_buttons(
-                delete_text="Remove", delete_action=action, back_action=models.REMOVE_MEMBER
-            )
+            group.build_delete_confirm_buttons(action, f"{models.MEMBER}_{uid}", delete_text="Remove")
         )
         query.answer(text=f"Confirm remove {member_name} from the group?")
         return
+    # Handle remove member confirm button
+    elif action.startswith(f"{models.DELETE_YES}_{models.MEMBER}_") and is_owner:
+        _, uid = action.rsplit("_", 1)
+        status = group.remove_member(uid)
+        query.answer(text=status)
+        query.edit_message_text(
+            group.render_group_members_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_members_buttons(f"{models.DELETE}_{models.MEMBER}", back_action=models.MEMBER)
+        )
+        return
+    # Handle view group polls button
+    elif action == models.POLL:
+        query.edit_message_text(
+            group.render_group_polls_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_view_polls_buttons(user.get_polls(), is_owner=is_owner)
+        )
+        query.answer(text=None)
+        return
+    # Handle add poll button
+    elif action == f"{models.ADD}_{models.POLL}":
+        user_polls = user.get_polls()
+        if user_polls:
+            response = "Select a poll to add to the group."
+        else:
+            response = "You do not have any polls! Use /poll to create new poll."
+        query.edit_message_reply_markup(group.build_add_polls_buttons(user_polls))
+        query.answer(text=response)
+        return
+    # Handle add poll choice button
+    elif action.startswith(f"{models.ADD}_{models.POLL}_"):
+        _, poll_id = action.rsplit("_", 1)
+        poll = Poll.get_poll_by_id(poll_id)
+        if not poll:
+            query.answer(text="Poll does not exist.")
+            return
+
+        response = group.add_poll(poll_id)
+        query.answer(text=response)
+        query.edit_message_text(
+            group.render_group_polls_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_add_polls_buttons(user.get_polls())
+        )
+        return
+    # Handle remove poll button
+    elif action == f"{models.DELETE}_{models.POLL}":
+        user_polls = user.get_polls()
+        query.edit_message_reply_markup(group.build_remove_polls_buttons(user_polls, is_owner=is_owner))
+        query.answer(text="Select a poll to remove from the group.")
+        return
+    # Handle remove poll choice button
+    elif action.startswith(f"{models.DELETE}_{models.POLL}_"):
+        _, poll_id = action.rsplit("_", 1)
+        poll = Poll.get_poll_by_id(poll_id)
+        if not poll:
+            query.answer(text="Poll does not exist.")
+            return
+
+        query.edit_message_reply_markup(
+            group.build_delete_confirm_buttons(action, f"{models.POLL}_{poll_id}", delete_text="Remove")
+        )
+        query.answer(text=f"Confirm remove \"{poll.get_title()}\" from the group?")
+        return
+    # Handle remove poll confirm button
+    elif action.startswith(f"{models.DELETE_YES}_{models.POLL}_"):
+        _, poll_id = action.rsplit("_", 1)
+        poll = Poll.get_poll_by_id(poll_id)
+        if not poll:
+            query.answer(text="Poll does not exist.")
+            return
+
+        response = group.remove_poll(poll_id)
+        query.answer(text=response)
+        query.edit_message_text(
+            group.render_group_polls_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_remove_polls_buttons(user.get_polls(), is_owner=is_owner)
+        )
+        return
+    # Handle view group lists button
+    elif action == models.LIST:
+        query.edit_message_text(
+            group.render_group_lists_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_view_lists_buttons(user.get_lists(), is_owner=is_owner)
+        )
+        query.answer(text=None)
+        return
+    # Handle add list button
+    elif action == f"{models.ADD}_{models.LIST}":
+        user_lists = user.get_lists()
+        if user_lists:
+            response = "Select a list to add to the group."
+        else:
+            response = "You do not have any lists! Use /list to create new list."
+        query.edit_message_reply_markup(group.build_add_lists_buttons(user_lists))
+        query.answer(text=response)
+        return
+    # Handle add list choice button
+    elif action.startswith(f"{models.ADD}_{models.LIST}_"):
+        _, list_id = action.rsplit("_", 1)
+        _list = List.get_list_by_id(list_id)
+        if not _list:
+            query.answer(text="List does not exist.")
+            return
+
+        response = group.add_list(list_id)
+        query.answer(text=response)
+        query.edit_message_text(
+            group.render_group_lists_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_add_lists_buttons(user.get_lists())
+        )
+        return
+    # Handle remove list button
+    elif action == f"{models.DELETE}_{models.LIST}":
+        user_lists = user.get_lists()
+        query.edit_message_reply_markup(group.build_remove_lists_buttons(user_lists, is_owner=is_owner))
+        query.answer(text="Select a list to remove from the group.")
+        return
+    # Handle remove list choice button
+    elif action.startswith(f"{models.DELETE}_{models.LIST}_"):
+        _, list_id = action.rsplit("_", 1)
+        _list = List.get_list_by_id(list_id)
+        if not _list:
+            query.answer(text="List does not exist.")
+            return
+
+        query.edit_message_reply_markup(
+            group.build_delete_confirm_buttons(action, f"{models.LIST}_{list_id}", delete_text="Remove")
+        )
+        query.answer(text=f"Confirm remove \"{_list.get_title()}\" from the group?")
+        return
+    # Handle remove list confirm button
+    elif action.startswith(f"{models.DELETE_YES}_{models.LIST}_"):
+        _, list_id = action.rsplit("_", 1)
+        _list = List.get_list_by_id(list_id)
+        if not _list:
+            query.answer(text="List does not exist.")
+            return
+
+        response = group.remove_list(list_id)
+        query.answer(text=response)
+        query.edit_message_text(
+            group.render_group_lists_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_remove_lists_buttons(user.get_lists(), is_owner=is_owner)
+        )
+        return
+    # Handle view group templates button
+    elif action == models.TEMPLATE:
+        query.edit_message_text(
+            group.render_group_templates_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_view_templates_buttons(user.get_templates(), is_owner=is_owner)
+        )
+        query.answer(text=None)
+        return
+    # Handle add template button
+    elif action == f"{models.ADD}_{models.TEMPLATE}":
+        user_templates = user.get_templates()
+        if user_templates:
+            response = "Select a template to add to the group."
+        else:
+            response = "You do not have any templates! Use /temp to create new template."
+        query.edit_message_reply_markup(group.build_add_templates_buttons(user_templates))
+        query.answer(text=response)
+        return
+    # Handle add template choice button
+    elif action.startswith(f"{models.ADD}_{models.TEMPLATE}_"):
+        _, template_id = action.rsplit("_", 1)
+        template = Template.get_template_by_id(template_id)
+        if not template:
+            query.answer(text="Template does not exist.")
+            return
+
+        response = group.add_template(template_id)
+        query.answer(text=response)
+        query.edit_message_text(
+            group.render_group_templates_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_add_templates_buttons(user.get_templates())
+        )
+        return
+    # Handle remove template button
+    elif action == f"{models.DELETE}_{models.TEMPLATE}":
+        user_templates = user.get_templates()
+        query.edit_message_reply_markup(group.build_remove_templates_buttons(user_templates, is_owner=is_owner))
+        query.answer(text="Select a template to remove from the group.")
+        return
+    # Handle remove template choice button
+    elif action.startswith(f"{models.DELETE}_{models.TEMPLATE}_"):
+        _, temp_id = action.rsplit("_", 1)
+        template = Template.get_template_by_id(temp_id)
+        if not template:
+            query.answer(text="Template does not exist.")
+            return
+
+        query.edit_message_reply_markup(
+            group.build_delete_confirm_buttons(action, f"{models.TEMPLATE}_{temp_id}", delete_text="Remove")
+        )
+        query.answer(text=f"Confirm remove \"{template.name}\" from the group?")
+        return
+    # Handle remove template confirm button
+    elif action.startswith(f"{models.DELETE_YES}_{models.TEMPLATE}_"):
+        _, temp_id = action.rsplit("_", 1)
+        template = Template.get_template_by_id(temp_id)
+        if not template:
+            query.answer(text="Template does not exist.")
+            return
+
+        response = group.remove_template(temp_id)
+        query.answer(text=response)
+        query.edit_message_text(
+            group.render_group_templates_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_remove_templates_buttons(user.get_templates(), is_owner=is_owner)
+        )
+        return
+
+    # Handle settings button
+    elif action == models.SETTINGS:
+        query.edit_message_reply_markup(group.build_settings_buttons(is_owner=is_owner))
+        query.answer(text=None)
+        return
+    # Handle delete group button
+    elif action == models.DELETE and is_owner:
+        query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
+            delete_text="Delete", delete_action=action, back_action=models.SETTINGS)
+        )
+        query.answer(text="Confirm delete group?")
     # Handle delete confirmation button
     elif action.startswith(f"{models.DELETE_YES}_"):
         match = re.match(r"^([^_\W]+)_([^_\W]+)_?([^_\W]+)?$", action)
@@ -2908,92 +3140,6 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
                                     reply_markup=group.build_main_buttons())
             return
-    # Handle view group polls button
-    elif action == models.VIEW_GROUP_POLLS:
-        query.edit_message_text(group.render_group_polls_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=group.build_view_polls_buttons(back_action=models.BACK))
-        query.answer(text=None)
-        return
-    # Handle add poll button and add poll choice button
-    elif action.startswith(models.ADD_POLL):
-        answered = False
-        if "_" in action:
-            _, poll_id = action.rsplit("_", 1)
-            poll = Poll.get_poll_by_id(poll_id)
-            if not poll:
-                query.answer(text="Poll does not exist.")
-            else:
-                result = group.add_poll(poll_id)
-                query.answer(text=result)
-            answered = True
-
-        user = User.get_user_by_id(uid)
-        response, buttons = group.build_polls_text_and_buttons(
-            user.get_polls(), filter_out=True, action=models.ADD_POLL, back_action=models.VIEW_GROUP_POLLS
-        )
-
-        if not response:
-            response = util.make_html_italic(
-                "You do not have any more polls to add to this group. You can use /poll to create new polls."
-            )
-            query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
-            if not answered:
-                query.answer(text="Sorry, no available polls to add.")
-            return
-
-        header = [util.make_html_bold("Select the poll you wish to add:")]
-        response = "\n\n".join(header + [response])
-
-        query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
-        if not answered:
-            query.answer(text="Select a poll you wish to add.")
-        return
-    # Handle remove poll button an remove poll choice button
-    elif action.startswith(models.REMOVE_POLL):
-        answered = False
-        if "_" in action:
-            _, poll_id = action.rsplit("_", 1)
-            poll = Poll.get_poll_by_id(poll_id)
-            if not poll:
-                query.answer(text="Poll does not exist.")
-            else:
-                result = group.remove_poll(poll_id)
-                query.answer(text=result)
-            answered = True
-
-        user = User.get_user_by_id(uid)
-        filters = group.get_polls() if is_owner else user.get_polls()
-        response, buttons = group.build_polls_text_and_buttons(
-            filters, filter_out=False, action=models.REMOVE_POLL, back_action=models.VIEW_GROUP_POLLS
-        )
-
-        if not response:
-            response = util.make_html_italic(
-                "There are no polls that you can remove."
-            )
-            query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
-            if not answered:
-                query.answer(text="Sorry, no available polls to remove.")
-            return
-
-        header = [util.make_html_bold("Select the poll you wish to remove:")]
-        response = "\n\n".join(header + [response])
-
-        query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
-        if not answered:
-            query.answer(text="Select a poll you wish to remove.")
-        return
-    # Handle settings button
-    elif action == models.SETTINGS:
-        query.edit_message_reply_markup(group.build_settings_buttons(is_owner=is_owner))
-        query.answer(text=None)
-        return
-    # Handle delete group button
-    elif action == models.DELETE and is_owner:
-        query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
-            delete_text="Delete", delete_action=action, back_action=models.SETTINGS)
-        )
-        query.answer(text="Confirm delete group?")
     # Handle leave group button
     elif action == models.LEAVE_GROUP:
         query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
@@ -3023,6 +3169,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
         query.edit_message_reply_markup(None)
+        query.message.delete()
         return
 
 
