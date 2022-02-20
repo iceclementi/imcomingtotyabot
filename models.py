@@ -649,7 +649,7 @@ class Group(object):
     def generate_linked_summary(self, include_creator=False) -> str:
         header = f"<b>{self.name[:60]}</b> ({len(self.member_ids)})"
         link = f"/group_{self.gid}"
-        creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
+        creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.owner).get_name()}"
         return "\n".join([header] + [f"{link} {creator}"]) if include_creator else "\n".join([header] + [link])
 
     def generate_group_members_list(self) -> str:
