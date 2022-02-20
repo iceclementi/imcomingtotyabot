@@ -1929,8 +1929,8 @@ class PollTemplate(object):
         return InlineKeyboardMarkup(buttons)
 
     def build_format_back_buttons(self, back_action: str) -> InlineKeyboardMarkup:
-        back_button = util.build_button("Back", TEMP_POLL_SUBJECT, back_action, self.temp_id)
-        cancel_button = util.build_button("Cancel", TEMP_POLL_SUBJECT, RESET, self.temp_id)
+        back_button = self.build_button("Back", back_action)
+        cancel_button = self.build_button("Cancel", RESET)
         buttons = [[cancel_button, back_button]]
         return InlineKeyboardMarkup(buttons)
 
@@ -2128,12 +2128,12 @@ class ListTemplate(object):
             return title_result, description_result, True
 
     def build_main_buttons(self) -> InlineKeyboardMarkup:
-        generate_poll_button = self.build_button("Generate Poll", POLL)
+        generate_list_button = self.build_button("Generate List", LIST)
         settings_buttons = self.build_button("Settings", SETTINGS)
         delete_template_button = self.build_button("Delete", DELETE)
         refresh_button = self.build_button("Refresh", REFRESH)
         close_button = self.build_button("Close", CLOSE)
-        buttons = [[generate_poll_button], [settings_buttons], [delete_template_button, refresh_button], [close_button]]
+        buttons = [[generate_list_button], [settings_buttons], [delete_template_button, refresh_button], [close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_format_title_buttons(self) -> InlineKeyboardMarkup:
@@ -2184,8 +2184,8 @@ class ListTemplate(object):
         return InlineKeyboardMarkup(buttons)
 
     def build_format_back_buttons(self, back_action: str) -> InlineKeyboardMarkup:
-        back_button = util.build_button("Back", TEMP_POLL_SUBJECT, back_action, self.temp_id)
-        cancel_button = util.build_button("Cancel", TEMP_POLL_SUBJECT, RESET, self.temp_id)
+        back_button = self.build_button("Back", back_action)
+        cancel_button = self.build_button("Cancel", RESET)
         buttons = [[cancel_button, back_button]]
         return InlineKeyboardMarkup(buttons)
 
