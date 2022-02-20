@@ -2083,7 +2083,7 @@ class ListTemplate(object):
         return "\n".join([title] + [creator] + [link]) if include_creator else "\n".join([title] + [link])
 
     def render_text(self) -> str:
-        header = f"<b>Poll List ({self.name})</b>"
+        header = f"<b>List Template ({self.name})</b>"
         title_body = f"<b>Title</b>\n{self.formatted_title.render_details()}"
         description_body = f"<b>Description</b>\n{self.formatted_description.render_details()}"
         options_body = f"<b>Options</b>\n{util.list_to_indexed_list_string(self.options)}"

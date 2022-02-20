@@ -148,7 +148,7 @@ GROUPS_GUIDE = "<b>/groups</b>\nView all the groups you are in"
 GROUP_POLLS_GUIDE = "<b>/gpolls</b>\nView all your group polls"
 GROUP_LISTS_GUIDE = "<b>/glists</b>\nView all your group lists"
 INVITE_GUIDE = "<b>/invite</b>\nSend an invite link to your friends to join your group"
-TEMPLATE_GUIDE = "<b>/temp</b> [{p|l} name]\nCreate templates for your polls and lists, " \
+TEMPLATE_GUIDE = "<b>/temp</b> [p/l name]\nCreate templates for your polls and lists, " \
                  "or create a poll or list based on the template\n" \
                  "<i>E.g. /temp p xyz</i>"
 TEMPLATES_GUIDE = "<b>/temps</b>\nView all the templates you have created"
@@ -906,15 +906,32 @@ def handle_temp_poll_view(update: Update, context: CallbackContext) -> None:
 
     temp_id = re.match(r"^/ptemp_(\w+)$", text).group(1)
     template: PollTemplate = PollTemplate.get_template_by_id(temp_id)
-    if not template:
+
+    if not template or template.creator_id != user.get_uid():
         handle_help(update, context)
         return
 
-    if template.creator_id == user.get_uid():
-        update.message.reply_html(template.render_text(), reply_markup=template.build_main_buttons())
+    update.message.reply_html(template.render_text(), reply_markup=template.build_main_buttons())
+    return
+
+
+def handle_temp_list_view(update: Update, context: CallbackContext) -> None:
+    """Displays the list template identified by its template id"""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    text = update.message.text
+
+    temp_id = re.match(r"^/ltemp_(\w+)$", text).group(1)
+    template: ListTemplate = ListTemplate.get_template_by_id(temp_id)
+
+    if not template or template.creator_id != user.get_uid():
+        handle_help(update, context)
         return
 
-    handle_help(update, context)
+    update.message.reply_html(template.render_text(), reply_markup=template.build_main_buttons())
     return
 
 
