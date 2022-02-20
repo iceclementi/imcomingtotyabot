@@ -476,7 +476,7 @@ class User(object):
     def render_template_list(self) -> str:
         header = "<b>Your Templates</b>"
 
-        user_templates = self.get_temp_polls()
+        user_templates = self.get_templates()
         if user_templates:
             body = [f"{i}. {template.generate_linked_summary()}" for i, template in enumerate(user_templates, 1)]
         else:
@@ -2079,7 +2079,7 @@ class ListTemplate(object):
     def generate_linked_summary(self, include_creator=False) -> str:
         title = f"<b>{self.name} {EMOJI_POLL}</b>"
         creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
-        link = f"/ptemp_{self.temp_id}"
+        link = f"/ltemp_{self.temp_id}"
         return "\n".join([title] + [creator] + [link]) if include_creator else "\n".join([title] + [link])
 
     def render_text(self) -> str:
