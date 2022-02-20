@@ -135,24 +135,24 @@ LOAD_COMMAND = "load"
 
 # endregion
 
-# region COMMAND GUIDE
+# region COMMAND HELP
 
-START_GUIDE = "<b>/start</b>\nView the bot's welcome message"
-KEYBOARD_GUIDE = "<b>/keyboard</b>\nChoose between showing or hiding the command keyboard"
-POLL_GUIDE = "<b>/poll</b> [title]\nBuild a new poll with an optional title"
-POLLS_GUIDE = "<b>/polls</b>\nView all the polls you have built"
-LIST_GUIDE = "<b>/list</b> [title]\nBuild a new list with an optional title"
-LISTS_GUIDE = "<b>/lists</b>\nView all the lists you have built"
-GROUP_GUIDE = "<b>/group</b> [name]\nCreate a new group with an optional name"
-GROUPS_GUIDE = "<b>/groups</b>\nView all the groups you are in"
-GROUP_POLLS_GUIDE = "<b>/gpolls</b>\nView all your group polls"
-GROUP_LISTS_GUIDE = "<b>/glists</b>\nView all your group lists"
-INVITE_GUIDE = "<b>/invite</b>\nSend an invite link to your friends to join your group"
-TEMPLATE_GUIDE = "<b>/temp</b> [p/l name]\nCreate templates for your polls and lists, " \
+START_HELP = "<b>/start</b>\nView the bot's welcome message"
+KEYBOARD_HELP = "<b>/keyboard</b>\nChoose between showing or hiding the command keyboard"
+POLL_HELP = "<b>/poll</b> [title]\nBuild a new poll with an optional title"
+POLLS_HELP = "<b>/polls</b>\nView all the polls you have built"
+LIST_HELP = "<b>/list</b> [title]\nBuild a new list with an optional title"
+LISTS_HELP = "<b>/lists</b>\nView all the lists you have built"
+GROUP_HELP = "<b>/group</b> [name]\nCreate a new group with an optional name"
+GROUPS_HELP = "<b>/groups</b>\nView all the groups you are in"
+GROUP_POLLS_HELP = "<b>/gpolls</b>\nView all your group polls"
+GROUP_LISTS_HELP = "<b>/glists</b>\nView all your group lists"
+INVITE_HELP = "<b>/invite</b>\nSend an invite link to your friends to join your group"
+TEMPLATE_HELP = "<b>/temp</b> [p/l name]\nCreate templates for your polls and lists, " \
                  "or create a poll or list based on the template\n" \
                  "<i>E.g. /temp p xyz</i>"
-TEMPLATES_GUIDE = "<b>/temps</b>\nView all the templates you have created"
-HELP_GUIDE = "<b>/help</b>\nView this help message"
+TEMPLATES_HELP = "<b>/temps</b>\nView all the templates you have created"
+HELP_HELP = "<b>/help</b>\nView this help message"
 
 # endregion
 
@@ -870,7 +870,7 @@ def handle_template(update: Update, context: CallbackContext) -> None:
             util.generate_button_details("Poll", models.TEMP_POLL),
             util.generate_button_details("List", models.TEMP_LIST)
         ],
-        [util.generate_button_details("Preset Format Guide", models.PRESET_GUIDE)],
+        [util.generate_button_details("Preset Format Guide", models.TEMP_GUIDE)],
         [util.generate_button_details("Close", models.CLOSE)]
     )
     update.message.reply_html(response_text, reply_markup=buttons)
@@ -946,15 +946,15 @@ def handle_help(update: Update, context: CallbackContext) -> None:
 
     header = [util.make_html_bold("Available Bot Commands")]
 
-    body = [START_GUIDE, KEYBOARD_GUIDE]
+    body = [START_HELP, KEYBOARD_HELP]
     if user:
         if is_leader:
-            body += [POLL_GUIDE, POLLS_GUIDE, LIST_GUIDE, LISTS_GUIDE, GROUP_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
-                     GROUP_LISTS_GUIDE, INVITE_GUIDE, TEMPLATE_GUIDE, TEMPLATES_GUIDE]
+            body += [POLL_HELP, POLLS_HELP, LIST_HELP, LISTS_HELP, GROUP_HELP, GROUPS_HELP, GROUP_POLLS_HELP,
+                     GROUP_LISTS_HELP, INVITE_HELP, TEMPLATE_HELP, TEMPLATES_HELP]
         else:
-            body += [POLL_GUIDE, POLLS_GUIDE, LIST_GUIDE, LISTS_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
-                     GROUP_LISTS_GUIDE, INVITE_GUIDE, TEMPLATE_GUIDE, TEMPLATES_GUIDE]
-    body += [HELP_GUIDE]
+            body += [POLL_HELP, POLLS_HELP, LIST_HELP, LISTS_HELP, GROUPS_HELP, GROUP_POLLS_HELP,
+                     GROUP_LISTS_HELP, INVITE_HELP, TEMPLATE_HELP, TEMPLATES_HELP]
+    body += [HELP_HELP]
 
     if not user:
         body += [util.make_html_italic(ACCESS_REQUEST)]
@@ -2111,7 +2111,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         context.user_data.clear()
         return
     # Handle preset button
-    elif action == models.PRESET:
+    elif action == models.TEMPLATE:
         query.answer(text=None)
         response_text = "Which <b>template</b> do you want to create?"
         buttons = util.build_multiple_stacked_buttons_markup(
@@ -2119,7 +2119,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
                 util.generate_button_details("Poll", models.TEMP_POLL),
                 util.generate_button_details("List", models.TEMP_LIST)
             ],
-            [util.generate_button_details("Preset Format Guide", models.PRESET_GUIDE)],
+            [util.generate_button_details("Preset Format Guide", models.TEMP_GUIDE)],
             [util.generate_button_details("Close", models.CLOSE)]
         )
         query.edit_message_text(response_text, parse_mode=ParseMode.HTML, reply_markup=buttons)
@@ -2153,11 +2153,11 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         context.user_data.update({"ed": reply_message.message_id})
         return
     # Handle preset format guide button
-    elif action == models.PRESET_GUIDE:
+    elif action == models.TEMP_GUIDE:
         query.answer(text="Here's the preset format guide!")
         query.edit_message_text(
             generate_preset_format_guide(), parse_mode=ParseMode.HTML,
-            reply_markup=util.build_single_button_markup("Back", models.PRESET)
+            reply_markup=util.build_single_button_markup("Back", models.TEMPLATE)
         )
         return
     # Handle edit button
@@ -2475,7 +2475,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             GROUP_DONE, parse_mode=ParseMode.HTML,
             reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
-        query.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_buttons())
+        query.message.reply_html(group.render_group_details_text(), reply_markup=group.build_main_buttons())
         query.answer(text="Group created successfully!")
 
         # Clear user data
@@ -2851,17 +2851,17 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         return
 
     # Handle view members button
-    if action == models.VIEW_MEMBERS:
+    if action == models.MEMBER:
         query.edit_message_text(
             group.render_group_members_text(), parse_mode=ParseMode.HTML,
-            reply_markup=group.build_members_view_buttons(back_action=models.BACK, is_owner=is_owner)
+            reply_markup=group.build_view_members_buttons(back_action=models.BACK, is_owner=is_owner)
         )
         query.answer(text=None)
         return
     # Handle remove member button
     elif action == models.REMOVE_MEMBER and is_owner:
         query.edit_message_reply_markup(
-            group.build_members_buttons(models.REMOVE_MEMBER, back_action=models.VIEW_MEMBERS)
+            group.build_members_buttons(models.REMOVE_MEMBER, back_action=models.MEMBER)
         )
         query.answer(text="Select a member to remove.")
         return
@@ -2883,14 +2883,14 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             logger.warning("Invalid callback query data.")
             query.answer(text="Invalid callback query data!")
             query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
-                                    reply_markup=group.build_group_details_buttons())
+                                    reply_markup=group.build_main_buttons())
 
         sub_action, identifier = match.group(2), match.group(3)
         if sub_action == models.REMOVE_MEMBER and is_owner:
             status = group.remove_member(identifier)
             query.answer(text=status)
             query.edit_message_text(group.render_group_members_text(), parse_mode=ParseMode.HTML,
-                                    reply_markup=group.build_members_view_buttons(back_action=models.BACK))
+                                    reply_markup=group.build_view_members_buttons(back_action=models.BACK))
             return
         elif sub_action == models.DELETE and is_owner:
             status = User.get_user_by_id(uid).delete_group(gid)
@@ -2906,12 +2906,12 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             logger.warning("Invalid callback query data.")
             query.answer(text="Invalid callback query data!")
             query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
-                                    reply_markup=group.build_group_details_buttons())
+                                    reply_markup=group.build_main_buttons())
             return
     # Handle view group polls button
     elif action == models.VIEW_GROUP_POLLS:
         query.edit_message_text(group.render_group_polls_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=group.build_polls_view_buttons(back_action=models.BACK))
+                                reply_markup=group.build_view_polls_buttons(back_action=models.BACK))
         query.answer(text=None)
         return
     # Handle add poll button and add poll choice button
@@ -3010,7 +3010,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     # Handle back button
     elif action == models.BACK:
         query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=group.build_group_details_buttons())
+                                reply_markup=group.build_main_buttons())
         query.answer(text=None)
         return
     # Handle close button
@@ -4248,7 +4248,7 @@ def refresh_lists(_list: List, context: CallbackContext, only_buttons=False) -> 
 
 def deliver_group(update: Update, group: Group) -> None:
     """Delivers the group details."""
-    update.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_buttons())
+    update.message.reply_html(group.render_group_details_text(), reply_markup=group.build_main_buttons())
     return
 
 

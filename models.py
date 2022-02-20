@@ -1,6 +1,7 @@
 """Backend models"""
 from __future__ import annotations
 
+from abc import abstractstaticmethod, abstractclassmethod, abstractmethod
 import json
 from datetime import datetime, timedelta
 import pytz
@@ -58,10 +59,8 @@ RESPONSE = "response"
 COMMENT = "comment"
 EDIT_COMMENT = "editComment"
 VOTE = "vote"
-DELETE = "del"
-DELETE_YES = "delYes"
 BACK = "back"
-VIEW_MEMBERS = "members"
+MEMBER = "mem"
 REMOVE_MEMBER = "delMember"
 VIEW_GROUP_POLLS = "polls"
 ADD_POLL = "poll"
@@ -79,10 +78,10 @@ SKIP = "skip"
 UPDATE_DONE = "updateDone"
 SHOW = "show"
 HIDE = "hide"
-PRESET = "preset"
+TEMPLATE = "temp"
 TEMP_POLL = "tPoll"
 TEMP_LIST = "tList"
-PRESET_GUIDE = "preGuide"
+TEMP_GUIDE = "guide"
 TEMP_TITLE = "tTitle"
 TEMP_DESCRIPTION = "tDescr"
 TEMP_TITLE_CODE = "tTitleCode"
@@ -90,6 +89,9 @@ TEMP_DESCRIPTION_CODE = "tDescrCode"
 EDIT = "edit"
 RENAME = "rename"
 ADD = "add"
+VIEW = "view"
+DELETE = "del"
+DELETE_YES = "delYes"
 
 # endregion
 
@@ -528,19 +530,20 @@ class Group(object):
         self.member_ids = member_ids
         self.poll_ids = poll_ids
         self.list_ids = list_ids
+        self._template_ids = set()
         self.created_date = created_date
 
     @staticmethod
-    def get_group_by_id(gid: str):
+    def get_group_by_id(gid: str) -> Group:
         return group_storage.get(gid, None)
 
     @staticmethod
-    def get_groups_by_ids(gids: set, filters="") -> list:
+    def get_groups_by_ids(gids: set, filters="") -> Lst[Group]:
         group_lists = [Group.get_group_by_id(gid) for gid in gids]
         return [group for group in group_lists if filters.lower() in group.get_name().lower()]
 
     @classmethod
-    def create_new(cls, name: str, uid: int, password=""):
+    def create_new(cls, name: str, uid: int, password="") -> Group:
         gid = util.generate_random_id(GROUP_ID_LENGTH, set(group_storage.keys()))
         group = cls(gid, name, uid, password, {uid}, set(), set(), datetime.now(tz=tz))
         group_storage[gid] = group
@@ -577,10 +580,10 @@ class Group(object):
     def get_owner(self) -> int:
         return self.owner
 
-    def get_member_ids(self) -> set:
+    def get_member_ids(self) -> Set[int]:
         return self.member_ids
 
-    def get_members(self) -> list:
+    def get_members(self) -> Lst[User]:
         members = [User.get_user_by_id(uid) for uid in self.member_ids]
         return sorted(members, key=lambda member: member.get_name().lower())
 
@@ -646,8 +649,29 @@ class Group(object):
         title = List.get_list_by_id(list_id).get_title()
         return f"List \"{title}\" has been removed from the group."
 
+    def get_template_ids(self) -> Set[str]:
+        return self._template_ids
+
+    def get_templates(self, filters="") -> Lst[Template]:
+        group_templates = Template.get_templates_by_ids(self._template_ids, filters)
+        return sorted(group_templates, key=lambda template: template.name.lower())
+
+    def add_template(self, temp_id: str) -> str:
+        template = Template.get_template_by_id(temp_id)
+        if temp_id in self._template_ids:
+            return f"The {template.temp_type} template already exists in the group."
+        self._template_ids.add(temp_id)
+        return f"{template.temp_type.capitalize()} template \"{template.name}\" is added to the group."
+
+    def remove_template(self, temp_id: str) -> str:
+        if temp_id not in self._template_ids:
+            return "The template does not exist in the group."
+        self._template_ids.remove(temp_id)
+        template = Template.get_template_by_id(temp_id)
+        return f"{template.temp_type.capitalize()} template \"{template.name}\" has been removed from the group."
+
     def generate_linked_summary(self, include_creator=False) -> str:
-        header = f"<b>{self.name[:60]}</b> ({len(self.member_ids)})"
+        header = f"<b>{self.name[:60]}</b> ({len(self.member_ids)} {EMOJI_PEOPLE})"
         link = f"/group_{self.gid}"
         creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.owner).get_name()}"
         return "\n".join([header] + [f"{link} {creator}"]) if include_creator else "\n".join([header] + [link])
@@ -671,7 +695,17 @@ class Group(object):
         if not self.poll_ids:
             return util.make_html_italic("You have no group polls. Go ahead and add a poll into the group!")
 
-        return "\n\n".join(poll.generate_linked_summary(include_creator=True) for poll in self.get_polls())
+        return util.list_to_indexed_list_string(
+            [poll.generate_linked_summary(include_creator=True) for poll in self.get_polls()], line_spacing=2
+        )
+
+    def generate_group_lists_list(self) -> str:
+        if not self.list_ids:
+            return util.make_html_italic("You have no group lists. Go ahead and add a list into the group!")
+
+        return util.list_to_indexed_list_string(
+            [poll.generate_linked_summary(include_creator=True) for _list in self.get_lists()], line_spacing=2
+        )
 
     def generate_group_description_summary(self) -> str:
         owner = [f"{EMOJI_CROWN} {User.get_user_by_id(self.owner).get_name()}"]
@@ -683,19 +717,19 @@ class Group(object):
     def render_group_details_text(self) -> str:
         title = util.make_html_bold(self.name)
         owner = f"{EMOJI_CROWN} {User.get_user_by_id(self.owner).get_name()}"
-        header = [f"{title}\n{owner}"]
+        header = f"{title}\n{owner}"
 
         member_count = f"{EMOJI_PEOPLE} {len(self.member_ids)}"
         poll_count = f"{EMOJI_POLL} {len(self.poll_ids)}"
         list_count = f"{EMOJI_LIST} {len(self.list_ids)}"
-        body = [f"{member_count: <8}{poll_count: <8}{list_count}"]
+        body = f"{member_count: <8}{poll_count: <8}{list_count: <8}"
 
-        footer = [util.make_html_italic(f"Created on: {util.format_date(self.created_date)}")]
-        return "\n\n".join(header + body + footer)
+        footer = util.make_html_italic(f"Created on: {util.format_date(self.created_date)}")
+        return "\n\n".join([header] + [body] + [footer])
 
     def render_group_members_text(self) -> str:
-        header = [util.make_html_bold(f"{self.name} Members")]
-        body = [self.generate_group_members_list()]
+        header = util.make_html_bold(f"{self.name} Members")
+        body = self.generate_group_members_list()
 
         if len(self.member_ids) == 0:
             footer_description = "No group members"
@@ -704,13 +738,13 @@ class Group(object):
         else:
             footer_description = f"{len(self.member_ids)} group members"
 
-        footer = [f"{EMOJI_PEOPLE} {footer_description}"]
+        footer = f"{EMOJI_PEOPLE} {footer_description}"
 
-        return "\n\n".join(header + body + footer)
+        return "\n\n".join([header] + [body] + [footer])
 
     def render_group_polls_text(self) -> str:
-        header = [util.make_html_bold(f"{self.name} Polls")]
-        body = [self.generate_group_polls_list()]
+        header = util.make_html_bold(f"{self.name} Polls")
+        body = self.generate_group_polls_list()
 
         if len(self.poll_ids) == 0:
             footer_description = "No group polls"
@@ -719,55 +753,84 @@ class Group(object):
         else:
             footer_description = f"{len(self.poll_ids)} group polls"
 
-        footer = [f"{EMOJI_POLL} {footer_description}"]
+        footer = f"{EMOJI_POLL} {footer_description}"
 
-        return "\n\n".join(header + body + footer)
+        return "\n\n".join([header] + [body] + [footer])
 
-    def build_invite_text_and_button(self, owner_name: str) -> tuple:
+    def render_group_lists_text(self) -> str:
+        header = util.make_html_bold(f"{self.name} Lists")
+        body = self.generate_group_lists_list()
+
+        if len(self.list_ids) == 0:
+            footer_description = "No group lists"
+        elif len(self.list_ids) == 1:
+            footer_description = "1 group list"
+        else:
+            footer_description = f"{len(self.list_ids)} group lists"
+
+        footer = f"{EMOJI_LIST} {footer_description}"
+
+        return "\n\n".join([header] + [body] + [footer])
+
+    def build_invite_text_and_button(self, owner_name: str) -> Tuple[str, InlineKeyboardMarkup]:
         invitation = f"You are invited to join {owner_name}'s <b>{self.name}</b> group!"
         join_button = util.build_switch_button("Join Group", f"/join {self.get_password_hash()}", to_self=True)
         return invitation, InlineKeyboardMarkup([[join_button]])
 
-    def build_group_details_buttons(self) -> InlineKeyboardMarkup:
-        view_members_button = util.build_button("View Members", GROUP_SUBJECT, VIEW_MEMBERS, self.gid)
-        view_polls_button = util.build_button("View Polls", GROUP_SUBJECT, VIEW_GROUP_POLLS, self.gid)
-        settings_button = util.build_button("Settings", GROUP_SUBJECT, SETTINGS, self.gid)
-        close_button = util.build_button("Close", GROUP_SUBJECT, CLOSE, self.gid)
-        buttons = [[view_members_button], [view_polls_button], [settings_button, close_button]]
+    def build_main_buttons(self) -> InlineKeyboardMarkup:
+        view_button = self.build_button("View", VIEW)
+        settings_button = self.build_button("Settings", SETTINGS)
+        refresh_button = self.build_button("Refresh", REFRESH)
+        close_button = self.build_button("Close", CLOSE)
+        buttons = [[view_button], [settings_button], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_members_view_buttons(self, back_action="", is_owner=False) -> InlineKeyboardMarkup:
+    def build_view_buttons(self) -> InlineKeyboardMarkup:
+        view_members_button = self.build_button("View Members", MEMBER)
+        view_polls_button = self.build_button("View Polls", POLL)
+        view_lists_button = self.build_button("View Lists", LIST)
+        view_templates_button = self.build_button("View Templates", TEMPLATE)
+        back_button = self.build_button("Back", BACK)
+        buttons = [
+            [view_members_button], [view_polls_button], [view_lists_button], [view_templates_button], [back_button]
+        ]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_view_members_buttons(self, is_owner=False) -> InlineKeyboardMarkup:
+        back_button = self.build_button("Back", VIEW)
+        if not is_owner:
+            return InlineKeyboardMarkup([[back_button]])
+
         buttons = []
-        if is_owner:
-            group_invite_button = util.build_switch_button("Send Group Invite", f"/invite {self.name}")
-            remove_member_button = util.build_button("Remove Member", GROUP_SUBJECT, REMOVE_MEMBER, self.gid)
-            buttons.append([group_invite_button])
+        group_invite_button = util.build_switch_button("Send Group Invite", f"/invite {self.name}")
+        buttons.append([group_invite_button])
+
+        if len(self.member_ids) > 1:
+            remove_member_button = self.build_button("Remove Member", f"{DELETE}_{MEMBER}")
             buttons.append([remove_member_button])
-        if back_action:
-            back_button = util.build_button("Back", GROUP_SUBJECT, back_action, self.gid)
-            buttons.append([back_button])
+
+        buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_members_buttons(self, member_action: str, back_action="") -> InlineKeyboardMarkup:
+    def build_members_buttons(self, member_action: str, back_action=MEMBER) -> InlineKeyboardMarkup:
         buttons = []
         for member in self.get_members():
             if member.get_uid() != self.owner:
-                member_button = util.build_button(
-                    member.get_name(), GROUP_SUBJECT, f"{member_action}_{member.get_uid()}", self.gid
-                )
+                member_button = self.build_button(member.get_name(), f"{member_action}_{member.get_uid()}")
                 buttons.append([member_button])
         if back_action:
-            back_button = util.build_button("Back", GROUP_SUBJECT, back_action, self.gid)
+            back_button = self.build_button("Back", back_action)
             buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_polls_view_buttons(self, back_action="") -> InlineKeyboardMarkup:
-        add_group_poll_button = util.build_button("Add Group Poll", GROUP_SUBJECT, ADD_POLL, self.gid)
-        remove_group_poll_button = util.build_button("Remove Group Poll", GROUP_SUBJECT, REMOVE_POLL, self.gid)
-        buttons = [[add_group_poll_button], [remove_group_poll_button]]
-        if back_action:
-            back_button = util.build_button("Back", GROUP_SUBJECT, back_action, self.gid)
-            buttons.append([back_button])
+    def build_view_polls_buttons(self, user_polls: Lst[Poll], is_owner=False) -> InlineKeyboardMarkup:
+        add_group_poll_button = self.build_button("Add Group Poll", f"{ADD}_{POLL}")
+        remove_group_poll_button = self.build_button("Remove Group Poll", f"{DELETE}_{POLL}")
+        back_button = self.build_button("Back", VIEW)
+        show_remove_button = \
+            len(self.poll_ids) and (is_owner or any(poll.get_poll_id() in self.get_poll_ids() for poll in user_polls))
+        buttons = [[add_group_poll_button], [remove_group_poll_button], [back_button]] if show_remove_button \
+            else [[add_group_poll_button], [back_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_polls_text_and_buttons(self, filters: list, filter_out=False, action="", back_action="") -> tuple:
@@ -776,36 +839,141 @@ class Group(object):
         else:
             polls = [poll for poll in filters if poll.get_poll_id() in self.get_poll_ids()]
 
-        back_button = util.build_button("Back", GROUP_SUBJECT, back_action, self.gid)
+        back_button = self.build_button("Back", back_action)
 
         if not polls:
             return "", InlineKeyboardMarkup([[back_button]])
 
         response = "\n\n".join(f"{i}. {poll.generate_linked_summary(True)}" for i, poll in enumerate(polls, 1))
-        buttons = [[util.build_button(poll.get_title(), GROUP_SUBJECT,
-                                      f"{action}_{poll.get_poll_id()}", self.gid)] for poll in polls]
+        buttons = [[self.build_button(poll.get_title(),
+                                      f"{action}_{poll.get_poll_id()}")] for poll in polls]
         buttons.append([back_button])
 
         return response, InlineKeyboardMarkup(buttons)
 
-    def build_settings_buttons(self, is_owner=False) -> InlineKeyboardMarkup:
-        if is_owner:
-            change_password_button = util.build_button("Change Password", GROUP_SUBJECT, CHANGE_SECRET, self.gid)
-            delete_group_button = util.build_button("Delete Group", GROUP_SUBJECT, DELETE, self.gid)
-            buttons = [[change_password_button], [delete_group_button]]
-        else:
-            leave_group_button = util.build_button("Leave Group", GROUP_SUBJECT, LEAVE_GROUP, self.gid)
-            buttons = [[leave_group_button]]
-        back_button = util.build_button("Back", GROUP_SUBJECT, BACK, self.gid)
+    def build_add_polls_buttons(self, user_polls: Lst[Poll]) -> InlineKeyboardMarkup:
+        polls = [poll for poll in user_polls if poll.get_poll_id() not in self.get_poll_ids()]
+
+        if not polls:
+            return self.build_single_back_button(POLL)
+
+        buttons = [[self.build_button(poll.get_title(), f"{ADD}_{POLL}_{poll.get_poll_id()}")] for poll in polls]
+        back_button = self.build_button("Back", POLL)
         buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_delete_confirmation_buttons(self, delete_text="Delete", delete_action="", back_action="") \
-            -> InlineKeyboardMarkup:
-        yes_button = util.build_button(delete_text, GROUP_SUBJECT, f"{DELETE_YES}_{delete_action}", self.gid)
-        no_button = util.build_button("No", GROUP_SUBJECT, back_action, self.gid)
-        buttons = [[yes_button, no_button]]
+    def build_remove_polls_buttons(self, user_polls: Lst[Poll], is_owner=False) -> InlineKeyboardMarkup:
+        if is_owner:
+            polls = self.get_polls()
+        else:
+            polls = [poll for poll in user_polls if poll.get_poll_id() in self.get_poll_ids()]
+
+        if not polls:
+            return self.build_single_back_button(POLL)
+
+        buttons = [[self.build_button(poll.get_title(), f"{DELETE}_{POLL}_{poll.get_poll_id()}")] for poll in polls]
+        back_button = self.build_button("Back", POLL)
+        buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
+
+    def build_view_lists_buttons(self, user_lists: Lst[List], is_owner=False) -> InlineKeyboardMarkup:
+        add_group_list_button = self.build_button("Add Group List", f"{ADD}_{LIST}")
+        remove_group_list_button = self.build_button("Remove Group List", f"{DELETE}_{LIST}")
+        back_button = self.build_button("Back", VIEW)
+        show_remove_button = \
+            len(self.list_ids) and (is_owner or any(_list.get_list_id() in self.get_list_ids() for _list in user_lists))
+        buttons = [[add_group_list_button], [remove_group_list_button], [back_button]] if show_remove_button \
+            else [[add_group_list_button], [back_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_add_lists_buttons(self, user_lists: Lst[List]) -> InlineKeyboardMarkup:
+        lists = [_list for _list in user_lists if _list.get_list_id() not in self.get_list_ids()]
+
+        if not lists:
+            return self.build_single_back_button(LIST)
+
+        buttons = [[self.build_button(_list.get_title(), f"{ADD}_{LIST}_{_list.get_list_id()}")] for _list in lists]
+        back_button = self.build_button("Back", LIST)
+        buttons.append([back_button])
+        return InlineKeyboardMarkup(buttons)
+
+    def build_remove_lists_buttons(self, user_lists: Lst[List], is_owner=False) -> InlineKeyboardMarkup:
+        if is_owner:
+            lists = self.get_lists()
+        else:
+            lists = [_list for _list in user_lists if _list.get_list_id() in self.get_list_ids()]
+
+        if not lists:
+            return self.build_single_back_button(LIST)
+
+        buttons = [[self.build_button(_list.get_title(), f"{DELETE}_{LIST}_{_list.get_list_id()}")] for _list in lists]
+        back_button = self.build_button("Back", LIST)
+        buttons.append([back_button])
+        return InlineKeyboardMarkup(buttons)
+
+    def build_view_templates_buttons(self, user_templates: Lst[Template], is_owner=False) -> InlineKeyboardMarkup:
+        add_group_template_button = self.build_button("Add Group Template", f"{ADD}_{TEMPLATE}")
+        remove_group_template_button = self.build_button("Remove Group Template", f"{DELETE}_{TEMPLATE}")
+        back_button = self.build_button("Back", VIEW)
+        show_remove_button = \
+            len(self.template_ids) and \
+            (is_owner or any(template.temp_id in self.get_template_ids() for template in user_templates))
+        buttons = [[add_group_template_button], [remove_group_template_button], [back_button]] if show_remove_button \
+            else [[add_group_template_button], [back_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_add_templates_buttons(self, user_templates: Lst[Template]) -> InlineKeyboardMarkup:
+        templates = [template for template in user_templates if template.temp_id not in self.get_template_ids()]
+
+        if not templates:
+            return self.build_single_back_button(TEMPLATE)
+
+        buttons = [[self.build_button(template.name, f"{ADD}_{TEMPLATE}_{template.temp_id}")] for template in templates]
+        back_button = self.build_button("Back", TEMPLATE)
+        buttons.append([back_button])
+        return InlineKeyboardMarkup(buttons)
+
+    def build_remove_templates_buttons(self, user_templates: Lst[Template], is_owner=False) -> InlineKeyboardMarkup:
+        if is_owner:
+            templates = self.get_templates()
+        else:
+            templates = [template for template in user_templates if template.temp_id in self.get_template_ids()]
+
+        if not templates:
+            return self.build_single_back_button(TEMPLATE)
+
+        buttons = [
+            [self.build_button(template.name, f"{DELETE}_{TEMPLATE}_{template.temp_id}")] for template in templates
+        ]
+        back_button = self.build_button("Back", TEMPLATE)
+        buttons.append([back_button])
+        return InlineKeyboardMarkup(buttons)
+
+    def build_settings_buttons(self, is_owner=False) -> InlineKeyboardMarkup:
+        if is_owner:
+            change_password_button = self.build_button("Change Password", CHANGE_SECRET)
+            delete_group_button = self.build_button("Delete Group", DELETE)
+            buttons = [[change_password_button], [delete_group_button]]
+        else:
+            leave_group_button = self.build_button("Leave Group", LEAVE_GROUP)
+            buttons = [[leave_group_button]]
+        back_button = self.build_button("Back", BACK)
+        buttons.append([back_button])
+        return InlineKeyboardMarkup(buttons)
+
+    def build_single_back_button(self, back_action: str) -> InlineKeyboardMarkup:
+        back_button = self.build_button("Back", back_action)
+        return InlineKeyboardMarkup([[back_button]])
+
+    def build_delete_confirm_buttons(self, delete_action: str, back_action: str, delete_text="Delete", back_text="No") \
+            -> InlineKeyboardMarkup:
+        delete_button = self.build_button(delete_text, f"{DELETE_YES}_{delete_action}")
+        back_button = self.build_button(back_text, back_action)
+        buttons = [[delete_button, back_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_button(self, text: str, action: str) -> InlineKeyboardButton:
+        return util.build_button(text, GROUP_SUBJECT, action, self.gid)
 
     def to_json(self) -> dict:
         return {
@@ -1730,59 +1898,40 @@ class FormatTextCode(object):
         }
 
 
-class PollTemplate(object):
+class Template(object):
+    TEMPLATE_TYPES = {"P": "poll", "L": "list"}
+
     def __init__(self, temp_id: str, name: str, formatted_title: FormatTextCode, formatted_description: FormatTextCode,
-                 options: Lst[str], single_response: bool, creator_id: int) -> None:
+                 creator_id: int) -> None:
         self._temp_id = temp_id
         self._name = name
         self._formatted_title = formatted_title
         self._formatted_description = formatted_description
-        self._options = options
-        self._is_single_response = single_response
         self._creator_id = creator_id
 
     @staticmethod
-    def get_template_by_id(temp_id: str) -> PollTemplate:
-        return temp_poll_storage.get(temp_id, None)
+    @abstractmethod
+    def get_template_by_id(temp_id: str) -> Template | None:
+        if temp_id.startswith("P"):
+            return PollTemplate.get_template_by_id(temp_id)
+        elif temp_id.startswith("L"):
+            return ListTemplate.get_template_by_id(temp_id)
+        else:
+            return None
 
     @staticmethod
-    def get_templates_by_ids(temp_ids: set, filters="") -> Lst[PollTemplate]:
-        template_lists = [PollTemplate.get_template_by_id(temp_id) for temp_id in temp_ids]
+    @abstractmethod
+    def get_templates_by_ids(temp_ids: set, filters="") -> Lst[Template]:
+        template_lists = [Template.get_template_by_id(temp_id) for temp_id in temp_ids]
         return [template for template in template_lists if filters.lower() in template.name.lower()]
-
-    @classmethod
-    def create_new(cls, name: str, format_title: str, format_description: str, options: Lst[str], single_response: bool,
-                   creator_id: int) -> PollTemplate:
-        temp_id = util.generate_random_id(POLL_ID_LENGTH, set(temp_poll_storage.keys()))
-        formatted_title = FormatTextCode.create_new(format_title)
-        formatted_description = FormatTextCode.create_new(format_description)
-        template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
-        temp_poll_storage[temp_id] = template
-        return template
-
-    @classmethod
-    def load(cls, temp_id: str, name: str, title: Dict[str, Dict[str, Lst[str]]],
-             description: Dict[str, Dict[str, Lst[str]]], options: Lst[str], single_response: bool,
-             creator_id: int) -> None:
-        formatted_title = FormatTextCode.load(
-            title.get(db.FORMAT_TEXT, ""),
-            title.get(db.FORMAT_CODES, dict())
-        )
-        formatted_description = FormatTextCode.load(
-            description.get(db.FORMAT_TEXT, ""),
-            description.get(db.FORMAT_CODES, dict())
-        )
-
-        template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
-        temp_poll_storage[temp_id] = template
-        return
-
-    def delete(self) -> None:
-        temp_poll_storage.pop(self._temp_id, None)
 
     @property
     def temp_id(self) -> str:
         return self._temp_id
+
+    @property
+    def temp_type(self) -> str:
+        return TEMPLATE_TYPES.get(self.temp_id[0], "")
 
     @property
     def name(self) -> str:
@@ -1810,6 +1959,53 @@ class PollTemplate(object):
     def formatted_description(self, new_description: str) -> None:
         self._formatted_description = FormatTextCode.create_new(new_description)
         return
+
+
+class PollTemplate(Template):
+    def __init__(self, temp_id: str, name: str, formatted_title: FormatTextCode, formatted_description: FormatTextCode,
+                 options: Lst[str], single_response: bool, creator_id: int) -> None:
+        super().__init__(temp_id, name, formatted_title, formatted_description, creator_id)
+        self._options = options
+        self._is_single_response = single_response
+
+    @staticmethod
+    def get_template_by_id(temp_id: str) -> PollTemplate:
+        return temp_poll_storage.get(temp_id, None)
+
+    @staticmethod
+    def get_templates_by_ids(temp_ids: set, filters="") -> Lst[PollTemplate]:
+        template_lists = [PollTemplate.get_template_by_id(temp_id) for temp_id in temp_ids]
+        return [template for template in template_lists if filters.lower() in template.name.lower()]
+
+    @classmethod
+    def create_new(cls, name: str, format_title: str, format_description: str, options: Lst[str], single_response: bool,
+                   creator_id: int) -> PollTemplate:
+        temp_id = "P" + util.generate_random_id(POLL_ID_LENGTH, set(temp_poll_storage.keys()))
+        formatted_title = FormatTextCode.create_new(format_title)
+        formatted_description = FormatTextCode.create_new(format_description)
+        template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
+        temp_poll_storage[temp_id] = template
+        return template
+
+    @classmethod
+    def load(cls, temp_id: str, name: str, title: Dict[str, Dict[str, Lst[str]]],
+             description: Dict[str, Dict[str, Lst[str]]], options: Lst[str], single_response: bool,
+             creator_id: int) -> None:
+        formatted_title = FormatTextCode.load(
+            title.get(db.FORMAT_TEXT, ""),
+            title.get(db.FORMAT_CODES, dict())
+        )
+        formatted_description = FormatTextCode.load(
+            description.get(db.FORMAT_TEXT, ""),
+            description.get(db.FORMAT_CODES, dict())
+        )
+
+        template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
+        temp_poll_storage[temp_id] = template
+        return
+
+    def delete(self) -> None:
+        temp_poll_storage.pop(self._temp_id, None)
 
     @property
     def options(self) -> Lst[str]:
@@ -1974,17 +2170,13 @@ class PollTemplate(object):
         }
 
 
-class ListTemplate(object):
+class ListTemplate(Template):
     def __init__(self, temp_id: str, name: str, formatted_title: FormatTextCode, formatted_description: FormatTextCode,
                  options: Lst[str], choices: Lst[str], single_response: bool, creator_id: int) -> None:
-        self._temp_id = temp_id
-        self._name = name
-        self._formatted_title = formatted_title
-        self._formatted_description = formatted_description
+        super().__init__(temp_id, name, formatted_title, formatted_description, creator_id)
         self._options = options
         self._choices = choices
         self._is_single_response = single_response
-        self._creator_id = creator_id
 
     @staticmethod
     def get_template_by_id(temp_id: str) -> ListTemplate:
@@ -1998,7 +2190,7 @@ class ListTemplate(object):
     @classmethod
     def create_new(cls, name: str, format_title: str, format_description: str, options: Lst[str], choices: Lst[str],
                    single_response: bool, creator_id: int) -> ListTemplate:
-        temp_id = util.generate_random_id(LIST_ID_LENGTH, set(temp_list_storage.keys()))
+        temp_id = "L" + util.generate_random_id(LIST_ID_LENGTH, set(temp_list_storage.keys()))
         formatted_title = FormatTextCode.create_new(format_title)
         formatted_description = FormatTextCode.create_new(format_description)
         template = \
@@ -2026,37 +2218,6 @@ class ListTemplate(object):
 
     def delete(self) -> None:
         temp_list_storage.pop(self._temp_id, None)
-
-    @property
-    def temp_id(self) -> str:
-        return self._temp_id
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @name.setter
-    def name(self, new_name: str) -> None:
-        self._name = new_name
-        return
-
-    @property
-    def formatted_title(self) -> FormatTextCode:
-        return self._formatted_title
-
-    @formatted_title.setter
-    def formatted_title(self, new_title: str) -> None:
-        self._formatted_title = FormatTextCode.create_new(new_title)
-        return
-
-    @property
-    def formatted_description(self) -> FormatTextCode:
-        return self._formatted_description
-
-    @formatted_description.setter
-    def formatted_description(self, new_description: str) -> None:
-        self._formatted_description = FormatTextCode.create_new(new_description)
-        return
 
     @property
     def options(self) -> Lst[str]:
