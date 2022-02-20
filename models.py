@@ -288,7 +288,7 @@ class User(object):
         _list = List.get_list_by_id(list_id)
         _list.delete()
 
-        return f"Poll {util.make_html_bold(list.get_title())} has been deleted."
+        return f"List {util.make_html_bold(_list.get_title())} has been deleted."
 
     def has_group_list(self, list_id: str) -> bool:
         return any(list_id in group.get_list_ids() for group in self.get_all_groups())
