@@ -611,9 +611,8 @@ class Group(object):
         return self.poll_ids
 
     def get_polls(self, filters="") -> Lst[Poll]:
-        group_polls = [Poll.get_poll_by_id(poll_id) for poll_id in self.poll_ids]
-        filtered_polls = [poll for poll in group_polls if filters.lower() in poll.get_title().lower()]
-        return sorted(filtered_polls, key=lambda poll: poll.get_created_date(), reverse=True)
+        group_polls = Poll.get_polls_by_ids(self.poll_ids, filters)
+        return sorted(group_polls, key=lambda poll: poll.get_created_date(), reverse=True)
 
     def add_poll(self, poll_id: str) -> str:
         if poll_id in self.poll_ids:
@@ -632,9 +631,8 @@ class Group(object):
         return self.list_ids
 
     def get_lists(self, filters="") -> Lst[List]:
-        group_lists = [Poll.get_list_by_id(list_id) for list_id in self.list_ids]
-        filtered_lists = [_list for _list in group_lists if filters.lower() in _list.get_title().lower()]
-        return sorted(filtered_lists, key=lambda _list: _list.get_created_date(), reverse=True)
+        group_lists = List.get_lists_by_ids(self.list_ids, filters)
+        return sorted(group_lists, key=lambda _list: _list.get_created_date(), reverse=True)
 
     def add_list(self, list_id: str) -> str:
         if list_id in self.list_ids:
@@ -940,7 +938,7 @@ class Group(object):
         remove_group_template_button = self.build_button("Remove Group Template", f"{DELETE}_{TEMPLATE}")
         back_button = self.build_button("Back", VIEW)
         show_remove_button = \
-            len(self.template_ids) and \
+            len(self._template_ids) and \
             (is_owner or any(template.temp_id in self.get_template_ids() for template in user_templates))
         buttons = [[add_group_template_button], [remove_group_template_button], [back_button]] if show_remove_button \
             else [[add_group_template_button], [back_button]]
