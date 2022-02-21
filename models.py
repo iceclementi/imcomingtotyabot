@@ -374,6 +374,19 @@ class User(object):
         temp_lists = self.get_temp_lists(filters)
         return sorted(temp_polls + temp_lists, key=lambda item: item.name.lower())
 
+    def get_group_temp_ids(self) -> Set[str]:
+        group_temp_ids = set()
+        for group in self.get_all_groups():
+            group_temp_ids.update(group.get_template_ids())
+        return group_temp_ids
+
+    def get_group_templates(self, filters="") -> Lst[Template]:
+        group_templates = Template.get_templates_by_ids(self.get_group_temp_ids(), filters)
+        return sorted(group_templates, key=lambda template: template.name.lower())
+
+    def has_group_template(self, temp_id: str) -> bool:
+        return any(temp_id in group.get_template_ids() for group in self.get_all_groups())
+
     def get_all_poll_ids(self) -> Set[str]:
         return self.poll_ids.union(self.get_group_poll_ids())
 
@@ -440,6 +453,22 @@ class User(object):
         footer = [f"{EMOJI_LIST} {list_count} group list{'' if list_count == 1 else 's'} in total"]
 
         return "\n\n".join(header + body + footer)
+
+    def render_group_template_list(self) -> str:
+        header = util.make_html_bold("Your Group Templates")
+
+        group_templates = self.get_group_templates()
+        if group_templates:
+            body = util.list_to_indexed_list_string(
+                [template.generate_linked_summary(True) for template in group_templates], line_spacing=2
+            )
+        else:
+            body = util.make_html_italic("You have no group templates!")
+
+        template_count = len(group_templates)
+        footer = f"{EMOJI_LIST} {template_count} group template{'' if template_count == 1 else 's'} in total"
+
+        return "\n\n".join([header] + [body] + [footer])
 
     def render_group_list(self) -> str:
         header = util.make_html_bold("Your Groups")
@@ -950,10 +979,10 @@ class Group(object):
         if not templates:
             return self.build_single_back_button(TEMPLATE)
 
-        buttons = []
-        for template in templates:
-            icon = EMOJI_POLL if template.temp_type == "poll" else EMOJI_LIST if template.temp_type == "list" else ""
-            buttons.append([self.build_button(f"{icon} {template.name}", f"{ADD}_{TEMPLATE}_{template.temp_id}")])
+        buttons = [
+            [self.build_button(f"{template.icon} {template.name}", f"{ADD}_{TEMPLATE}_{template.temp_id}")]
+            for template in templates
+        ]
 
         back_button = self.build_button("Back", TEMPLATE)
         buttons.append([back_button])
@@ -1925,6 +1954,7 @@ class FormatTextCode(object):
 
 class Template(object):
     TEMPLATE_TYPES = {"P": "poll", "L": "list"}
+    TEMPLATE_ICONS = {"poll": EMOJI_POLL, "list": EMOJI_LIST}
 
     def __init__(self, temp_id: str, name: str, formatted_title: FormatTextCode, formatted_description: FormatTextCode,
                  creator_id: int) -> None:
@@ -1959,6 +1989,10 @@ class Template(object):
         return self.TEMPLATE_TYPES.get(self.temp_id[0], "")
 
     @property
+    def icon(self) -> str:
+        return self.TEMPLATE_ICONS.get(self.temp_type, "")
+
+    @property
     def name(self) -> str:
         return self._name
 
@@ -1985,8 +2019,20 @@ class Template(object):
         self._formatted_description = FormatTextCode.create_new(new_description)
         return
 
+    @property
+    def creator_id(self) -> int:
+        return self._creator_id
+
     @abstractmethod
     def generate_linked_summary(self, include_creator=False) -> str:
+        pass
+
+    @abstractmethod
+    def render_text(self) -> str:
+        pass
+
+    @abstractmethod
+    def build_main_buttons(self) -> InlineKeyboardMarkup:
         pass
 
 
@@ -2049,10 +2095,6 @@ class PollTemplate(Template):
         self._is_single_response = new_response_type
         return
 
-    @property
-    def creator_id(self) -> int:
-        return self._creator_id
-
     def toggle_response_type(self) -> str:
         self.is_single_response = not self.is_single_response
         status = "single response" if self.is_single_response else "multi-response"
@@ -2060,7 +2102,7 @@ class PollTemplate(Template):
 
     def generate_linked_summary(self, include_creator=False) -> str:
         title = f"<b>{self.name} {EMOJI_POLL}</b>"
-        link = f"/ptemp_{self.temp_id}"
+        link = f"/temp_{self.temp_id}"
         creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
         return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
 
@@ -2265,10 +2307,6 @@ class ListTemplate(Template):
         self._is_single_response = new_response_type
         return
 
-    @property
-    def creator_id(self) -> int:
-        return self._creator_id
-
     def toggle_response_type(self) -> str:
         self.is_single_response = not self.is_single_response
         status = "single response" if self.is_single_response else "multi-response"
@@ -2276,7 +2314,7 @@ class ListTemplate(Template):
 
     def generate_linked_summary(self, include_creator=False) -> str:
         title = f"<b>{self.name} {EMOJI_LIST}</b>"
-        link = f"/ltemp_{self.temp_id}"
+        link = f"/temp_{self.temp_id}"
         creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
         return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
 

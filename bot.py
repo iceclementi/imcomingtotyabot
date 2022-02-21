@@ -121,13 +121,14 @@ POLL_COMMAND = "poll"
 POLLS_COMMAND = "polls"
 LIST_COMMAND = "list"
 LISTS_COMMAND = "lists"
+TEMPLATE_COMMAND = "temp"
+TEMPLATES_COMMAND = "temps"
 GROUP_COMMAND = "group"
 GROUPS_COMMAND = "groups"
 GROUP_POLLS_COMMAND = "gpolls"
 GROUP_LISTS_COMMAND = "glists"
+GROUP_TEMPLATES_COMMAND = "gtemps"
 INVITE_COMMAND = "invite"
-TEMPLATE_COMMAND = "temp"
-TEMPLATES_COMMAND = "temps"
 HELP_COMMAND = "help"
 ACCESS_COMMAND = "access"
 ENROL_COMMAND = "enrol"
@@ -145,15 +146,16 @@ POLL_HELP = "<b>/poll</b> [title]\nBuild a new poll with an optional title"
 POLLS_HELP = "<b>/polls</b>\nView all the polls you have built"
 LIST_HELP = "<b>/list</b> [title]\nBuild a new list with an optional title"
 LISTS_HELP = "<b>/lists</b>\nView all the lists you have built"
-GROUP_HELP = "<b>/group</b> [name]\nCreate a new group with an optional name"
-GROUPS_HELP = "<b>/groups</b>\nView all the groups you are in"
-GROUP_POLLS_HELP = "<b>/gpolls</b>\nView all your group polls"
-GROUP_LISTS_HELP = "<b>/glists</b>\nView all your group lists"
-INVITE_HELP = "<b>/invite</b>\nSend an invite link to your friends to join your group"
 TEMPLATE_HELP = "<b>/temp</b> [p/l name]\nCreate templates for your polls and lists, " \
                  "or create a poll or list based on the template\n" \
                  "<i>E.g. /temp p xyz</i>"
 TEMPLATES_HELP = "<b>/temps</b>\nView all the templates you have created"
+GROUP_HELP = "<b>/group</b> [name]\nCreate a new group with an optional name"
+GROUPS_HELP = "<b>/groups</b>\nView all the groups you are in"
+GROUP_POLLS_HELP = "<b>/gpolls</b>\nView all your group polls"
+GROUP_LISTS_HELP = "<b>/glists</b>\nView all your group lists"
+GROUP_TEMPLATES_HELP = "<b>/gtemps</b>\nView all your group templates"
+INVITE_HELP = "<b>/invite</b>\nSend an invite link to your friends to join your group"
 HELP_HELP = "<b>/help</b>\nView this help message"
 
 # endregion
@@ -561,7 +563,7 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
     uid = update.effective_user.id
     text = update.message.text
 
-    poll_id = re.match(r"^/poll_(\w+).*$", text).group(1)
+    poll_id = re.match(r"^/poll_(\w+)$", text).group(1)
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
         handle_help(update, context)
@@ -640,24 +642,132 @@ def handle_list_view(update: Update, context: CallbackContext) -> None:
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
-    if not is_registered(update.effective_user):
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    if not user:
         handle_help(update, context)
         return
 
-    uid = update.effective_user.id
     text = update.message.text.strip()
 
-    list_id = re.match(r"^/list_(\w+).*$", text).group(1)
+    list_id = re.match(r"^/list_(\w+)$", text).group(1)
     _list = List.get_list_by_id(list_id)
-    if not _list:
+
+    if not _list or (_list.get_creator_id() != user.get_uid() and not user.has_group_list(list_id)):
         handle_help(update, context)
         return
 
-    if _list.get_creator_id() == uid or User.get_user_by_id(uid).has_group_list(list_id):
-        deliver_list(update, _list)
+    deliver_list(update, _list)
+    return
+
+
+def handle_template(update: Update, context: CallbackContext) -> None:
+    """Creates custom templates to build polls and lists."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, _, _ = get_user_permissions(update.effective_user.id)
+
+    if not user:
+        handle_help(update, context)
         return
 
-    handle_help(update, context)
+    # Try to match the command to create a poll or list from a template
+    match = re.match(r"^/temp\s+(p|poll|l|list)\s+(\w+)\s*(\n(?:\n|.)*)?$", update.message.text.strip())
+    if match:
+        template_type, name, format_inputs = match.group(1), match.group(2), match.group(3)
+        format_inputs = format_inputs if format_inputs else ""
+        if template_type in ("p", "poll"):
+            temp_poll = user.get_temp_poll_by_name(name)
+            if not temp_poll:
+                response = f"No poll template with name <b>{name}</b> exists.\nUse /temps to view all your templates."
+                reply_message = update.message.reply_html(
+                    response, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+
+            title, description, is_valid = temp_poll.render_title_and_description(format_inputs)
+            if not is_valid:
+                reply_message = update.message.reply_html(
+                    title, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+            poll: Poll = user.create_poll_from_template(temp_poll.temp_id, title, description)
+            update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+            update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(user.get_uid()))
+            return
+        elif template_type in ("l", "list"):
+            temp_list = user.get_temp_list_by_name(name)
+            if not temp_list:
+                response = f"No list template with name <b>{name}</b> exists.\nUse /temps to view all your templates."
+                reply_message = update.message.reply_html(
+                    response, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+
+            title, description, is_valid = temp_list.render_title_and_description(format_inputs)
+            if not is_valid:
+                reply_message = update.message.reply_html(
+                    title, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+            _list: List = user.create_list_from_template(temp_list.temp_id, title, description)
+            update.message.reply_html(LIST_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+            update.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(user.get_uid()))
+            return
+
+    response_text = "Which <b>template</b> do you want to create?"
+    buttons = util.build_multiple_stacked_buttons_markup(
+        [
+            util.generate_button_details("Poll", models.TEMP_POLL),
+            util.generate_button_details("List", models.TEMP_LIST)
+        ],
+        [util.generate_button_details("Preset Format Guide", models.TEMP_GUIDE)],
+        [util.generate_button_details("Close", models.CLOSE)]
+    )
+    update.message.reply_html(response_text, reply_markup=buttons)
+    return
+
+
+def handle_templates(update: Update, context: CallbackContext) -> None:
+    """Views all the user's templates."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, _, _ = get_user_permissions(update.effective_user.id)
+
+    if not user:
+        handle_help(update, context)
+        return
+
+    update.message.reply_html(
+        user.render_template_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+    )
+    return
+
+
+def handle_template_view(update: Update, context: CallbackContext) -> None:
+    """Displays the template identified by its template id"""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    text = update.message.text
+
+    temp_id = re.match(r"^/temp_(\w+)$", text).group(1)
+    template: Template = Template.get_template_by_id(temp_id)
+
+    if not template or (template.creator_id != user.get_uid() and not user.has_group_template(temp_id)):
+        handle_help(update, context)
+        return
+
+    update.message.reply_html(template.render_text(), reply_markup=template.build_main_buttons())
     return
 
 
@@ -786,6 +896,23 @@ def handle_group_lists(update: Update, context: CallbackContext) -> None:
     return
 
 
+def handle_group_templates(update: Update, context: CallbackContext) -> None:
+    """Displays all group templates to the user."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    if not user:
+        handle_help(update, context)
+        return
+
+    update.message.reply_html(
+        user.render_group_list_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+    )
+    return
+
+
 def handle_invite(update: Update, context: CallbackContext) -> None:
     """Sends group invitation code."""
     delete_chat_message(update.message)
@@ -803,137 +930,6 @@ def handle_invite(update: Update, context: CallbackContext) -> None:
         update.message.reply_html(response, reply_markup=buttons)
     else:
         update.message.reply_html(util.make_html_italic("You do not own any groups!"), reply_markup=buttons)
-    return
-
-
-def handle_template(update: Update, context: CallbackContext) -> None:
-    """Creates custom templates to build polls and lists."""
-    delete_chat_message(update.message)
-    delete_old_chat_message(update, context)
-    context.user_data.clear()
-
-    user, _, _ = get_user_permissions(update.effective_user.id)
-
-    if not user:
-        handle_help(update, context)
-        return
-
-    # Try to match the command to create a poll or list from a template
-    match = re.match(r"^/temp\s+(p|poll|l|list)\s+(\w+)\s*(\n(?:\n|.)*)?$", update.message.text.strip())
-    if match:
-        template_type, name, format_inputs = match.group(1), match.group(2), match.group(3)
-        format_inputs = format_inputs if format_inputs else ""
-        if template_type in ("p", "poll"):
-            temp_poll = user.get_temp_poll_by_name(name)
-            if not temp_poll:
-                response = f"No poll template with name <b>{name}</b> exists.\nUse /temps to view all your templates."
-                reply_message = update.message.reply_html(
-                    response, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-                )
-                context.user_data.update({"del": reply_message.message_id})
-                return
-
-            title, description, is_valid = temp_poll.render_title_and_description(format_inputs)
-            if not is_valid:
-                reply_message = update.message.reply_html(
-                    title, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-                )
-                context.user_data.update({"del": reply_message.message_id})
-                return
-            poll: Poll = user.create_poll_from_template(temp_poll.temp_id, title, description)
-            update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
-            update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(user.get_uid()))
-            return
-        elif template_type in ("l", "list"):
-            temp_list = user.get_temp_list_by_name(name)
-            if not temp_list:
-                response = f"No list template with name <b>{name}</b> exists.\nUse /temps to view all your templates."
-                reply_message = update.message.reply_html(
-                    response, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-                )
-                context.user_data.update({"del": reply_message.message_id})
-                return
-
-            title, description, is_valid = temp_list.render_title_and_description(format_inputs)
-            if not is_valid:
-                reply_message = update.message.reply_html(
-                    title, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-                )
-                context.user_data.update({"del": reply_message.message_id})
-                return
-            _list: List = user.create_list_from_template(temp_list.temp_id, title, description)
-            update.message.reply_html(LIST_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
-            update.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(user.get_uid()))
-            return
-
-    response_text = "Which <b>template</b> do you want to create?"
-    buttons = util.build_multiple_stacked_buttons_markup(
-        [
-            util.generate_button_details("Poll", models.TEMP_POLL),
-            util.generate_button_details("List", models.TEMP_LIST)
-        ],
-        [util.generate_button_details("Preset Format Guide", models.TEMP_GUIDE)],
-        [util.generate_button_details("Close", models.CLOSE)]
-    )
-    update.message.reply_html(response_text, reply_markup=buttons)
-    return
-
-
-def handle_templates(update: Update, context: CallbackContext) -> None:
-    """Views all the user's templates."""
-    delete_chat_message(update.message)
-    delete_old_chat_message(update, context)
-    context.user_data.clear()
-
-    user, _, _ = get_user_permissions(update.effective_user.id)
-
-    if not user:
-        handle_help(update, context)
-        return
-
-    update.message.reply_html(
-        user.render_template_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-    )
-    return
-
-
-def handle_temp_poll_view(update: Update, context: CallbackContext) -> None:
-    """Displays the poll template identified by its template id"""
-    delete_chat_message(update.message)
-    delete_old_chat_message(update, context)
-    context.user_data.clear()
-
-    user, _, _ = get_user_permissions(update.effective_user.id)
-    text = update.message.text
-
-    temp_id = re.match(r"^/ptemp_(\w+)$", text).group(1)
-    template: PollTemplate = PollTemplate.get_template_by_id(temp_id)
-
-    if not template or template.creator_id != user.get_uid():
-        handle_help(update, context)
-        return
-
-    update.message.reply_html(template.render_text(), reply_markup=template.build_main_buttons())
-    return
-
-
-def handle_temp_list_view(update: Update, context: CallbackContext) -> None:
-    """Displays the list template identified by its template id"""
-    delete_chat_message(update.message)
-    delete_old_chat_message(update, context)
-    context.user_data.clear()
-
-    user, _, _ = get_user_permissions(update.effective_user.id)
-    text = update.message.text
-
-    temp_id = re.match(r"^/ltemp_(\w+)$", text).group(1)
-    template: ListTemplate = ListTemplate.get_template_by_id(temp_id)
-
-    if not template or template.creator_id != user.get_uid():
-        handle_help(update, context)
-        return
-
-    update.message.reply_html(template.render_text(), reply_markup=template.build_main_buttons())
     return
 
 
@@ -2545,27 +2541,27 @@ def handle_show_command_callback_query(query: CallbackQuery, context: CallbackCo
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
             [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}"],
-            [f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
-            [f"/{TEMPLATE_COMMAND}", f"/{TEMPLATES_COMMAND}", f"/{ACCESS_COMMAND}"],
-            [f"/{ENROL_COMMAND}", f"/{PROMOTE_COMMAND}", f"/{SAVE_COMMAND}"],
-            [f"/{LOAD_COMMAND}", ".", "."]
+            [f"/{LISTS_COMMAND}", f"/{TEMPLATE_COMMAND}", f"/{TEMPLATES_COMMAND}"],
+            [f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}"],
+            [f"/{GROUP_LISTS_COMMAND}", f"/{GROUP_TEMPLATES_COMMAND}", f"/{INVITE_COMMAND}"],
+            [f"/{ACCESS_COMMAND}", f"/{ENROL_COMMAND}", f"/{PROMOTE_COMMAND}"],
+            [f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}", "."]
         )
     elif is_leader:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
             [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}"],
-            [f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
-            [f"/{TEMPLATE_COMMAND}", f"/{TEMPLATES_COMMAND}", "."]
+            [f"/{LISTS_COMMAND}", f"/{TEMPLATE_COMMAND}", f"/{TEMPLATES_COMMAND}"],
+            [f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}"],
+            [f"/{GROUP_LISTS_COMMAND}", f"/{GROUP_TEMPLATES_COMMAND}", f"/{INVITE_COMMAND}"]
         )
     else:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
             [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}"],
-            [f"/{LISTS_COMMAND}", f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}"],
-            [f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}", f"/{TEMPLATE_COMMAND}"],
-            [f"/{TEMPLATES_COMMAND}", ".", "."]
+            [f"/{LISTS_COMMAND}", f"/{TEMPLATE_COMMAND}", f"/{TEMPLATES_COMMAND}"],
+            [f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
+            [f"/{GROUP_TEMPLATES_COMMAND}", f"/{INVITE_COMMAND}", "."]
         )
 
     reply_message = query.message.reply_html("Loading command keyboard...", reply_markup=ReplyKeyboardRemove())
@@ -4120,20 +4116,11 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         # Handle templates query
         elif command == TEMPLATES_COMMAND and user and is_sender:
             for template in user.get_templates(details)[:QUERY_RESULTS_LIMIT]:
-                if type(template) == PollTemplate:
-                    query_result = InlineQueryResultArticle(
-                        id=f"ptemp_{template.temp_id}", title=template.name,
-                        description="Poll template",
-                        input_message_content=InputTextMessageContent(f"/ptemp_{template.temp_id}")
-                    )
-                elif type(template) == ListTemplate:
-                    query_result = InlineQueryResultArticle(
-                        id=f"ltemp_{template.temp_id}", title=template.name,
-                        description="List template",
-                        input_message_content=InputTextMessageContent(f"/ltemp_{template.temp_id}")
-                    )
-                else:
-                    continue
+                query_result = InlineQueryResultArticle(
+                    id=f"temp_{template.temp_id}", title=template.name,
+                    description=f"{template.icon} {template.temp_type.capitalize()} template",
+                    input_message_content=InputTextMessageContent(f"/temp_{template.temp_id}")
+                )
                 results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your templates", switch_pm_parameter=command)
             return
@@ -4493,44 +4480,44 @@ def main() -> None:
     # Dispatcher to register handlers
     dispatcher = updater.dispatcher
 
+    private_filter = Filters.chat_type.private
+
     # Command handlers
-    dispatcher.add_handler(CommandHandler(START_COMMAND, handle_start, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(KEYBOARD_COMMAND, handle_keyboard, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(POLL_COMMAND, handle_poll, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(POLLS_COMMAND, handle_polls, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(LIST_COMMAND, handle_list, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(LISTS_COMMAND, handle_lists, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(GROUP_COMMAND, handle_group, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(GROUPS_COMMAND, handle_groups, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(GROUP_POLLS_COMMAND, handle_group_polls, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(GROUP_LISTS_COMMAND, handle_group_lists, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(INVITE_COMMAND, handle_invite, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(TEMPLATE_COMMAND, handle_template, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(TEMPLATES_COMMAND, handle_templates, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(HELP_COMMAND, handle_help, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(ACCESS_COMMAND, handle_access, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(ENROL_COMMAND, handle_enrol, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(PROMOTE_COMMAND, handle_promote, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(SAVE_COMMAND, handle_save, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(LOAD_COMMAND, handle_load, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(START_COMMAND, handle_start, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(KEYBOARD_COMMAND, handle_keyboard, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(POLL_COMMAND, handle_poll, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(POLLS_COMMAND, handle_polls, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(LIST_COMMAND, handle_list, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(LISTS_COMMAND, handle_lists, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(GROUP_COMMAND, handle_group, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(GROUPS_COMMAND, handle_groups, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(GROUP_POLLS_COMMAND, handle_group_polls, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(GROUP_LISTS_COMMAND, handle_group_lists, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(GROUP_TEMPLATES_COMMAND, handle_group_templates, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(INVITE_COMMAND, handle_invite, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(TEMPLATE_COMMAND, handle_template, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(TEMPLATES_COMMAND, handle_templates, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(HELP_COMMAND, handle_help, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(ACCESS_COMMAND, handle_access, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(ENROL_COMMAND, handle_enrol, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(PROMOTE_COMMAND, handle_promote, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(SAVE_COMMAND, handle_save, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(LOAD_COMMAND, handle_load, filters=private_filter))
 
     # Message handlers
     dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/poll_\w+$") & Filters.chat_type.private), handle_poll_view)
+        MessageHandler((Filters.regex(r"^\/poll_\w+$") & private_filter), handle_poll_view)
     )
     dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/list_\w+$") & Filters.chat_type.private), handle_list_view)
+        MessageHandler((Filters.regex(r"^\/list_\w+$") & private_filter), handle_list_view)
     )
     dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/group_\w+$") & Filters.chat_type.private), handle_group_view)
+        MessageHandler((Filters.regex(r"^\/group_\w+$") & private_filter), handle_group_view)
     )
     dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/ptemp_\w+$") & Filters.chat_type.private), handle_temp_poll_view)
+        MessageHandler((Filters.regex(r"^\/temp_\w+$") & private_filter), handle_template_view)
     )
-    dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/ltemp_\w+$") & Filters.chat_type.private), handle_temp_list_view)
-    )
-    dispatcher.add_handler(MessageHandler((Filters.text & Filters.chat_type.private), handle_message))
+    dispatcher.add_handler(MessageHandler((Filters.text & private_filter), handle_message))
 
     # Callback query handlers
     dispatcher.add_handler(CallbackQueryHandler(handle_callback_query))
