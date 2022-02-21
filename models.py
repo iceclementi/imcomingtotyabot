@@ -1952,7 +1952,7 @@ class Template(object):
 
     @property
     def temp_type(self) -> str:
-        return TEMPLATE_TYPES.get(self.temp_id[0], "")
+        return self.TEMPLATE_TYPES.get(self.temp_id[0], "")
 
     @property
     def name(self) -> str:
