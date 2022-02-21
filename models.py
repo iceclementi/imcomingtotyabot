@@ -312,15 +312,11 @@ class User(object):
         self._temp_poll_ids.add(temp_poll.temp_id)
         return temp_poll, f"Poll template {util.make_html_bold(name)} created!"
 
-    def delete_temp_poll(self, temp_id: str) -> str:
-        if temp_id not in self._temp_poll_ids:
-            return "No such poll template exists."
+    def delete_temp_poll(self, temp_id: str) -> None:
         self._temp_poll_ids.remove(temp_id)
-
         temp_poll = PollTemplate.get_template_by_id(temp_id)
         temp_poll.delete()
-
-        return f"Poll {util.make_html_bold(temp_poll.get_title())} has been deleted."
+        return
 
     def has_temp_poll_with_name(self, name: str) -> bool:
         return any(temp_poll.name.lower() == name.lower() for temp_poll in self.get_temp_polls())
@@ -349,15 +345,11 @@ class User(object):
         self._temp_list_ids.add(temp_list.temp_id)
         return temp_list, f"List template {util.make_html_bold(name)} created!"
 
-    def delete_temp_list(self, temp_id: str) -> str:
-        if temp_id not in self._temp_list_ids:
-            return "No such list template exists."
+    def delete_temp_list(self, temp_id: str) -> None:
         self._temp_list_ids.remove(temp_id)
-
         temp_list = ListTemplate.get_template_by_id(temp_id)
         temp_list.delete()
-
-        return f"List {util.make_html_bold(temp_list.get_title())} has been deleted."
+        return
 
     def has_temp_list_with_name(self, name: str) -> bool:
         return any(temp_list.name.lower() == name.lower() for temp_list in self.get_temp_lists())

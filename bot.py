@@ -2238,13 +2238,13 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         user_action, step = context.user_data.get("action", ""), context.user_data.get("step", 0)
         if user_action == models.TEMP_POLL and step == 4:
             response_text = "Finally, enter a unique <b>name</b> for your template for reference."
-            reply_message = query.edit_message_text(
+            query.edit_message_text(
                 response_text, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_buttons_markup(
                     util.generate_button_details("Cancel", models.RESET)
                 )
             )
             query.answer(response)
-            context.user_data.update({"step": 5, "response": is_single_response, "del": reply_message.message_id})
+            context.user_data.update({"step": 5, "response": is_single_response})
             return
         elif user_action == models.TEMP_LIST and step == 5:
             response_text = "Finally, enter a unique <b>name</b> for your template for reference."
@@ -2259,6 +2259,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         else:
             query.answer(text="Invalid callback query data in poll template response type!")
             logger.warning("Invalid callback query data.")
+            query.edit_message_reply_markup(None)
             query.message.delete()
             return
     # Handle other cases
@@ -3491,8 +3492,8 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     # Handle delete template button
     elif action == f"{models.DELETE_YES}_{models.TEMP_POLL}":
         user.delete_temp_poll(temp_id)
-        message.delete()
         query.answer(text="Poll template deleted!")
+        message.delete()
         return
     # Handle remove description button
     elif action == f"{models.DELETE_YES}_{models.DESCRIPTION}":
