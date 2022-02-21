@@ -2899,7 +2899,9 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
 
     # Handle view button
     if action == models.VIEW:
-        query.edit_message_reply_markup(group.build_view_buttons())
+        query.edit_message_text(
+            group.render_group_details_text(), parse_mode=ParseMode.HTML, reply_markup=group.build_view_buttons()
+        )
         query.answer(text=None)
         return
     # Handle view members button
@@ -2984,7 +2986,9 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             return
 
         query.edit_message_reply_markup(
-            group.build_delete_confirm_buttons(action, f"{models.POLL}_{poll_id}", delete_text="Remove")
+            group.build_delete_confirm_buttons(
+                f"{models.POLL}_{poll_id}", f"{models.DELETE}_{models.POLL}", delete_text="Remove"
+            )
         )
         query.answer(text=f"Confirm remove \"{poll.get_title()}\" from the group?")
         return
@@ -3051,7 +3055,9 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             return
 
         query.edit_message_reply_markup(
-            group.build_delete_confirm_buttons(action, f"{models.LIST}_{list_id}", delete_text="Remove")
+            group.build_delete_confirm_buttons(
+                f"{models.LIST}_{list_id}", f"{models.DELETE}_{models.LIST}", delete_text="Remove"
+            )
         )
         query.answer(text=f"Confirm remove \"{_list.get_title()}\" from the group?")
         return
@@ -3118,7 +3124,9 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             return
 
         query.edit_message_reply_markup(
-            group.build_delete_confirm_buttons(action, f"{models.TEMPLATE}_{temp_id}", delete_text="Remove")
+            group.build_delete_confirm_buttons(
+                f"{models.TEMPLATE}_{temp_id}", f"{models.DELETE}_{models.TEMPLATE}", delete_text="Remove"
+            )
         )
         query.answer(text=f"Confirm remove \"{template.name}\" from the group?")
         return
