@@ -233,6 +233,12 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
     elif command == LISTS_COMMAND:
         handle_lists(update, context)
         return
+    elif command == TEMPLATE_COMMAND:
+        handle_template(update, context)
+        return
+    elif command == TEMPLATES_COMMAND:
+        handle_templates(update, context)
+        return
     elif command == GROUP_COMMAND:
         name = context.user_data.get("name", "")
         update.message.text = f"/{command} {name}"
@@ -247,14 +253,11 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
     elif command == GROUP_LISTS_COMMAND:
         handle_group_lists(update, context)
         return
+    elif command == GROUP_TEMPLATES_COMMAND:
+        handle_group_templates(update, context)
+        return
     elif command == INVITE_COMMAND:
         handle_invite(update, context)
-        return
-    elif command == TEMPLATE_COMMAND:
-        handle_template(update, context)
-        return
-    elif command == TEMPLATES_COMMAND:
-        handle_templates(update, context)
         return
     elif command == ENROL_COMMAND:
         handle_enrol(update, context)
@@ -266,7 +269,7 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
         handle_help(update, context)
         return
     else:
-        logger.warning("Illegal pm command!")
+        handle_start(update, context)
         return
 
 
@@ -866,11 +869,10 @@ def handle_group_polls(update: Update, context: CallbackContext) -> None:
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
-    if not is_registered(update.effective_user):
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    if not user:
         handle_help(update, context)
         return
-
-    user = User.get_user_by_id(update.effective_user.id)
 
     update.message.reply_html(
         user.render_group_poll_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
@@ -884,11 +886,10 @@ def handle_group_lists(update: Update, context: CallbackContext) -> None:
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
-    if not is_registered(update.effective_user):
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    if not user:
         handle_help(update, context)
         return
-
-    user = User.get_user_by_id(update.effective_user.id)
 
     update.message.reply_html(
         user.render_group_list_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
@@ -908,7 +909,7 @@ def handle_group_templates(update: Update, context: CallbackContext) -> None:
         return
 
     update.message.reply_html(
-        user.render_group_list_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+        user.render_group_template_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
     )
     return
 
@@ -3903,6 +3904,20 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 input_message_content=InputTextMessageContent("/lists")
             )
             results.append(query_result)
+        # Handle template query
+        if TEMPLATE_COMMAND[:-1].startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id="tempcom", title="/temp", description="Create a new poll or list template",
+                input_message_content=InputTextMessageContent("/temp")
+            )
+            results.append(query_result)
+        # Handle templates query
+        if TEMPLATES_COMMAND[:-1].startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id="tempscom", title="/temps", description="View all the templates you have created",
+                input_message_content=InputTextMessageContent("/temps")
+            )
+            results.append(query_result)
         # Handle group query
         if GROUP_COMMAND[:-1].startswith(command) and is_leader:
             query_result = InlineQueryResultArticle(
@@ -3920,15 +3935,22 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         # Handle group polls query
         if GROUP_POLLS_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
-                id="grouppollscom", title="/gpolls", description="View all the polls in your groups",
+                id="gpollscom", title="/gpolls", description="View all the polls in your groups",
                 input_message_content=InputTextMessageContent("/gpolls")
             )
             results.append(query_result)
         # Handle group lists query
         if GROUP_LISTS_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
-                id="grouplistscom", title="/glists", description="View all the lists in your groups",
+                id="glistscom", title="/glists", description="View all the lists in your groups",
                 input_message_content=InputTextMessageContent("/glists")
+            )
+            results.append(query_result)
+        # Handle group templates query
+        if GROUP_TEMPLATES_COMMAND[:-1].startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id="gtempscom", title="/gtemps", description="View all the templates in your groups",
+                input_message_content=InputTextMessageContent("/gtemps")
             )
             results.append(query_result)
         # Handle invite query
@@ -3936,20 +3958,6 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             query_result = InlineQueryResultArticle(
                 id="invitecom", title="/invite", description="Send a group invite to your friends",
                 input_message_content=InputTextMessageContent("/invite")
-            )
-            results.append(query_result)
-        # Handle template query
-        if TEMPLATE_COMMAND[:-1].startswith(command) and user:
-            query_result = InlineQueryResultArticle(
-                id="tempcom", title="/temp", description="Create a new poll or list template",
-                input_message_content=InputTextMessageContent("/temp")
-            )
-            results.append(query_result)
-        # Handle templates query
-        if TEMPLATES_COMMAND[:-1].startswith(command) and user:
-            query_result = InlineQueryResultArticle(
-                id="tempscom", title="/temps", description="View all the templates you have created",
-                input_message_content=InputTextMessageContent("/temps")
             )
             results.append(query_result)
         # Handle access query
@@ -4037,49 +4045,6 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your lists", switch_pm_parameter=command)
             return
-        # Handle group query
-        elif command == GROUP_COMMAND and is_leader and is_sender:
-            if details:
-                context.user_data.update({"name": details})
-                query.answer(
-                    results, switch_pm_text="Click to create a new group with a name", switch_pm_parameter=command
-                )
-            else:
-                query.answer(results, switch_pm_text="Click to create a new group", switch_pm_parameter=command)
-            return
-        # Handle groups query
-        elif command == GROUPS_COMMAND and user and is_sender:
-            for group in user.get_all_groups(details)[:QUERY_RESULTS_LIMIT]:
-                query_result = InlineQueryResultArticle(
-                    id=f"group_{group.get_gid()}", title=group.get_name(),
-                    description=group.generate_group_description_summary(),
-                    input_message_content=InputTextMessageContent(f"/group_{group.get_gid()}")
-                )
-                results.append(query_result)
-            query.answer(results, switch_pm_text="Click to view all your joined groups", switch_pm_parameter=command)
-            return
-        # Handle group polls query
-        elif command == GROUP_POLLS_COMMAND and user and is_sender:
-            for poll in user.get_group_polls(details)[:QUERY_RESULTS_LIMIT]:
-                query_result = InlineQueryResultArticle(
-                    id=f"gpoll_{poll.get_poll_id()}", title=poll.get_title(),
-                    description=poll.generate_options_summary(),
-                    input_message_content=InputTextMessageContent(f"/poll_{poll.get_poll_id()}")
-                )
-                results.append(query_result)
-            query.answer(results, switch_pm_text="Click to view all your group polls", switch_pm_parameter=command)
-            return
-        # Handle group lists query
-        elif command == GROUP_LISTS_COMMAND and user and is_sender:
-            for _list in user.get_group_lists(details)[:QUERY_RESULTS_LIMIT]:
-                query_result = InlineQueryResultArticle(
-                    id=f"glist_{_list.get_list_id()}", title=_list.get_title(),
-                    description=_list.generate_options_summary(),
-                    input_message_content=InputTextMessageContent(f"/list_{_list.get_list_id()}")
-                )
-                results.append(query_result)
-            query.answer(results, switch_pm_text="Click to view all your group lists", switch_pm_parameter=command)
-            return
         # Handle template query
         elif command == TEMPLATE_COMMAND and user and is_sender:
             create_match = re.match(r"^(p|poll|l|list)\s+(\w+)\s*(\n(?:\n|.)*)?$", details)
@@ -4123,6 +4088,60 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 )
                 results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your templates", switch_pm_parameter=command)
+            return
+        # Handle group query
+        elif command == GROUP_COMMAND and is_leader and is_sender:
+            if details:
+                context.user_data.update({"name": details})
+                query.answer(
+                    results, switch_pm_text="Click to create a new group with a name", switch_pm_parameter=command
+                )
+            else:
+                query.answer(results, switch_pm_text="Click to create a new group", switch_pm_parameter=command)
+            return
+        # Handle groups query
+        elif command == GROUPS_COMMAND and user and is_sender:
+            for group in user.get_all_groups(details)[:QUERY_RESULTS_LIMIT]:
+                query_result = InlineQueryResultArticle(
+                    id=f"group_{group.get_gid()}", title=group.get_name(),
+                    description=group.generate_group_description_summary(),
+                    input_message_content=InputTextMessageContent(f"/group_{group.get_gid()}")
+                )
+                results.append(query_result)
+            query.answer(results, switch_pm_text="Click to view all your joined groups", switch_pm_parameter=command)
+            return
+        # Handle group polls query
+        elif command == GROUP_POLLS_COMMAND and user and is_sender:
+            for poll in user.get_group_polls(details)[:QUERY_RESULTS_LIMIT]:
+                query_result = InlineQueryResultArticle(
+                    id=f"gpoll_{poll.get_poll_id()}", title=poll.get_title(),
+                    description=poll.generate_options_summary(),
+                    input_message_content=InputTextMessageContent(f"/poll_{poll.get_poll_id()}")
+                )
+                results.append(query_result)
+            query.answer(results, switch_pm_text="Click to view all your group polls", switch_pm_parameter=command)
+            return
+        # Handle group lists query
+        elif command == GROUP_LISTS_COMMAND and user and is_sender:
+            for _list in user.get_group_lists(details)[:QUERY_RESULTS_LIMIT]:
+                query_result = InlineQueryResultArticle(
+                    id=f"glist_{_list.get_list_id()}", title=_list.get_title(),
+                    description=_list.generate_options_summary(),
+                    input_message_content=InputTextMessageContent(f"/list_{_list.get_list_id()}")
+                )
+                results.append(query_result)
+            query.answer(results, switch_pm_text="Click to view all your group lists", switch_pm_parameter=command)
+            return
+        # Handle group templates query
+        elif command == GROUP_TEMPLATES_COMMAND and user and is_sender:
+            for template in user.get_group_templates(details)[:QUERY_RESULTS_LIMIT]:
+                query_result = InlineQueryResultArticle(
+                    id=f"gtemp_{template.temp_id}", title=template.name,
+                    description=f"{template.icon} {template.temp_type.capitalize()} template",
+                    input_message_content=InputTextMessageContent(f"/temp_{template.get_template_id()}")
+                )
+                results.append(query_result)
+            query.answer(results, switch_pm_text="Click to view all your group templates", switch_pm_parameter=command)
             return
         # Handle invite query
         elif command == INVITE_COMMAND and user:
@@ -4489,14 +4508,14 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler(POLLS_COMMAND, handle_polls, filters=private_filter))
     dispatcher.add_handler(CommandHandler(LIST_COMMAND, handle_list, filters=private_filter))
     dispatcher.add_handler(CommandHandler(LISTS_COMMAND, handle_lists, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(TEMPLATE_COMMAND, handle_template, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(TEMPLATES_COMMAND, handle_templates, filters=private_filter))
     dispatcher.add_handler(CommandHandler(GROUP_COMMAND, handle_group, filters=private_filter))
     dispatcher.add_handler(CommandHandler(GROUPS_COMMAND, handle_groups, filters=private_filter))
     dispatcher.add_handler(CommandHandler(GROUP_POLLS_COMMAND, handle_group_polls, filters=private_filter))
     dispatcher.add_handler(CommandHandler(GROUP_LISTS_COMMAND, handle_group_lists, filters=private_filter))
     dispatcher.add_handler(CommandHandler(GROUP_TEMPLATES_COMMAND, handle_group_templates, filters=private_filter))
     dispatcher.add_handler(CommandHandler(INVITE_COMMAND, handle_invite, filters=private_filter))
-    dispatcher.add_handler(CommandHandler(TEMPLATE_COMMAND, handle_template, filters=private_filter))
-    dispatcher.add_handler(CommandHandler(TEMPLATES_COMMAND, handle_templates, filters=private_filter))
     dispatcher.add_handler(CommandHandler(HELP_COMMAND, handle_help, filters=private_filter))
     dispatcher.add_handler(CommandHandler(ACCESS_COMMAND, handle_access, filters=private_filter))
     dispatcher.add_handler(CommandHandler(ENROL_COMMAND, handle_enrol, filters=private_filter))

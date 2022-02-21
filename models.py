@@ -399,63 +399,87 @@ class User(object):
         return sorted(all_polls + all_lists, key=lambda item: item.get_created_date(), reverse=True)
 
     def render_poll_list(self) -> str:
-        header = [util.make_html_bold("Your Polls")]
+        header = "<b>Your Polls</b>"
 
         user_polls = self.get_polls()
         if user_polls:
-            body = [f"{i}. {poll.generate_linked_summary()}" for i, poll in enumerate(user_polls, 1)]
+            body = util.list_to_indexed_list_string(
+                [poll.generate_linked_summary() for poll in user_polls], line_spacing=2
+            )
         else:
-            body = [util.make_html_italic("You have no polls! Use /poll to build a new poll.")]
+            body = util.make_html_italic("You have no polls! Use /poll to build a new poll.")
 
         poll_count = len(user_polls)
-        footer = [f"{EMOJI_POLL} {poll_count} poll{'' if poll_count == 1 else 's'} in total"]
+        footer = f"{EMOJI_POLL} {poll_count} poll{'' if poll_count == 1 else 's'} in total"
 
-        return "\n\n".join(header + body + footer)
+        return "\n\n".join([header] + [body] + [footer])
 
     def render_list_list(self) -> str:
-        header = [util.make_html_bold("Your Lists")]
+        header = "<b>Your Lists</b>"
 
         user_lists = self.get_lists()
         if user_lists:
-            body = [f"{i}. {_list.generate_linked_summary()}" for i, _list in enumerate(user_lists, 1)]
+            body = util.list_to_indexed_list_string(
+                [_list.generate_linked_summary() for _list in user_lists], line_spacing=2
+            )
         else:
-            body = [util.make_html_italic("You have no lists! Use /list to build a new list.")]
+            body = util.make_html_italic("You have no lists! Use /list to build a new list.")
 
         list_count = len(user_lists)
-        footer = [f"{EMOJI_LIST} {list_count} list{'' if list_count == 1 else 's'} in total"]
+        footer = f"{EMOJI_LIST} {list_count} list{'' if list_count == 1 else 's'} in total"
 
-        return "\n\n".join(header + body + footer)
+        return "\n\n".join([header] + [body] + [footer])
+
+    def render_template_list(self) -> str:
+        header = "<b>Your Templates</b>"
+
+        user_templates = self.get_templates()
+        if user_templates:
+            body = util.list_to_indexed_list_string(
+                [template.generate_linked_summary() for template in user_templates], line_spacing=2
+            )
+        else:
+            body = "<i>You have no templates! Use /temp to create a new template.</i>"
+
+        template_count = len(user_templates)
+        footer = f"{EMOJI_TEMPLATE} {template_count} template{'' if template_count == 1 else 's'} in total"
+
+        return "\n\n".join([header] + [body] + [footer])
 
     def render_group_poll_list(self) -> str:
-        header = [util.make_html_bold("Your Group Polls")]
+        header = "<b>Your Group Polls</b>"
 
         group_polls = self.get_group_polls()
         if group_polls:
-            body = [f"{i}. {poll.generate_linked_summary(True)}" for i, poll in enumerate(group_polls, 1)]
+            body = util.list_to_indexed_list_string(
+                [poll.generate_linked_summary(True) for poll in group_polls], line_spacing=2
+            )
         else:
-            body = [util.make_html_italic("You have no group polls!")]
+            body = "<i>You have no group polls!</i>"
 
         poll_count = len(group_polls)
-        footer = [f"{EMOJI_POLL} {poll_count} group poll{'' if poll_count == 1 else 's'} in total"]
+        footer = f"{EMOJI_POLL} {poll_count} group poll{'' if poll_count == 1 else 's'} in total"
 
-        return "\n\n".join(header + body + footer)
+        return "\n\n".join([header] + [body] + [footer])
 
     def render_group_list_list(self) -> str:
-        header = [util.make_html_bold("Your Group Lists")]
+        header = "<b>Your Group Lists</b>"
 
         group_lists = self.get_group_lists()
         if group_lists:
-            body = [f"{i}. {_list.generate_linked_summary(True)}" for i, _list in enumerate(group_lists, 1)]
+            body = util.list_to_indexed_list_string(
+                [_list.generate_linked_summary(True) for _list in group_lists], line_spacing=2
+            )
         else:
-            body = [util.make_html_italic("You have no group lists!")]
+            body = "<i>You have no group lists!</i>"
 
         list_count = len(group_lists)
-        footer = [f"{EMOJI_LIST} {list_count} group list{'' if list_count == 1 else 's'} in total"]
+        footer = f"{EMOJI_LIST} {list_count} group list{'' if list_count == 1 else 's'} in total"
 
-        return "\n\n".join(header + body + footer)
+        return "\n\n".join([header] + [body] + [footer])
 
     def render_group_template_list(self) -> str:
-        header = util.make_html_bold("Your Group Templates")
+        header = "<b>Your Group Templates</b>"
 
         group_templates = self.get_group_templates()
         if group_templates:
@@ -463,10 +487,10 @@ class User(object):
                 [template.generate_linked_summary(True) for template in group_templates], line_spacing=2
             )
         else:
-            body = util.make_html_italic("You have no group templates!")
+            body = "<i>You have no group templates!</i>"
 
         template_count = len(group_templates)
-        footer = f"{EMOJI_LIST} {template_count} group template{'' if template_count == 1 else 's'} in total"
+        footer = f"{EMOJI_TEMPLATE} {template_count} group template{'' if template_count == 1 else 's'} in total"
 
         return "\n\n".join([header] + [body] + [footer])
 
@@ -508,19 +532,7 @@ class User(object):
             joined_groups_list = util.make_html_italic("You have not joined any group!")
         return f"{joined_groups_title}\n{joined_groups_list}"
 
-    def render_template_list(self) -> str:
-        header = "<b>Your Templates</b>"
 
-        user_templates = self.get_templates()
-        if user_templates:
-            body = [f"{i}. {template.generate_linked_summary()}" for i, template in enumerate(user_templates, 1)]
-        else:
-            body = ["<i>You have no templates! Use /temp to create a new template.</i>"]
-
-        template_count = len(user_templates)
-        footer = f"{EMOJI_TEMPLATE} {template_count} template{'' if template_count == 1 else 's'} in total"
-
-        return "\n\n".join([header] + body + [footer])
 
     def build_invite_text_and_buttons(self) -> tuple:
         close_button = InlineKeyboardButton("Close", callback_data=CLOSE)
@@ -2107,7 +2119,7 @@ class PollTemplate(Template):
         return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
 
     def render_text(self) -> str:
-        header = f"<b>Poll Template ({self.name})</b>"
+        header = f"<b>{EMOJI_POLL} Poll Template ({self.name})</b>"
         title_body = f"<b>Title</b>\n{self.formatted_title.render_details()}"
         description_body = f"<b>Description</b>\n{self.formatted_description.render_details()}"
         options_body = f"<b>Options</b>\n{util.list_to_indexed_list_string(self.options)}"
@@ -2319,7 +2331,7 @@ class ListTemplate(Template):
         return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
 
     def render_text(self) -> str:
-        header = f"<b>List Template ({self.name})</b>"
+        header = f"<b>{EMOJI_LIST} List Template ({self.name})</b>"
         title_body = f"<b>Title</b>\n{self.formatted_title.render_details()}"
         description_body = f"<b>Description</b>\n{self.formatted_description.render_details()}"
         options_body = f"<b>Options</b>\n{util.list_to_indexed_list_string(self.options)}"
