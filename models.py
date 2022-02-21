@@ -1966,6 +1966,7 @@ class Template(object):
                  creator_id: int) -> None:
         self._temp_id = temp_id
         self._name = name
+        self._description = ""
         self._formatted_title = formatted_title
         self._formatted_description = formatted_description
         self._creator_id = creator_id
@@ -2005,6 +2006,15 @@ class Template(object):
     @name.setter
     def name(self, new_name: str) -> None:
         self._name = new_name
+        return
+
+    @property
+    def description(self) -> str:
+        return self._description
+
+    @description.setter
+    def description(self, new_description: str) -> None:
+        self._description = new_description
         return
 
     @property
@@ -2157,10 +2167,9 @@ class PollTemplate(Template):
     def build_main_buttons(self) -> InlineKeyboardMarkup:
         generate_poll_button = self.build_button("Generate Poll", POLL)
         settings_buttons = self.build_button("Settings", SETTINGS)
-        delete_template_button = self.build_button("Delete", DELETE)
         refresh_button = self.build_button("Refresh", REFRESH)
         close_button = self.build_button("Close", CLOSE)
-        buttons = [[generate_poll_button], [settings_buttons], [delete_template_button, refresh_button], [close_button]]
+        buttons = [[generate_poll_button], [settings_buttons], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_format_title_buttons(self) -> InlineKeyboardMarkup:
@@ -2178,17 +2187,30 @@ class PollTemplate(Template):
         buttons = [[description_code_button], [skip_button], [cancel_button, build_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_settings_buttons(self) -> InlineKeyboardMarkup:
-        edit_title_button = self.build_button("Edit Title", f"{EDIT}_{TITLE}")
-        edit_description_button = self.build_button("Edit Description", f"{EDIT}_{DESCRIPTION}")
+    def build_settings_buttons(self, is_creator=False) -> InlineKeyboardMarkup:
+        edit_template_details_button = self.build_button("Edit Template Details", f"{EDIT}_{TEMPLATE}")
+        edit_title_button = self.build_button("Edit Title Format", f"{EDIT}_{TITLE}")
+        edit_description_button = self.build_button("Edit Description Format", f"{EDIT}_{DESCRIPTION}")
         edit_options_button = self.build_button("Edit Options", f"{EDIT}_{OPTIONS}")
         response_text = "Multi-Response" if self.is_single_response else "Single Response"
         toggle_response_button = self.build_button(f"Change to {response_text}", f"{EDIT}_{RESPONSE}")
         back_button = self.build_button("Back", BACK)
         buttons = [
-            [edit_title_button], [edit_description_button], [edit_options_button],
+            [edit_template_details_button], [edit_title_button], [edit_description_button], [edit_options_button],
             [toggle_response_button], [back_button]
         ]
+
+        if is_creator:
+            delete_template_button = self.build_button("Delete", DELETE)
+            buttons.insert(-1, [delete_template_button])
+
+        return InlineKeyboardMarkup(buttons)
+
+    def build_edit_template_details_buttons(self) -> InlineKeyboardMarkup:
+        change_name_button = self.build_button("Change Template Name", f"{RENAME}_{TEMPLATE}_{NAME}")
+        change_descr_button = self.build_button("Change Template Description", f"{RENAME}_{TEMPLATE}_{DESCRIPTION}")
+        back_button = self.build_button("Back", SETTINGS)
+        buttons = [[change_name_button], [change_descr_button], [back_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_edit_title_buttons(self) -> InlineKeyboardMarkup:
@@ -2372,10 +2394,9 @@ class ListTemplate(Template):
     def build_main_buttons(self) -> InlineKeyboardMarkup:
         generate_list_button = self.build_button("Generate List", LIST)
         settings_buttons = self.build_button("Settings", SETTINGS)
-        delete_template_button = self.build_button("Delete", DELETE)
         refresh_button = self.build_button("Refresh", REFRESH)
         close_button = self.build_button("Close", CLOSE)
-        buttons = [[generate_list_button], [settings_buttons], [delete_template_button, refresh_button], [close_button]]
+        buttons = [[generate_list_button], [settings_buttons], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_format_title_buttons(self) -> InlineKeyboardMarkup:
@@ -2393,7 +2414,8 @@ class ListTemplate(Template):
         buttons = [[description_code_button], [skip_button], [cancel_button, build_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_settings_buttons(self) -> InlineKeyboardMarkup:
+    def build_settings_buttons(self, is_creator=False) -> InlineKeyboardMarkup:
+        edit_template_details_button = self.build_button("Edit Template Details", f"{EDIT}_{TEMPLATE}")
         edit_title_button = self.build_button("Edit Title", f"{EDIT}_{TITLE}")
         edit_description_button = self.build_button("Edit Description", f"{EDIT}_{DESCRIPTION}")
         edit_options_button = self.build_button("Edit Options", f"{EDIT}_{OPTIONS}")
@@ -2402,9 +2424,21 @@ class ListTemplate(Template):
         toggle_response_button = self.build_button(f"Change to {response_text}", f"{EDIT}_{RESPONSE}")
         back_button = self.build_button("Back", BACK)
         buttons = [
-            [edit_title_button], [edit_description_button], [edit_options_button], [edit_choices_button],
-            [toggle_response_button], [back_button]
+            [edit_template_details_button], [edit_title_button], [edit_description_button], [edit_options_button],
+            [edit_choices_button], [toggle_response_button], [back_button]
         ]
+
+        if is_creator:
+            delete_template_button = self.build_button("Delete", DELETE)
+            buttons.insert(-1, [delete_template_button])
+
+        return InlineKeyboardMarkup(buttons)
+
+    def build_edit_template_details_buttons(self) -> InlineKeyboardMarkup:
+        change_name_button = self.build_button("Change Template Name", f"{RENAME}_{TEMPLATE}_{NAME}")
+        change_descr_button = self.build_button("Change Template Description", f"{RENAME}_{TEMPLATE}_{DESCRIPTION}")
+        back_button = self.build_button("Back", SETTINGS)
+        buttons = [[change_name_button], [change_descr_button], [back_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_edit_title_buttons(self) -> InlineKeyboardMarkup:

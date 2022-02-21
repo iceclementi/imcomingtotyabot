@@ -1719,6 +1719,35 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
         )
         context.user_data.update({"descr": text})
         return
+    # Handle rename template name
+    elif step == 25 and template:
+        name_match = re.match(r"^\w{1,12}$", text)
+        if not name_match:
+            response = "Sorry, please ensure that the name consists only a maximum of 12 alphanumeric characters."
+            edit_conversation_message(
+                update, context, response,
+                reply_markup=template.build_single_back_button(f"{models.RENAME}_{models.TEMPLATE}")
+            )
+            return
+
+        if user.has_temp_poll_with_name(text):
+            response = "Sorry, you already have a poll template with the same name. Please enter a different name."
+            edit_conversation_message(
+                update, context, response,
+                reply_markup=template.build_single_back_button(f"{models.RENAME}_{models.TEMPLATE}")
+            )
+            return
+
+        # Change group name
+        template.name = text
+        edit_conversation_message(
+            update, context, f"Poll template name successfully changed to <b>{text}</b>",
+            reply_markup=group.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
+        )
+
+        # Clear user data
+        context.user_data.clear()
+        return
     # Handle invalid step
     else:
         logger.warning("Error with preset poll conversation step index!!")
@@ -3232,12 +3261,14 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
 
     # Poll is deleted or has error
     if not template:
-        query.edit_message_reply_markup(None)
         query.answer(text="Sorry, the poll template has been deleted.")
+        query.edit_message_reply_markup(None)
+        query.message.delete()
         return
 
     user, _, _ = get_user_permissions(query.from_user.id)
     message = query.message
+    is_creator = template.creator_id == user.get_uid()
 
     user_action, step, title, title_code, description, description_code, context_id = \
         context.user_data.get("action", ""), context.user_data.get("step", 0), context.user_data.get("title", ""), \
@@ -3403,16 +3434,43 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     # Handle settings button
     elif action == models.SETTINGS:
         query.edit_message_text(
-            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_settings_buttons()
+            template.render_text(), parse_mode=ParseMode.HTML,
+            reply_markup=template.build_settings_buttons(is_creator=is_creator)
         )
         query.answer(text=None)
         return
     # Handle delete template button
-    elif action == models.DELETE:
+    elif action == models.DELETE and is_creator:
         query.edit_message_reply_markup(
-            template.build_delete_confirm_buttons(models.TEMP_POLL, models.BACK)
+            template.build_delete_confirm_buttons(models.TEMPLATE, models.BACK)
         )
         query.answer(text="Confirm delete?")
+        return
+    # Handle edit template details button
+    elif action == f"{models.EDIT}_{models.TEMPLATE}":
+        query.edit_message_text(
+            f"<b>{template.name}</b>\n<i>{template.description or 'None'}</i>", parse_mode=ParseMode.HTML,
+            reply_markup=template.build_edit_template_details_buttons()
+        )
+        query.answer(text=None)
+        context.user_data.clear()
+        return
+    # Handle rename template button
+    elif action == f"{RENAME}_{TEMPLATE}_{NAME}":
+        response = f"<b>{template.name}</b>\n<i>{template.description or 'None'}</i>\n\n" \
+                   f"Enter a new <b>template name</b>."
+        reply_message = query.edit_message_text(
+            response, parse_mode=ParseMode.HTML,
+            reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}")
+        )
+        query.answer(text="Enter a new template name.")
+        context.user_data.update(
+            {"action": models.TEMP_POLL, "step": 25, "tempId": template.temp_id, "ed": reply_message.message_id}
+        )
+        return
+    # Handle rename template description button
+    elif action == f"{RENAME}_{TEMPLATE}_{DESCRIPTION}":
+        query.answer(text="To be implemented.")
         return
     # Handle edit title button
     elif action == f"{models.EDIT}_{models.TITLE}":
@@ -3441,7 +3499,8 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         status = template.toggle_response_type()
         query.answer(text=status)
         query.edit_message_text(
-            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_settings_buttons()
+            template.render_text(), parse_mode=ParseMode.HTML,
+            reply_markup=template.build_settings_buttons(is_creator=is_creator)
         )
         return
     # Handle rename title button
@@ -3490,7 +3549,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         )
         return
     # Handle delete template button
-    elif action == f"{models.DELETE_YES}_{models.TEMP_POLL}":
+    elif action == f"{models.DELETE_YES}_{models.TEMPLATE}" and is_creator:
         user.delete_temp_poll(temp_id)
         query.answer(text="Poll template deleted!")
         message.delete()
@@ -3544,6 +3603,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
 
     user, _, _ = get_user_permissions(query.from_user.id)
     message = query.message
+    is_creator = template.creator_id == user.get_uid()
 
     user_action, step, title, title_code, description, description_code, context_id = \
         context.user_data.get("action", ""), context.user_data.get("step", 0), context.user_data.get("title", ""), \
@@ -3709,14 +3769,15 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
     # Handle settings button
     elif action == models.SETTINGS:
         query.edit_message_text(
-            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_settings_buttons()
+            template.render_text(), parse_mode=ParseMode.HTML,
+            reply_markup=template.build_settings_buttons(is_creator=is_creator)
         )
         query.answer(text=None)
         return
     # Handle delete template button
-    elif action == models.DELETE:
+    elif action == models.DELETE and is_creator:
         query.edit_message_reply_markup(
-            template.build_delete_confirm_buttons(models.TEMP_LIST, models.BACK)
+            template.build_delete_confirm_buttons(models.TEMPLATE, models.BACK)
         )
         query.answer(text="Confirm delete?")
         return
@@ -3751,7 +3812,8 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         status = template.toggle_response_type()
         query.answer(text=status)
         query.edit_message_text(
-            template.render_text(), parse_mode=ParseMode.HTML, reply_markup=template.build_settings_buttons()
+            template.render_text(), parse_mode=ParseMode.HTML,
+            reply_markup=template.build_settings_buttons(is_creator=is_creator)
         )
         return
     # Handle rename title button
@@ -3800,7 +3862,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         )
         return
     # Handle delete template button
-    elif action == f"{models.DELETE_YES}_{models.TEMP_LIST}":
+    elif action == f"{models.DELETE_YES}_{models.TEMPLATE}" and is_creator:
         user.delete_temp_list(temp_id)
         message.delete()
         query.answer(text="List template deleted!")
