@@ -2054,6 +2054,35 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
         )
         context.user_data.update({"descr": text})
         return
+    # Handle rename template name
+    elif step == 25 and template:
+        name_match = re.match(r"^\w{1,12}$", text)
+        if not name_match:
+            response = "Sorry, please ensure that the name consists only a maximum of 12 alphanumeric characters."
+            edit_conversation_message(
+                update, context, response,
+                reply_markup=template.build_single_back_button(f"{models.RENAME}_{models.TEMPLATE}")
+            )
+            return
+
+        if user.has_temp_poll_with_name(text):
+            response = "Sorry, you already have a poll template with the same name. Please enter a different name."
+            edit_conversation_message(
+                update, context, response,
+                reply_markup=template.build_single_back_button(f"{models.RENAME}_{models.TEMPLATE}")
+            )
+            return
+
+        # Change group name
+        template.name = text
+        edit_conversation_message(
+            update, context, f"Poll template name successfully changed to <b>{text}</b>",
+            reply_markup=group.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
+        )
+
+        # Clear user data
+        context.user_data.clear()
+        return
     # Handle invalid step
     else:
         logger.warning("Error with preset list conversation step index!!")
@@ -3456,7 +3485,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         context.user_data.clear()
         return
     # Handle rename template button
-    elif action == f"{RENAME}_{TEMPLATE}_{NAME}":
+    elif action == f"{models.RENAME}_{models.TEMPLATE}_{models.NAME}":
         response = f"<b>{template.name}</b>\n<i>{template.description or 'None'}</i>\n\n" \
                    f"Enter a new <b>template name</b>."
         reply_message = query.edit_message_text(
@@ -3469,7 +3498,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         )
         return
     # Handle rename template description button
-    elif action == f"{RENAME}_{TEMPLATE}_{DESCRIPTION}":
+    elif action == f"{modelsRENAME}_{models.TEMPLATE}_{models.DESCRIPTION}":
         query.answer(text="To be implemented.")
         return
     # Handle edit title button
