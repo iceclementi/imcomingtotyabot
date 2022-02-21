@@ -704,7 +704,15 @@ class Group(object):
             return util.make_html_italic("You have no group lists. Go ahead and add a list into the group!")
 
         return util.list_to_indexed_list_string(
-            [poll.generate_linked_summary(include_creator=True) for _list in self.get_lists()], line_spacing=2
+            [_list.generate_linked_summary(include_creator=True) for _list in self.get_lists()], line_spacing=2
+        )
+
+    def generate_group_templates_list(self) -> str:
+        if not self._template_ids:
+            return util.make_html_italic("You have no group templates. Go ahead and add a template into the group!")
+
+        return util.list_to_indexed_list_string(
+            [template.generate_linked_summary(True) for template in self.get_templates()], line_spacing=2
         )
 
     def generate_group_description_summary(self) -> str:
@@ -722,7 +730,8 @@ class Group(object):
         member_count = f"{EMOJI_PEOPLE} {len(self.member_ids)}"
         poll_count = f"{EMOJI_POLL} {len(self.poll_ids)}"
         list_count = f"{EMOJI_LIST} {len(self.list_ids)}"
-        body = f"{member_count: <8}{poll_count: <8}{list_count: <8}"
+        template_count = f"{EMOJI_TEMPLATE} {len(self._template_ids)}"
+        body = f"{member_count: <8}{poll_count: <8}{list_count: <8}{template_count: <8}"
 
         footer = util.make_html_italic(f"Created on: {util.format_date(self.created_date)}")
         return "\n\n".join([header] + [body] + [footer])
@@ -769,6 +778,21 @@ class Group(object):
             footer_description = f"{len(self.list_ids)} group lists"
 
         footer = f"{EMOJI_LIST} {footer_description}"
+
+        return "\n\n".join([header] + [body] + [footer])
+
+    def render_group_templates_text(self) -> str:
+        header = f"<b>{self.name} Templates</b>"
+        body = self.generate_group_templates_list()
+
+        if len(self._template_ids) == 0:
+            footer_description = "No group templates"
+        elif len(self._template_ids) == 1:
+            footer_description = "1 group template"
+        else:
+            footer_description = f"{len(self._template_ids)} group templates"
+
+        footer = f"{EMOJI_TEMPLATE} {footer_description}"
 
         return "\n\n".join([header] + [body] + [footer])
 
@@ -1958,6 +1982,10 @@ class Template(object):
     def formatted_description(self, new_description: str) -> None:
         self._formatted_description = FormatTextCode.create_new(new_description)
         return
+
+    @abstractmethod
+    def generate_linked_summary(self, include_creator=False) -> str:
+        pass
 
 
 class PollTemplate(Template):
