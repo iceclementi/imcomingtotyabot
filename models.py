@@ -629,12 +629,12 @@ class Group(object):
 
     def add_member(self, uid: int) -> str:
         if uid in self.member_ids:
-            return "You are already in the group."
+            return "You are already in the group!"
         if len(self.member_ids) >= MAX_GROUP_SIZE:
             return f"The group size limit ({MAX_GROUP_SIZE}) has been reached."
         self.member_ids.add(uid)
         User.get_user_by_id(uid).join_group(self.gid)
-        return f"You have joined {util.make_html_bold(self.name)}."
+        return f"You have joined {util.make_html_bold(self.name)}!"
 
     def remove_member(self, uid: int) -> str:
         if uid not in self.member_ids:

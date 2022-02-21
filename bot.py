@@ -1420,7 +1420,7 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
         # Change group name
         group.edit_name(group_name)
         edit_conversation_message(
-            update, context, f"Group name successfully changed to <b>{group_name}</b>.",
+            update, context, f"Group name successfully changed to <b>{group_name}</b>",
             reply_markup=group.build_single_back_button(models.SETTINGS, "Continue")
         )
 
@@ -2739,9 +2739,13 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         message.delete()
         query.answer(text="Poll deleted!")
         for mid in poll.get_message_details():
-            context.bot.edit_message_reply_markup(
-                inline_message_id=mid, reply_markup=None
-            )
+            try:
+                context.bot.edit_message_text(
+                    f"<b>{poll.get_title()}</b>\n<i>This poll has been <b>closed</b>.</i>",
+                    inline_message_id=mid, reply_markup=None
+                )
+            except telegram.error.TelegramError:
+                continue
         return
     # Handle back button
     elif action == models.BACK and is_pm:
@@ -2871,9 +2875,13 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         message.delete()
         query.answer(text="List deleted!")
         for mid in _list.get_message_details():
-            context.bot.edit_message_reply_markup(
-                inline_message_id=mid, reply_markup=None
-            )
+            try:
+                context.bot.edit_message_text(
+                    f"<b>{_list.get_title()}</b>\n<i>This list has been <b>closed</b>.</i>",
+                    inline_message_id=mid, reply_markup=None
+                )
+            except telegram.error.TelegramError:
+                continue
         return
     # Handle back button
     elif action == models.BACK and is_pm:
