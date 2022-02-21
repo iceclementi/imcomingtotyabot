@@ -1420,7 +1420,7 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
         # Change group name
         group.edit_name(group_name)
         edit_conversation_message(
-            update, context, "Group name changed successfully!",
+            update, context, f"Group name successfully changed to <b>{group_name}</b>.",
             reply_markup=group.build_single_back_button(models.SETTINGS, "Continue")
         )
 
@@ -3181,7 +3181,10 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         return
     # Handle settings button
     elif action == models.SETTINGS:
-        query.edit_message_reply_markup(group.build_settings_buttons(is_owner=is_owner))
+        query.edit_message_text(
+            group.render_group_details_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_settings_buttons(is_owner=is_owner)
+        )
         query.answer(text=None)
         context.user_data.clear()
         return
