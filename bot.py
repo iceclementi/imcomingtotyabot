@@ -2162,7 +2162,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
             )
         )
         query.answer(text="Enter a format title for your poll template.")
-        context.user_data.update({"del": reply_message.message_id})
+        context.user_data.update({"ed": reply_message.message_id})
         return
     # Handle preset list button
     elif action == models.TEMP_LIST:
