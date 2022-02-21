@@ -2243,8 +2243,8 @@ class PollTemplate(Template):
         buttons = [[back_button, confirm_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_single_back_button(self, back_action: str) -> InlineKeyboardMarkup:
-        back_button = self.build_button("Back", back_action)
+    def build_single_back_button(self, back_action: str, back_text="Back") -> InlineKeyboardMarkup:
+        back_button = self.build_button(back_text, back_action)
         return InlineKeyboardMarkup([[back_button]])
 
     def build_delete_confirm_buttons(self, delete_action: str, back_action: str, delete_text="Delete", back_text="No") \
@@ -2471,8 +2471,8 @@ class ListTemplate(Template):
         buttons = [[back_button, confirm_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_single_back_button(self, back_action: str) -> InlineKeyboardMarkup:
-        back_button = self.build_button("Back", back_action)
+    def build_single_back_button(self, back_action: str, back_text="Back") -> InlineKeyboardMarkup:
+        back_button = self.build_button(back_text, back_action)
         return InlineKeyboardMarkup([[back_button]])
 
     def build_delete_confirm_buttons(self, delete_action: str, back_action: str, delete_text="Delete", back_text="No") \

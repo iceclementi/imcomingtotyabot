@@ -1738,11 +1738,11 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
             )
             return
 
-        # Change group name
+        # Change template name
         template.name = text
         edit_conversation_message(
-            update, context, f"Poll template name successfully changed to <b>{text}</b>",
-            reply_markup=group.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
+            update, context, f"Poll template name successfully changed to <b>{template.name}</b>",
+            reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
         )
 
         # Clear user data
@@ -2073,11 +2073,11 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
             )
             return
 
-        # Change group name
+        # Change template name
         template.name = text
         edit_conversation_message(
-            update, context, f"Poll template name successfully changed to <b>{text}</b>",
-            reply_markup=group.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
+            update, context, f"Poll template name successfully changed to <b>{template.name}</b>",
+            reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
         )
 
         # Clear user data
@@ -3471,14 +3471,16 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
     # Handle delete template button
     elif action == models.DELETE and is_creator:
         query.edit_message_reply_markup(
-            template.build_delete_confirm_buttons(models.TEMPLATE, models.BACK)
+            template.build_delete_confirm_buttons(models.TEMPLATE, models.SETTINGS)
         )
         query.answer(text="Confirm delete?")
         return
     # Handle edit template details button
     elif action == f"{models.EDIT}_{models.TEMPLATE}":
+        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
         query.edit_message_text(
-            f"<b>{template.name}</b>\n<i>{template.description or 'None'}</i>", parse_mode=ParseMode.HTML,
+            f"{template_name}\n\n{template_description}", parse_mode=ParseMode.HTML,
             reply_markup=template.build_edit_template_details_buttons()
         )
         query.answer(text=None)
@@ -3486,8 +3488,9 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle rename template button
     elif action == f"{models.RENAME}_{models.TEMPLATE}_{models.NAME}":
-        response = f"<b>{template.name}</b>\n<i>{template.description or 'None'}</i>\n\n" \
-                   f"Enter a new <b>template name</b>."
+        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        response = f"{template_name}\n\n{template_description}\n\nEnter a new <b>template name</b>."
         reply_message = query.edit_message_text(
             response, parse_mode=ParseMode.HTML,
             reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}")
@@ -3806,9 +3809,38 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
     # Handle delete template button
     elif action == models.DELETE and is_creator:
         query.edit_message_reply_markup(
-            template.build_delete_confirm_buttons(models.TEMPLATE, models.BACK)
+            template.build_delete_confirm_buttons(models.TEMPLATE, models.SETTINGS)
         )
         query.answer(text="Confirm delete?")
+        return
+    # Handle edit template details button
+    elif action == f"{models.EDIT}_{models.TEMPLATE}":
+        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        query.edit_message_text(
+            f"{template_name}\n\n{template_description}", parse_mode=ParseMode.HTML,
+            reply_markup=template.build_edit_template_details_buttons()
+        )
+        query.answer(text=None)
+        context.user_data.clear()
+        return
+    # Handle rename template button
+    elif action == f"{models.RENAME}_{models.TEMPLATE}_{models.NAME}":
+        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        response = f"{template_name}\n\n{template_description}\n\nEnter a new <b>template name</b>."
+        reply_message = query.edit_message_text(
+            response, parse_mode=ParseMode.HTML,
+            reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}")
+        )
+        query.answer(text="Enter a new template name.")
+        context.user_data.update(
+            {"action": models.TEMP_LIST, "step": 25, "tempId": template.temp_id, "ed": reply_message.message_id}
+        )
+        return
+    # Handle rename template description button
+    elif action == f"{models.RENAME}_{models.TEMPLATE}_{models.DESCRIPTION}":
+        query.answer(text="To be implemented.")
         return
     # Handle edit title button
     elif action == f"{models.EDIT}_{models.TITLE}":
