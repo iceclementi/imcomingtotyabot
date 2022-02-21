@@ -532,8 +532,6 @@ class User(object):
             joined_groups_list = util.make_html_italic("You have not joined any group!")
         return f"{joined_groups_title}\n{joined_groups_list}"
 
-
-
     def build_invite_text_and_buttons(self) -> tuple:
         close_button = InlineKeyboardButton("Close", callback_data=CLOSE)
         if not self.owned_group_ids:
@@ -562,8 +560,8 @@ class User(object):
 
 
 class Group(object):
-    def __init__(self, gid: str, name: str, uid: int, password: str, member_ids: set,
-                 poll_ids: set, list_ids: set, created_date: datetime) -> None:
+    def __init__(self, gid: str, name: str, uid: int, password: str, member_ids: Set[int],
+                 poll_ids: Set[str], list_ids: Set[str], template_ids: Set[str], created_date: datetime) -> None:
         self.gid = gid
         self.name = name
         self.owner = uid
@@ -571,7 +569,7 @@ class Group(object):
         self.member_ids = member_ids
         self.poll_ids = poll_ids
         self.list_ids = list_ids
-        self._template_ids = set()
+        self._template_ids = template_ids
         self.created_date = created_date
 
     @staticmethod
@@ -586,15 +584,15 @@ class Group(object):
     @classmethod
     def create_new(cls, name: str, uid: int, password="") -> Group:
         gid = util.generate_random_id(GROUP_ID_LENGTH, set(group_storage.keys()))
-        group = cls(gid, name, uid, password, {uid}, set(), set(), datetime.now(tz=tz))
+        group = cls(gid, name, uid, password, {uid}, set(), set(), set(), datetime.now(tz=tz))
         group_storage[gid] = group
         return group
 
     @classmethod
-    def load(cls, gid: str, name: str, owner: int, password: str, member_ids: list,
-             poll_ids: list, list_ids: list, created_date: str) -> None:
+    def load(cls, gid: str, name: str, owner: int, password: str, member_ids: Lst[int],
+             poll_ids: Lst[str], list_ids: Lst[str], template_ids: Lst[str], created_date: str) -> None:
         group = cls(gid, name, owner, password, set(member_ids),
-                    set(poll_ids), set(list_ids), datetime.fromisoformat(created_date))
+                    set(poll_ids), set(list_ids), set(template_ids), datetime.fromisoformat(created_date))
         group_storage[gid] = group
         return
 
@@ -1051,6 +1049,7 @@ class Group(object):
             db.GROUP_MEMBER_IDS: list(self.member_ids),
             db.GROUP_POLL_IDS: list(self.poll_ids),
             db.GROUP_LIST_IDS: list(self.list_ids),
+            db.GROUP_TEMP_IDS: list(self._template_ids),
             db.GROUP_CREATED_DATE: self.created_date.isoformat()
         }
 
@@ -2525,6 +2524,7 @@ class BotManager(object):
                     group_data[db.GROUP_MEMBER_IDS],
                     group_data[db.GROUP_POLL_IDS],
                     group_data[db.GROUP_LIST_IDS],
+                    group_data[db.GROUP_TEMP_IDS],
                     group_data[db.GROUP_CREATED_DATE],
                 )
 
