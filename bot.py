@@ -3498,7 +3498,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         )
         return
     # Handle rename template description button
-    elif action == f"{modelsRENAME}_{models.TEMPLATE}_{models.DESCRIPTION}":
+    elif action == f"{models.RENAME}_{models.TEMPLATE}_{models.DESCRIPTION}":
         query.answer(text="To be implemented.")
         return
     # Handle edit title button
