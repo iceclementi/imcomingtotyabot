@@ -4,7 +4,9 @@ import logging
 import re
 from typing import Tuple, List as Lst, Dict
 import models
-from models import User, Group, Poll, Option, List, ListOption, PollTemplate, ListTemplate, FormatTextCode, BotManager
+from models import (
+    User, Group, Poll, Option, List, ListOption, Template, PollTemplate, ListTemplate, FormatTextCode, BotManager
+)
 import util
 from telegram import (
     Update, ParseMode, User as TeleUser, Message, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup,
@@ -119,13 +121,14 @@ POLL_COMMAND = "poll"
 POLLS_COMMAND = "polls"
 LIST_COMMAND = "list"
 LISTS_COMMAND = "lists"
+TEMPLATE_COMMAND = "temp"
+TEMPLATES_COMMAND = "temps"
 GROUP_COMMAND = "group"
 GROUPS_COMMAND = "groups"
 GROUP_POLLS_COMMAND = "gpolls"
 GROUP_LISTS_COMMAND = "glists"
+GROUP_TEMPLATES_COMMAND = "gtemps"
 INVITE_COMMAND = "invite"
-TEMPLATE_COMMAND = "temp"
-TEMPLATES_COMMAND = "temps"
 HELP_COMMAND = "help"
 ACCESS_COMMAND = "access"
 ENROL_COMMAND = "enrol"
@@ -135,24 +138,25 @@ LOAD_COMMAND = "load"
 
 # endregion
 
-# region COMMAND GUIDE
+# region COMMAND HELP
 
-START_GUIDE = "<b>/start</b>\nView the bot's welcome message"
-KEYBOARD_GUIDE = "<b>/keyboard</b>\nChoose between showing or hiding the command keyboard"
-POLL_GUIDE = "<b>/poll</b> [title]\nBuild a new poll with an optional title"
-POLLS_GUIDE = "<b>/polls</b>\nView all the polls you have built"
-LIST_GUIDE = "<b>/list</b> [title]\nBuild a new list with an optional title"
-LISTS_GUIDE = "<b>/lists</b>\nView all the lists you have built"
-GROUP_GUIDE = "<b>/group</b> [name]\nCreate a new group with an optional name"
-GROUPS_GUIDE = "<b>/groups</b>\nView all the groups you are in"
-GROUP_POLLS_GUIDE = "<b>/gpolls</b>\nView all your group polls"
-GROUP_LISTS_GUIDE = "<b>/glists</b>\nView all your group lists"
-INVITE_GUIDE = "<b>/invite</b>\nSend an invite link to your friends to join your group"
-TEMPLATE_GUIDE = "<b>/temp</b> [p/l name]\nCreate templates for your polls and lists, " \
+START_HELP = "<b>/start</b>\nView the bot's welcome message"
+KEYBOARD_HELP = "<b>/keyboard</b>\nChoose between showing or hiding the command keyboard"
+POLL_HELP = "<b>/poll</b> [title]\nBuild a new poll with an optional title"
+POLLS_HELP = "<b>/polls</b>\nView all the polls you have built"
+LIST_HELP = "<b>/list</b> [title]\nBuild a new list with an optional title"
+LISTS_HELP = "<b>/lists</b>\nView all the lists you have built"
+TEMPLATE_HELP = "<b>/temp</b> [p/l name]\nCreate templates for your polls and lists, " \
                  "or create a poll or list based on the template\n" \
                  "<i>E.g. /temp p xyz</i>"
-TEMPLATES_GUIDE = "<b>/temps</b>\nView all the templates you have created"
-HELP_GUIDE = "<b>/help</b>\nView this help message"
+TEMPLATES_HELP = "<b>/temps</b>\nView all the templates you have created"
+GROUP_HELP = "<b>/group</b> [name]\nCreate a new group with an optional name"
+GROUPS_HELP = "<b>/groups</b>\nView all the groups you are in"
+GROUP_POLLS_HELP = "<b>/gpolls</b>\nView all your group polls"
+GROUP_LISTS_HELP = "<b>/glists</b>\nView all your group lists"
+GROUP_TEMPLATES_HELP = "<b>/gtemps</b>\nView all your group templates"
+INVITE_HELP = "<b>/invite</b>\nSend an invite link to your friends to join your group"
+HELP_HELP = "<b>/help</b>\nView this help message"
 
 # endregion
 
@@ -229,6 +233,12 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
     elif command == LISTS_COMMAND:
         handle_lists(update, context)
         return
+    elif command == TEMPLATE_COMMAND:
+        handle_template(update, context)
+        return
+    elif command == TEMPLATES_COMMAND:
+        handle_templates(update, context)
+        return
     elif command == GROUP_COMMAND:
         name = context.user_data.get("name", "")
         update.message.text = f"/{command} {name}"
@@ -243,14 +253,11 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
     elif command == GROUP_LISTS_COMMAND:
         handle_group_lists(update, context)
         return
+    elif command == GROUP_TEMPLATES_COMMAND:
+        handle_group_templates(update, context)
+        return
     elif command == INVITE_COMMAND:
         handle_invite(update, context)
-        return
-    elif command == TEMPLATE_COMMAND:
-        handle_template(update, context)
-        return
-    elif command == TEMPLATES_COMMAND:
-        handle_templates(update, context)
         return
     elif command == ENROL_COMMAND:
         handle_enrol(update, context)
@@ -262,7 +269,7 @@ def handle_pm_command(command: str, update: Update, context: CallbackContext) ->
         handle_help(update, context)
         return
     else:
-        logger.warning("Illegal pm command!")
+        handle_start(update, context)
         return
 
 
@@ -559,7 +566,7 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
     uid = update.effective_user.id
     text = update.message.text
 
-    poll_id = re.match(r"^/poll_(\w+).*$", text).group(1)
+    poll_id = re.match(r"^/poll_(\w+)$", text).group(1)
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
         handle_help(update, context)
@@ -638,24 +645,132 @@ def handle_list_view(update: Update, context: CallbackContext) -> None:
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
-    if not is_registered(update.effective_user):
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    if not user:
         handle_help(update, context)
         return
 
-    uid = update.effective_user.id
     text = update.message.text.strip()
 
-    list_id = re.match(r"^/list_(\w+).*$", text).group(1)
+    list_id = re.match(r"^/list_(\w+)$", text).group(1)
     _list = List.get_list_by_id(list_id)
-    if not _list:
+
+    if not _list or (_list.get_creator_id() != user.get_uid() and not user.has_group_list(list_id)):
         handle_help(update, context)
         return
 
-    if _list.get_creator_id() == uid or User.get_user_by_id(uid).has_group_list(list_id):
-        deliver_list(update, _list)
+    deliver_list(update, _list)
+    return
+
+
+def handle_template(update: Update, context: CallbackContext) -> None:
+    """Creates custom templates to build polls and lists."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, _, _ = get_user_permissions(update.effective_user.id)
+
+    if not user:
+        handle_help(update, context)
         return
 
-    handle_help(update, context)
+    # Try to match the command to create a poll or list from a template
+    match = re.match(r"^/temp\s+(p|poll|l|list)\s+(\w+)\s*(\n(?:\n|.)*)?$", update.message.text.strip())
+    if match:
+        template_type, name, format_inputs = match.group(1), match.group(2), match.group(3)
+        format_inputs = format_inputs if format_inputs else ""
+        if template_type in ("p", "poll"):
+            temp_poll = user.get_temp_poll_by_name(name)
+            if not temp_poll:
+                response = f"No poll template with name <b>{name}</b> exists.\nUse /temps to view all your templates."
+                reply_message = update.message.reply_html(
+                    response, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+
+            title, description, is_valid = temp_poll.render_title_and_description(format_inputs)
+            if not is_valid:
+                reply_message = update.message.reply_html(
+                    title, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+            poll: Poll = user.create_poll_from_template(temp_poll.temp_id, title, description)
+            update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+            update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(user.get_uid()))
+            return
+        elif template_type in ("l", "list"):
+            temp_list = user.get_temp_list_by_name(name)
+            if not temp_list:
+                response = f"No list template with name <b>{name}</b> exists.\nUse /temps to view all your templates."
+                reply_message = update.message.reply_html(
+                    response, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+
+            title, description, is_valid = temp_list.render_title_and_description(format_inputs)
+            if not is_valid:
+                reply_message = update.message.reply_html(
+                    title, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+            _list: List = user.create_list_from_template(temp_list.temp_id, title, description)
+            update.message.reply_html(LIST_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+            update.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(user.get_uid()))
+            return
+
+    response_text = "Which <b>template</b> do you want to create?"
+    buttons = util.build_multiple_stacked_buttons_markup(
+        [
+            util.generate_button_details("Poll", models.TEMP_POLL),
+            util.generate_button_details("List", models.TEMP_LIST)
+        ],
+        [util.generate_button_details("Preset Format Guide", models.TEMP_GUIDE)],
+        [util.generate_button_details("Close", models.CLOSE)]
+    )
+    update.message.reply_html(response_text, reply_markup=buttons)
+    return
+
+
+def handle_templates(update: Update, context: CallbackContext) -> None:
+    """Views all the user's templates."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, _, _ = get_user_permissions(update.effective_user.id)
+
+    if not user:
+        handle_help(update, context)
+        return
+
+    update.message.reply_html(
+        user.render_template_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+    )
+    return
+
+
+def handle_template_view(update: Update, context: CallbackContext) -> None:
+    """Displays the template identified by its template id"""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    text = update.message.text
+
+    temp_id = re.match(r"^/temp_(\w+)$", text).group(1)
+    template: Template = Template.get_template_by_id(temp_id)
+
+    if not template or (template.creator_id != user.get_uid() and not user.has_group_template(temp_id)):
+        handle_help(update, context)
+        return
+
+    update.message.reply_html(template.render_text(), reply_markup=template.build_main_buttons())
     return
 
 
@@ -754,11 +869,10 @@ def handle_group_polls(update: Update, context: CallbackContext) -> None:
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
-    if not is_registered(update.effective_user):
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    if not user:
         handle_help(update, context)
         return
-
-    user = User.get_user_by_id(update.effective_user.id)
 
     update.message.reply_html(
         user.render_group_poll_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
@@ -772,14 +886,30 @@ def handle_group_lists(update: Update, context: CallbackContext) -> None:
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
-    if not is_registered(update.effective_user):
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    if not user:
         handle_help(update, context)
         return
 
-    user = User.get_user_by_id(update.effective_user.id)
-
     update.message.reply_html(
         user.render_group_list_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+    )
+    return
+
+
+def handle_group_templates(update: Update, context: CallbackContext) -> None:
+    """Displays all group templates to the user."""
+    delete_chat_message(update.message)
+    delete_old_chat_message(update, context)
+    context.user_data.clear()
+
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    if not user:
+        handle_help(update, context)
+        return
+
+    update.message.reply_html(
+        user.render_group_template_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
     )
     return
 
@@ -804,137 +934,6 @@ def handle_invite(update: Update, context: CallbackContext) -> None:
     return
 
 
-def handle_template(update: Update, context: CallbackContext) -> None:
-    """Creates custom templates to build polls and lists."""
-    delete_chat_message(update.message)
-    delete_old_chat_message(update, context)
-    context.user_data.clear()
-
-    user, _, _ = get_user_permissions(update.effective_user.id)
-
-    if not user:
-        handle_help(update, context)
-        return
-
-    # Try to match the command to create a poll or list from a template
-    match = re.match(r"^/temp\s+(p|poll|l|list)\s+(\w+)\s*(\n(?:\n|.)*)?$", update.message.text.strip())
-    if match:
-        template_type, name, format_inputs = match.group(1), match.group(2), match.group(3)
-        format_inputs = format_inputs if format_inputs else ""
-        if template_type in ("p", "poll"):
-            temp_poll = user.get_temp_poll_by_name(name)
-            if not temp_poll:
-                response = f"No poll template with name <b>{name}</b> exists.\nUse /temps to view all your templates."
-                reply_message = update.message.reply_html(
-                    response, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-                )
-                context.user_data.update({"del": reply_message.message_id})
-                return
-
-            title, description, is_valid = temp_poll.render_title_and_description(format_inputs)
-            if not is_valid:
-                reply_message = update.message.reply_html(
-                    title, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-                )
-                context.user_data.update({"del": reply_message.message_id})
-                return
-            poll: Poll = user.create_poll_from_template(temp_poll.temp_id, title, description)
-            update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
-            update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(user.get_uid()))
-            return
-        elif template_type in ("l", "list"):
-            temp_list = user.get_temp_list_by_name(name)
-            if not temp_list:
-                response = f"No list template with name <b>{name}</b> exists.\nUse /temps to view all your templates."
-                reply_message = update.message.reply_html(
-                    response, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-                )
-                context.user_data.update({"del": reply_message.message_id})
-                return
-
-            title, description, is_valid = temp_list.render_title_and_description(format_inputs)
-            if not is_valid:
-                reply_message = update.message.reply_html(
-                    title, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-                )
-                context.user_data.update({"del": reply_message.message_id})
-                return
-            _list: List = user.create_list_from_template(temp_list.temp_id, title, description)
-            update.message.reply_html(LIST_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
-            update.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(user.get_uid()))
-            return
-
-    response_text = "Which <b>template</b> do you want to create?"
-    buttons = util.build_multiple_stacked_buttons_markup(
-        [
-            util.generate_button_details("Poll", models.TEMP_POLL),
-            util.generate_button_details("List", models.TEMP_LIST)
-        ],
-        [util.generate_button_details("Preset Format Guide", models.PRESET_GUIDE)],
-        [util.generate_button_details("Close", models.CLOSE)]
-    )
-    update.message.reply_html(response_text, reply_markup=buttons)
-    return
-
-
-def handle_templates(update: Update, context: CallbackContext) -> None:
-    """Views all the user's templates."""
-    delete_chat_message(update.message)
-    delete_old_chat_message(update, context)
-    context.user_data.clear()
-
-    user, _, _ = get_user_permissions(update.effective_user.id)
-
-    if not user:
-        handle_help(update, context)
-        return
-
-    update.message.reply_html(
-        user.render_template_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-    )
-    return
-
-
-def handle_temp_poll_view(update: Update, context: CallbackContext) -> None:
-    """Displays the poll template identified by its template id"""
-    delete_chat_message(update.message)
-    delete_old_chat_message(update, context)
-    context.user_data.clear()
-
-    user, _, _ = get_user_permissions(update.effective_user.id)
-    text = update.message.text
-
-    temp_id = re.match(r"^/ptemp_(\w+)$", text).group(1)
-    template: PollTemplate = PollTemplate.get_template_by_id(temp_id)
-
-    if not template or template.creator_id != user.get_uid():
-        handle_help(update, context)
-        return
-
-    update.message.reply_html(template.render_text(), reply_markup=template.build_main_buttons())
-    return
-
-
-def handle_temp_list_view(update: Update, context: CallbackContext) -> None:
-    """Displays the list template identified by its template id"""
-    delete_chat_message(update.message)
-    delete_old_chat_message(update, context)
-    context.user_data.clear()
-
-    user, _, _ = get_user_permissions(update.effective_user.id)
-    text = update.message.text
-
-    temp_id = re.match(r"^/ltemp_(\w+)$", text).group(1)
-    template: ListTemplate = ListTemplate.get_template_by_id(temp_id)
-
-    if not template or template.creator_id != user.get_uid():
-        handle_help(update, context)
-        return
-
-    update.message.reply_html(template.render_text(), reply_markup=template.build_main_buttons())
-    return
-
-
 def handle_help(update: Update, context: CallbackContext) -> None:
     """Displays a help message to explain available bot commands."""
     delete_chat_message(update.message)
@@ -946,15 +945,15 @@ def handle_help(update: Update, context: CallbackContext) -> None:
 
     header = [util.make_html_bold("Available Bot Commands")]
 
-    body = [START_GUIDE, KEYBOARD_GUIDE]
+    body = [START_HELP, KEYBOARD_HELP]
     if user:
         if is_leader:
-            body += [POLL_GUIDE, POLLS_GUIDE, LIST_GUIDE, LISTS_GUIDE, GROUP_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
-                     GROUP_LISTS_GUIDE, INVITE_GUIDE, TEMPLATE_GUIDE, TEMPLATES_GUIDE]
+            body += [POLL_HELP, POLLS_HELP, LIST_HELP, LISTS_HELP, GROUP_HELP, GROUPS_HELP, GROUP_POLLS_HELP,
+                     GROUP_LISTS_HELP, INVITE_HELP, TEMPLATE_HELP, TEMPLATES_HELP]
         else:
-            body += [POLL_GUIDE, POLLS_GUIDE, LIST_GUIDE, LISTS_GUIDE, GROUPS_GUIDE, GROUP_POLLS_GUIDE,
-                     GROUP_LISTS_GUIDE, INVITE_GUIDE, TEMPLATE_GUIDE, TEMPLATES_GUIDE]
-    body += [HELP_GUIDE]
+            body += [POLL_HELP, POLLS_HELP, LIST_HELP, LISTS_HELP, GROUPS_HELP, GROUP_POLLS_HELP,
+                     GROUP_LISTS_HELP, INVITE_HELP, TEMPLATE_HELP, TEMPLATES_HELP]
+    body += [HELP_HELP]
 
     if not user:
         body += [util.make_html_italic(ACCESS_REQUEST)]
@@ -997,11 +996,8 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     elif action == "list" and user:
         handle_list_conversation(update, context)
         return
-    elif action == "group" and is_leader:
+    elif action == models.GROUP and is_leader:
         handle_group_conversation(update, context)
-        return
-    elif action == "pass" and is_leader:
-        handle_change_secret_conversation(update, context)
         return
     elif action == models.TEMP_POLL and user:
         handle_temp_poll_conversation(update, context)
@@ -1338,52 +1334,130 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
 
 def handle_group_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the user to create a group."""
-    text = update.message.text.strip()
-    group_name, secret = context.user_data.get("name", ""), context.user_data.get("secret", "")
-
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
-    # Handle group name
-    if not group_name:
+    user, _, _ = get_user_permissions(update.effective_user.id)
+
+    text = util.strip_html_symbols(update.message.text.strip())
+    step, group_name, secret, gid = \
+        context.user_data.get("step", 1), context.user_data.get("name", ""), context.user_data.get("secret", ""), \
+        context.user_data.get("gid", "")
+
+    group = Group.get_group_by_id(gid)
+
+    if step == 1:
+        # Handle group name
+        if not group_name:
+            group_name = text.replace("\n", " ")
+            if len(group_name) > MAX_GROUP_NAME_LENGTH:
+                reply_message = update.message.reply_html(
+                    ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+
+            if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
+                reply_message = update.message.reply_html(
+                    ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+
+            response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
+            reply_message = update.message.reply_html(
+                response, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            )
+            context.user_data.update({"name": group_name, "del": reply_message.message_id})
+            return
+        # Handle secret
+        if not re.match(r"^[A-Za-z0-9]{4,20}$", text):
+            reply_message = update.message.reply_html(
+                ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            )
+            context.user_data.update({"del": reply_message.message_id})
+            return
+
+        # Create group
+        group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, text)
+
+        update.message.reply_html(GROUP_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+        deliver_group(update, group)
+
+        # Clear user data
+        context.user_data.clear()
+        return
+    # Handle change group name
+    elif step == 10 and group:
+        if group.get_owner() != user.get_uid():
+            edit_conversation_message(
+                update, context, f"<b>Only group owners can change the group name!</b>",
+                reply_markup=group.build_single_back_button(models.SETTINGS)
+            )
+            context.user_data.clear()
+            logger.warning("Illegal group name change!")
+            return
+
         group_name = text.replace("\n", " ")
+
         if len(group_name) > MAX_GROUP_NAME_LENGTH:
-            reply_message = update.message.reply_html(
-                ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            edit_conversation_message(
+                update, context, ERROR_GROUP_NAME_TOO_LONG,
+                reply_markup=group.build_single_back_button(f"{models.RENAME}_{models.NAME}")
             )
-            context.user_data.update({"del": reply_message.message_id})
             return
 
-        if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
-            reply_message = update.message.reply_html(
-                ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+        if user.has_group_with_name(group_name):
+            edit_conversation_message(
+                update, context, ERROR_GROUP_NAME_EXISTS,
+                reply_markup=group.build_single_back_button(f"{models.RENAME}_{models.NAME}")
             )
-            context.user_data.update({"del": reply_message.message_id})
             return
 
-        response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
-        reply_message = update.message.reply_html(
-            response, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+        # Change group name
+        group.edit_name(group_name)
+        edit_conversation_message(
+            update, context, f"Group name successfully changed to <b>{group_name}</b>",
+            reply_markup=group.build_single_back_button(models.SETTINGS, "Continue")
         )
-        context.user_data.update({"name": group_name, "del": reply_message.message_id})
+
+        # Clear user data
+        context.user_data.clear()
         return
-    # Handle secret
-    if not re.match(r"^[A-Za-z0-9]{4,20}$", text):
-        reply_message = update.message.reply_html(
-            ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+    # Handle change password
+    elif step == 11 and group:
+        if group.get_owner() != user.get_uid():
+            edit_conversation_message(
+                update, context, f"<b>{ERROR_ILLEGAL_SECRET_CHANGE}</b>",
+                reply_markup=group.build_single_back_button(models.SETTINGS)
+            )
+            context.user_data.clear()
+            logger.warning("Illegal password change!")
+            return
+
+        if not re.match(r"^[A-Za-z0-9]{4,20}$", text):
+            edit_conversation_message(
+                update, context, ERROR_INVALID_GROUP_PASS_FORMAT,
+                reply_markup=group.build_single_back_button(models.SECRET)
+            )
+            return
+
+        # Change password
+        group.edit_password(text)
+        edit_conversation_message(
+            update, context, "Group password changed successfully!",
+            reply_markup=group.build_single_back_button(models.SETTINGS, "Continue")
         )
-        context.user_data.update({"del": reply_message.message_id})
+
+        # Clear user data
+        context.user_data.clear()
         return
-
-    # Create group
-    group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, text)
-
-    update.message.reply_html(GROUP_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
-    deliver_group(update, group)
-
-    # Clear user data
-    context.user_data.clear()
-    return
+    # Handle invalid step
+    else:
+        logger.warning("Error with group conversation step index!!")
+        context.user_data.clear()
+        handle_help(update, context)
+        return
 
 
 def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> None:
@@ -1970,42 +2044,6 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
         return
 
 
-def handle_change_secret_conversation(update: Update, context: CallbackContext) -> None:
-    """Handles the conversation between the bot and the user to change the group secret."""
-    delete_chat_message(update.message)
-    delete_old_chat_message(update, context)
-
-    gid = context.user_data.get("gid", "")
-
-    group = Group.get_group_by_id(gid)
-    if not group or group.get_owner() != update.effective_user.id:
-        update.message.reply_html(
-            util.make_html_bold(ERROR_ILLEGAL_SECRET_CHANGE),
-            reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-        )
-        logger.warning("Illegal password change!")
-        return
-
-    new_secret = update.message.text.strip()
-
-    if not re.match(r"^[A-Za-z0-9]{4,20}$", new_secret):
-        reply_message = update.message.reply_html(
-            ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-        )
-        context.user_data.update({"del": reply_message.message_id})
-        return
-
-    # Change password
-    group.edit_password(new_secret)
-    update.message.reply_html(
-        "Group password changed!", reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-    )
-
-    # Clear user data
-    context.user_data.clear()
-    return
-
-
 # endregion
 
 # region CALLBACK QUERY HANDLERS
@@ -2111,7 +2149,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         context.user_data.clear()
         return
     # Handle preset button
-    elif action == models.PRESET:
+    elif action == models.TEMPLATE:
         query.answer(text=None)
         response_text = "Which <b>template</b> do you want to create?"
         buttons = util.build_multiple_stacked_buttons_markup(
@@ -2119,7 +2157,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
                 util.generate_button_details("Poll", models.TEMP_POLL),
                 util.generate_button_details("List", models.TEMP_LIST)
             ],
-            [util.generate_button_details("Preset Format Guide", models.PRESET_GUIDE)],
+            [util.generate_button_details("Preset Format Guide", models.TEMP_GUIDE)],
             [util.generate_button_details("Close", models.CLOSE)]
         )
         query.edit_message_text(response_text, parse_mode=ParseMode.HTML, reply_markup=buttons)
@@ -2153,11 +2191,11 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         context.user_data.update({"ed": reply_message.message_id})
         return
     # Handle preset format guide button
-    elif action == models.PRESET_GUIDE:
+    elif action == models.TEMP_GUIDE:
         query.answer(text="Here's the preset format guide!")
         query.edit_message_text(
             generate_preset_format_guide(), parse_mode=ParseMode.HTML,
-            reply_markup=util.build_single_button_markup("Back", models.PRESET)
+            reply_markup=util.build_single_button_markup("Back", models.TEMPLATE)
         )
         return
     # Handle edit button
@@ -2475,7 +2513,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             GROUP_DONE, parse_mode=ParseMode.HTML,
             reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
-        query.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_buttons())
+        query.message.reply_html(group.render_group_details_text(), reply_markup=group.build_main_buttons())
         query.answer(text="Group created successfully!")
 
         # Clear user data
@@ -2502,27 +2540,27 @@ def handle_show_command_callback_query(query: CallbackQuery, context: CallbackCo
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
             [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}"],
-            [f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
-            [f"/{TEMPLATE_COMMAND}", f"/{TEMPLATES_COMMAND}", f"/{ACCESS_COMMAND}"],
-            [f"/{ENROL_COMMAND}", f"/{PROMOTE_COMMAND}", f"/{SAVE_COMMAND}"],
-            [f"/{LOAD_COMMAND}", ".", "."]
+            [f"/{LISTS_COMMAND}", f"/{TEMPLATE_COMMAND}", f"/{TEMPLATES_COMMAND}"],
+            [f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}"],
+            [f"/{GROUP_LISTS_COMMAND}", f"/{GROUP_TEMPLATES_COMMAND}", f"/{INVITE_COMMAND}"],
+            [f"/{ACCESS_COMMAND}", f"/{ENROL_COMMAND}", f"/{PROMOTE_COMMAND}"],
+            [f"/{SAVE_COMMAND}", f"/{LOAD_COMMAND}", "."]
         )
     elif is_leader:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
             [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}"],
-            [f"/{LISTS_COMMAND}", f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}"],
-            [f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}"],
-            [f"/{TEMPLATE_COMMAND}", f"/{TEMPLATES_COMMAND}", "."]
+            [f"/{LISTS_COMMAND}", f"/{TEMPLATE_COMMAND}", f"/{TEMPLATES_COMMAND}"],
+            [f"/{GROUP_COMMAND}", f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}"],
+            [f"/{GROUP_LISTS_COMMAND}", f"/{GROUP_TEMPLATES_COMMAND}", f"/{INVITE_COMMAND}"]
         )
     else:
         buttons = util.build_multiple_stacked_keyboard_buttons_markup(
             [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"],
             [f"/{POLL_COMMAND}", f"/{POLLS_COMMAND}", f"/{LIST_COMMAND}"],
-            [f"/{LISTS_COMMAND}", f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}"],
-            [f"/{GROUP_LISTS_COMMAND}", f"/{INVITE_COMMAND}", f"/{TEMPLATE_COMMAND}"],
-            [f"/{TEMPLATES_COMMAND}", ".", "."]
+            [f"/{LISTS_COMMAND}", f"/{TEMPLATE_COMMAND}", f"/{TEMPLATES_COMMAND}"],
+            [f"/{GROUPS_COMMAND}", f"/{GROUP_POLLS_COMMAND}", f"/{GROUP_LISTS_COMMAND}"],
+            [f"/{GROUP_TEMPLATES_COMMAND}", f"/{INVITE_COMMAND}", "."]
         )
 
     reply_message = query.message.reply_html("Loading command keyboard...", reply_markup=ReplyKeyboardRemove())
@@ -2662,9 +2700,13 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         message.delete()
         query.answer(text="Poll deleted!")
         for mid in poll.get_message_details():
-            context.bot.edit_message_reply_markup(
-                inline_message_id=mid, reply_markup=None
-            )
+            try:
+                context.bot.edit_message_text(
+                    f"<b>{poll.get_title()}</b>\n<i>This poll has been <b>closed</b>.</i>",
+                    inline_message_id=mid, parse_mode=ParseMode.HTML, reply_markup=None
+                )
+            except telegram.error.TelegramError:
+                continue
         return
     # Handle back button
     elif action == models.BACK and is_pm:
@@ -2794,9 +2836,13 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         message.delete()
         query.answer(text="List deleted!")
         for mid in _list.get_message_details():
-            context.bot.edit_message_reply_markup(
-                inline_message_id=mid, reply_markup=None
-            )
+            try:
+                context.bot.edit_message_text(
+                    f"<b>{_list.get_title()}</b>\n<i>This list has been <b>closed</b>.</i>",
+                    inline_message_id=mid, parse_mode=ParseMode.HTML, reply_markup=None
+                )
+            except telegram.error.TelegramError:
+                continue
         return
     # Handle back button
     elif action == models.BACK and is_pm:
@@ -2828,6 +2874,10 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
 def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, action: str, gid: str) -> None:
     """Handles a group callback query."""
     if not is_private_chat(query.message):
+        logger.warning("Invalid callback query data - group message not in private chat")
+        query.answer(text="Invalid callback query data!")
+        query.edit_message_reply_markup(None)
+        query.message.delete()
         return
 
     group = Group.get_group_by_id(gid)
@@ -2836,193 +2886,351 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     if not group:
         query.edit_message_reply_markup(None)
         query.answer(text=DELETED_GROUP)
+        query.edit_message_reply_markup(None)
         query.message.delete()
         return
 
-    uid, user_profile = extract_user_data(query.from_user)
-    message = query.message
-    is_owner = group.get_owner() == uid
+    user, _, _ = get_user_permissions(query.from_user.id)
+    is_owner = group.get_owner() == user.get_uid()
 
     # User is no longer in the group
-    if uid not in group.get_member_ids():
-        query.edit_message_reply_markup(None)
+    if user.get_uid() not in group.get_member_ids():
         query.answer(text="You are not a member of this group.")
+        query.edit_message_reply_markup(None)
         query.message.delete()
         return
 
+    # Handle view button
+    if action == models.VIEW:
+        query.edit_message_text(
+            group.render_group_details_text(), parse_mode=ParseMode.HTML, reply_markup=group.build_view_buttons()
+        )
+        query.answer(text=None)
+        return
     # Handle view members button
-    if action == models.VIEW_MEMBERS:
+    elif action == models.MEMBER:
         query.edit_message_text(
             group.render_group_members_text(), parse_mode=ParseMode.HTML,
-            reply_markup=group.build_members_view_buttons(back_action=models.BACK, is_owner=is_owner)
+            reply_markup=group.build_view_members_buttons(is_owner=is_owner)
         )
         query.answer(text=None)
         return
     # Handle remove member button
-    elif action == models.REMOVE_MEMBER and is_owner:
+    elif action == f"{models.DELETE}_{models.MEMBER}" and is_owner:
         query.edit_message_reply_markup(
-            group.build_members_buttons(models.REMOVE_MEMBER, back_action=models.VIEW_MEMBERS)
+            group.build_members_buttons(f"{models.DELETE}_{models.MEMBER}", back_action=models.MEMBER)
         )
         query.answer(text="Select a member to remove.")
         return
     # Handle remove member choice button
-    elif action.startswith(f"{models.REMOVE_MEMBER}_") and is_owner:
+    elif action.startswith(f"{models.DELETE}_{models.MEMBER}_") and is_owner:
         _, uid = action.rsplit("_", 1)
         member_name = User.get_user_by_id(uid).get_name()
         query.edit_message_reply_markup(
-            group.build_delete_confirmation_buttons(
-                delete_text="Remove", delete_action=action, back_action=models.REMOVE_MEMBER
-            )
+            group.build_delete_confirm_buttons(action, f"{models.MEMBER}_{uid}", delete_text="Remove")
         )
         query.answer(text=f"Confirm remove {member_name} from the group?")
         return
-    # Handle delete confirmation button
-    elif action.startswith(f"{models.DELETE_YES}_"):
-        match = re.match(r"^([^_\W]+)_([^_\W]+)_?([^_\W]+)?$", action)
-        if not match:
-            logger.warning("Invalid callback query data.")
-            query.answer(text="Invalid callback query data!")
-            query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
-                                    reply_markup=group.build_group_details_buttons())
-
-        sub_action, identifier = match.group(2), match.group(3)
-        if sub_action == models.REMOVE_MEMBER and is_owner:
-            status = group.remove_member(identifier)
-            query.answer(text=status)
-            query.edit_message_text(group.render_group_members_text(), parse_mode=ParseMode.HTML,
-                                    reply_markup=group.build_members_view_buttons(back_action=models.BACK))
-            return
-        elif sub_action == models.DELETE and is_owner:
-            status = User.get_user_by_id(uid).delete_group(gid)
-            query.answer(text=status)
-            query.message.delete()
-            return
-        elif sub_action == models.LEAVE_GROUP:
-            group.remove_member(uid)
-            query.answer("You have left the group.")
-            query.edit_message_reply_markup(None)
-            return
-        else:
-            logger.warning("Invalid callback query data.")
-            query.answer(text="Invalid callback query data!")
-            query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
-                                    reply_markup=group.build_group_details_buttons())
-            return
+    # Handle remove member confirm button
+    elif action.startswith(f"{models.DELETE_YES}_{models.MEMBER}_") and is_owner:
+        _, uid = action.rsplit("_", 1)
+        status = group.remove_member(uid)
+        query.answer(text=status)
+        query.edit_message_text(
+            group.render_group_members_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_members_buttons(f"{models.DELETE}_{models.MEMBER}", back_action=models.MEMBER)
+        )
+        return
     # Handle view group polls button
-    elif action == models.VIEW_GROUP_POLLS:
-        query.edit_message_text(group.render_group_polls_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=group.build_polls_view_buttons(back_action=models.BACK))
+    elif action == models.POLL:
+        query.edit_message_text(
+            group.render_group_polls_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_view_polls_buttons(user.get_polls(), is_owner=is_owner)
+        )
         query.answer(text=None)
         return
-    # Handle add poll button and add poll choice button
-    elif action.startswith(models.ADD_POLL):
-        answered = False
-        if "_" in action:
-            _, poll_id = action.rsplit("_", 1)
-            poll = Poll.get_poll_by_id(poll_id)
-            if not poll:
-                query.answer(text="Poll does not exist.")
-            else:
-                result = group.add_poll(poll_id)
-                query.answer(text=result)
-            answered = True
-
-        user = User.get_user_by_id(uid)
-        response, buttons = group.build_polls_text_and_buttons(
-            user.get_polls(), filter_out=True, action=models.ADD_POLL, back_action=models.VIEW_GROUP_POLLS
-        )
-
-        if not response:
-            response = util.make_html_italic(
-                "You do not have any more polls to add to this group. You can use /poll to create new polls."
-            )
-            query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
-            if not answered:
-                query.answer(text="Sorry, no available polls to add.")
-            return
-
-        header = [util.make_html_bold("Select the poll you wish to add:")]
-        response = "\n\n".join(header + [response])
-
-        query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
-        if not answered:
-            query.answer(text="Select a poll you wish to add.")
+    # Handle add poll button
+    elif action == f"{models.ADD}_{models.POLL}":
+        user_polls = user.get_polls()
+        if user_polls:
+            response = "Select a poll to add to the group."
+        else:
+            response = "You do not have any polls! Use /poll to create new poll."
+        query.edit_message_reply_markup(group.build_add_polls_buttons(user_polls))
+        query.answer(text=response)
         return
-    # Handle remove poll button an remove poll choice button
-    elif action.startswith(models.REMOVE_POLL):
-        answered = False
-        if "_" in action:
-            _, poll_id = action.rsplit("_", 1)
-            poll = Poll.get_poll_by_id(poll_id)
-            if not poll:
-                query.answer(text="Poll does not exist.")
-            else:
-                result = group.remove_poll(poll_id)
-                query.answer(text=result)
-            answered = True
-
-        user = User.get_user_by_id(uid)
-        filters = group.get_polls() if is_owner else user.get_polls()
-        response, buttons = group.build_polls_text_and_buttons(
-            filters, filter_out=False, action=models.REMOVE_POLL, back_action=models.VIEW_GROUP_POLLS
-        )
-
-        if not response:
-            response = util.make_html_italic(
-                "There are no polls that you can remove."
-            )
-            query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
-            if not answered:
-                query.answer(text="Sorry, no available polls to remove.")
+    # Handle add poll choice button
+    elif action.startswith(f"{models.ADD}_{models.POLL}_"):
+        _, poll_id = action.rsplit("_", 1)
+        poll = Poll.get_poll_by_id(poll_id)
+        if not poll:
+            query.answer(text="Poll does not exist.")
             return
 
-        header = [util.make_html_bold("Select the poll you wish to remove:")]
-        response = "\n\n".join(header + [response])
+        response = group.add_poll(poll_id)
+        query.answer(text=response)
+        query.edit_message_text(
+            group.render_group_polls_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_add_polls_buttons(user.get_polls())
+        )
+        return
+    # Handle remove poll button
+    elif action == f"{models.DELETE}_{models.POLL}":
+        user_polls = user.get_polls()
+        query.edit_message_reply_markup(group.build_remove_polls_buttons(user_polls, is_owner=is_owner))
+        query.answer(text="Select a poll to remove from the group.")
+        return
+    # Handle remove poll choice button
+    elif action.startswith(f"{models.DELETE}_{models.POLL}_"):
+        _, poll_id = action.rsplit("_", 1)
+        poll = Poll.get_poll_by_id(poll_id)
+        if not poll:
+            query.answer(text="Poll does not exist.")
+            return
 
-        query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
-        if not answered:
-            query.answer(text="Select a poll you wish to remove.")
+        query.edit_message_reply_markup(
+            group.build_delete_confirm_buttons(
+                f"{models.POLL}_{poll_id}", f"{models.DELETE}_{models.POLL}", delete_text="Remove"
+            )
+        )
+        query.answer(text=f"Confirm remove \"{poll.get_title()}\" from the group?")
+        return
+    # Handle remove poll confirm button
+    elif action.startswith(f"{models.DELETE_YES}_{models.POLL}_"):
+        _, poll_id = action.rsplit("_", 1)
+        poll = Poll.get_poll_by_id(poll_id)
+        if not poll:
+            query.answer(text="Poll does not exist.")
+            return
+
+        response = group.remove_poll(poll_id)
+        query.answer(text=response)
+        query.edit_message_text(
+            group.render_group_polls_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_remove_polls_buttons(user.get_polls(), is_owner=is_owner)
+        )
+        return
+    # Handle view group lists button
+    elif action == models.LIST:
+        query.edit_message_text(
+            group.render_group_lists_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_view_lists_buttons(user.get_lists(), is_owner=is_owner)
+        )
+        query.answer(text=None)
+        return
+    # Handle add list button
+    elif action == f"{models.ADD}_{models.LIST}":
+        user_lists = user.get_lists()
+        if user_lists:
+            response = "Select a list to add to the group."
+        else:
+            response = "You do not have any lists! Use /list to create new list."
+        query.edit_message_reply_markup(group.build_add_lists_buttons(user_lists))
+        query.answer(text=response)
+        return
+    # Handle add list choice button
+    elif action.startswith(f"{models.ADD}_{models.LIST}_"):
+        _, list_id = action.rsplit("_", 1)
+        _list = List.get_list_by_id(list_id)
+        if not _list:
+            query.answer(text="List does not exist.")
+            return
+
+        response = group.add_list(list_id)
+        query.answer(text=response)
+        query.edit_message_text(
+            group.render_group_lists_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_add_lists_buttons(user.get_lists())
+        )
+        return
+    # Handle remove list button
+    elif action == f"{models.DELETE}_{models.LIST}":
+        user_lists = user.get_lists()
+        query.edit_message_reply_markup(group.build_remove_lists_buttons(user_lists, is_owner=is_owner))
+        query.answer(text="Select a list to remove from the group.")
+        return
+    # Handle remove list choice button
+    elif action.startswith(f"{models.DELETE}_{models.LIST}_"):
+        _, list_id = action.rsplit("_", 1)
+        _list = List.get_list_by_id(list_id)
+        if not _list:
+            query.answer(text="List does not exist.")
+            return
+
+        query.edit_message_reply_markup(
+            group.build_delete_confirm_buttons(
+                f"{models.LIST}_{list_id}", f"{models.DELETE}_{models.LIST}", delete_text="Remove"
+            )
+        )
+        query.answer(text=f"Confirm remove \"{_list.get_title()}\" from the group?")
+        return
+    # Handle remove list confirm button
+    elif action.startswith(f"{models.DELETE_YES}_{models.LIST}_"):
+        _, list_id = action.rsplit("_", 1)
+        _list = List.get_list_by_id(list_id)
+        if not _list:
+            query.answer(text="List does not exist.")
+            return
+
+        response = group.remove_list(list_id)
+        query.answer(text=response)
+        query.edit_message_text(
+            group.render_group_lists_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_remove_lists_buttons(user.get_lists(), is_owner=is_owner)
+        )
+        return
+    # Handle view group templates button
+    elif action == models.TEMPLATE:
+        query.edit_message_text(
+            group.render_group_templates_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_view_templates_buttons(user.get_templates(), is_owner=is_owner)
+        )
+        query.answer(text=None)
+        return
+    # Handle add template button
+    elif action == f"{models.ADD}_{models.TEMPLATE}":
+        user_templates = user.get_templates()
+        if user_templates:
+            response = "Select a template to add to the group."
+        else:
+            response = "You do not have any templates! Use /temp to create new template."
+        query.edit_message_reply_markup(group.build_add_templates_buttons(user_templates))
+        query.answer(text=response)
+        return
+    # Handle add template choice button
+    elif action.startswith(f"{models.ADD}_{models.TEMPLATE}_"):
+        _, template_id = action.rsplit("_", 1)
+        template = Template.get_template_by_id(template_id)
+        if not template:
+            query.answer(text="Template does not exist.")
+            return
+
+        response = group.add_template(template_id)
+        query.answer(text=response)
+        query.edit_message_text(
+            group.render_group_templates_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_add_templates_buttons(user.get_templates())
+        )
+        return
+    # Handle remove template button
+    elif action == f"{models.DELETE}_{models.TEMPLATE}":
+        user_templates = user.get_templates()
+        query.edit_message_reply_markup(group.build_remove_templates_buttons(user_templates, is_owner=is_owner))
+        query.answer(text="Select a template to remove from the group.")
+        return
+    # Handle remove template choice button
+    elif action.startswith(f"{models.DELETE}_{models.TEMPLATE}_"):
+        _, temp_id = action.rsplit("_", 1)
+        template = Template.get_template_by_id(temp_id)
+        if not template:
+            query.answer(text="Template does not exist.")
+            return
+
+        query.edit_message_reply_markup(
+            group.build_delete_confirm_buttons(
+                f"{models.TEMPLATE}_{temp_id}", f"{models.DELETE}_{models.TEMPLATE}", delete_text="Remove"
+            )
+        )
+        query.answer(text=f"Confirm remove \"{template.name}\" from the group?")
+        return
+    # Handle remove template confirm button
+    elif action.startswith(f"{models.DELETE_YES}_{models.TEMPLATE}_"):
+        _, temp_id = action.rsplit("_", 1)
+        template = Template.get_template_by_id(temp_id)
+        if not template:
+            query.answer(text="Template does not exist.")
+            return
+
+        response = group.remove_template(temp_id)
+        query.answer(text=response)
+        query.edit_message_text(
+            group.render_group_templates_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_remove_templates_buttons(user.get_templates(), is_owner=is_owner)
+        )
         return
     # Handle settings button
     elif action == models.SETTINGS:
-        query.edit_message_reply_markup(group.build_settings_buttons(is_owner=is_owner))
+        query.edit_message_text(
+            group.render_group_details_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_settings_buttons(is_owner=is_owner)
+        )
         query.answer(text=None)
+        context.user_data.clear()
+        return
+    # Handle change name button
+    elif action == f"{models.RENAME}_{models.NAME}" and is_owner:
+        reply_message = query.edit_message_text(
+            "Enter a new <b>name</b> for your group.", parse_mode=ParseMode.HTML,
+            reply_markup=group.build_single_back_button(models.SETTINGS)
+        )
+        query.answer(text="Enter a new group name.")
+        context.user_data.update({"action": models.GROUP, "step": 10, "gid": gid, "ed": reply_message.message_id})
+        return
+    # Handle change password button
+    elif action == models.SECRET and is_owner:
+        reply_message = query.edit_message_text(
+            "Enter a new <b>secret password</b> for your group.", parse_mode=ParseMode.HTML,
+            reply_markup=group.build_single_back_button(models.SETTINGS)
+        )
+        query.answer(text="Enter a new secret password.")
+        context.user_data.update({"action": models.GROUP, "step": 11, "gid": gid, "ed": reply_message.message_id})
         return
     # Handle delete group button
     elif action == models.DELETE and is_owner:
-        query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
-            delete_text="Delete", delete_action=action, back_action=models.SETTINGS)
-        )
+        query.edit_message_reply_markup(group.build_delete_confirm_buttons(models.GROUP, models.SETTINGS))
         query.answer(text="Confirm delete group?")
+    # Handle delete confirm button
+    elif action == f"{models.DELETE_YES}_{models.GROUP}" and is_owner:
+        status = user.delete_group(gid)
+        query.answer(text=status)
+        query.edit_message_reply_markup(None)
+        query.message.delete()
+        return
+    # Handle leave group button
+    elif action == models.LEAVE_GROUP and not is_owner:
+        query.edit_message_reply_markup(
+            group.build_delete_confirm_buttons(models.LEAVE_GROUP, models.SETTINGS, delete_text="Leave")
+        )
+        query.answer(text="Confirm leave group?")
+        return
+    elif action == f"{models.DELETE_YES}_{models.LEAVE_GROUP}" and not is_owner:
+        group.remove_member(user.get_uid())
+        query.answer(text="You have left the group.")
+        query.edit_message_reply_markup(None)
+        query.message.delete()
+        return
     # Handle leave group button
     elif action == models.LEAVE_GROUP:
         query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
             delete_text="Leave", delete_action=action, back_action=models.SETTINGS)
         )
         query.answer(text="Confirm leave group?")
-    # Handle change password button
-    elif action == models.CHANGE_SECRET and is_owner:
-        query.message.reply_html("Enter a new secret password for your group.")
-        query.answer(text="Enter a new secret password.")
-        context.user_data.clear()
-        context.user_data.update({"action": "pass", "gid": gid})
+    # Handle refresh button
+    elif action == models.REFRESH:
+        query.answer(text="Group details updated!")
+        query.edit_message_text(
+            group.render_group_details_text(), parse_mode=ParseMode.HTML, reply_markup=group.build_main_buttons()
+        )
         return
     # Handle back button
     elif action == models.BACK:
-        query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=group.build_group_details_buttons())
+        query.edit_message_text(
+            group.render_group_details_text(), parse_mode=ParseMode.HTML, reply_markup=group.build_main_buttons()
+        )
         query.answer(text=None)
         return
     # Handle close button
     elif action == models.CLOSE:
-        message.delete()
         query.answer(text=None)
+        query.edit_message_reply_markup(None)
+        query.message.delete()
         return
     # Handle other cases
     else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
         query.edit_message_reply_markup(None)
+        query.message.delete()
         return
 
 
@@ -3054,7 +3262,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
             message.reply_html(title_text, reply_markup=template.build_format_back_buttons(models.TEMP_TITLE))
             query.answer(text="Error parsing title format.")
             return
-        title = f"<b>Current Poll Title</b>\n{title_text}"
+        title = f"<b>Current Poll Title</b>\n<b>{title_text}</b>"
         body = f"Enter another format input to change the title or <b>Continue</b> to go to the next step."
         response = "\n\n".join([title] + [body])
         reply_message = message.reply_html(response, reply_markup=template.build_format_title_buttons())
@@ -3369,7 +3577,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
             message.reply_html(title_text, reply_markup=template.build_format_back_buttons(models.TEMP_TITLE))
             query.answer(text="Error parsing title format.")
             return
-        title = f"<b>Current List Title</b>\n{title_text}"
+        title = f"<b>Current List Title</b>\n<b>{title_text}</b>"
         body = f"Enter another format input to change the title or <b>Continue</b> to go to the next step."
         response = "\n\n".join([title] + [body])
         reply_message = message.reply_html(response, reply_markup=template.build_format_title_buttons())
@@ -3714,6 +3922,20 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 input_message_content=InputTextMessageContent("/lists")
             )
             results.append(query_result)
+        # Handle template query
+        if TEMPLATE_COMMAND[:-1].startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id="tempcom", title="/temp", description="Create a new poll or list template",
+                input_message_content=InputTextMessageContent("/temp")
+            )
+            results.append(query_result)
+        # Handle templates query
+        if TEMPLATES_COMMAND[:-1].startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id="tempscom", title="/temps", description="View all the templates you have created",
+                input_message_content=InputTextMessageContent("/temps")
+            )
+            results.append(query_result)
         # Handle group query
         if GROUP_COMMAND[:-1].startswith(command) and is_leader:
             query_result = InlineQueryResultArticle(
@@ -3731,15 +3953,22 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         # Handle group polls query
         if GROUP_POLLS_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
-                id="grouppollscom", title="/gpolls", description="View all the polls in your groups",
+                id="gpollscom", title="/gpolls", description="View all the polls in your groups",
                 input_message_content=InputTextMessageContent("/gpolls")
             )
             results.append(query_result)
         # Handle group lists query
         if GROUP_LISTS_COMMAND[:-1].startswith(command) and user:
             query_result = InlineQueryResultArticle(
-                id="grouplistscom", title="/glists", description="View all the lists in your groups",
+                id="glistscom", title="/glists", description="View all the lists in your groups",
                 input_message_content=InputTextMessageContent("/glists")
+            )
+            results.append(query_result)
+        # Handle group templates query
+        if GROUP_TEMPLATES_COMMAND[:-1].startswith(command) and user:
+            query_result = InlineQueryResultArticle(
+                id="gtempscom", title="/gtemps", description="View all the templates in your groups",
+                input_message_content=InputTextMessageContent("/gtemps")
             )
             results.append(query_result)
         # Handle invite query
@@ -3747,20 +3976,6 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             query_result = InlineQueryResultArticle(
                 id="invitecom", title="/invite", description="Send a group invite to your friends",
                 input_message_content=InputTextMessageContent("/invite")
-            )
-            results.append(query_result)
-        # Handle template query
-        if TEMPLATE_COMMAND[:-1].startswith(command) and user:
-            query_result = InlineQueryResultArticle(
-                id="tempcom", title="/temp", description="Create a new poll or list template",
-                input_message_content=InputTextMessageContent("/temp")
-            )
-            results.append(query_result)
-        # Handle templates query
-        if TEMPLATES_COMMAND[:-1].startswith(command) and user:
-            query_result = InlineQueryResultArticle(
-                id="tempscom", title="/temps", description="View all the templates you have created",
-                input_message_content=InputTextMessageContent("/temps")
             )
             results.append(query_result)
         # Handle access query
@@ -3848,6 +4063,50 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your lists", switch_pm_parameter=command)
             return
+        # Handle template query
+        elif command == TEMPLATE_COMMAND and user and is_sender:
+            create_match = re.match(r"^(p|poll|l|list)\s+(\w+)\s*(\n(?:\n|.)*)?$", details)
+            if not create_match:
+                query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
+                return
+
+            template_type, name, format_inputs = create_match.group(1), create_match.group(2), create_match.group(3)
+            format_inputs = format_inputs if format_inputs else ""
+            if template_type in ("p", "poll"):
+                template = user.get_temp_poll_by_name(name)
+            elif template_type in ("l", "list"):
+                template = user.get_temp_list_by_name(name)
+            else:
+                query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
+                return
+
+            if not template:
+                query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
+                return
+
+            title, description, is_valid = template.render_title_and_description(format_inputs)
+            if not is_valid:
+                query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
+                return
+
+            query_result = InlineQueryResultArticle(
+                id=f"temp_{name}", title=title, description=description,
+                input_message_content=InputTextMessageContent(f"/temp {template_type} {name}\n{format_inputs}")
+            )
+
+            results.append(query_result)
+            return
+        # Handle templates query
+        elif command == TEMPLATES_COMMAND and user and is_sender:
+            for template in user.get_templates(details)[:QUERY_RESULTS_LIMIT]:
+                query_result = InlineQueryResultArticle(
+                    id=f"temp_{template.temp_id}", title=template.name,
+                    description=f"{template.icon} {template.temp_type.capitalize()} template",
+                    input_message_content=InputTextMessageContent(f"/temp_{template.temp_id}")
+                )
+                results.append(query_result)
+            query.answer(results, switch_pm_text="Click to view all your templates", switch_pm_parameter=command)
+            return
         # Handle group query
         elif command == GROUP_COMMAND and is_leader and is_sender:
             if details:
@@ -3891,58 +4150,16 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
                 results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your group lists", switch_pm_parameter=command)
             return
-        # Handle template query
-        elif command == TEMPLATE_COMMAND and user and is_sender:
-            create_match = re.match(r"^(p|poll|l|list)\s+(\w+)\s*(\n(?:\n|.)*)?$", details)
-            if not create_match:
-                query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
-                return
-
-            template_type, name, format_inputs = create_match.group(1), create_match.group(2), create_match.group(3)
-            format_inputs = format_inputs if format_inputs else ""
-            if template_type in ("p", "poll"):
-                template = user.get_temp_poll_by_name(name)
-            elif template_type in ("l", "list"):
-                template = user.get_temp_list_by_name(name)
-            else:
-                query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
-                return
-
-            if not template:
-                query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
-                return
-
-            title, description, is_valid = template.render_title_and_description(format_inputs)
-            if not is_valid:
-                query.answer(results, switch_pm_text="Click to create a new template", switch_pm_parameter=command)
-                return
-
-            query_result = InlineQueryResultArticle(
-                id=f"temp_{name}", title=title, description=description,
-                input_message_content=InputTextMessageContent(f"/temp {template_type} {name}\n{format_inputs}")
-            )
-
-            results.append(query_result)
-            return
-        # Handle templates query
-        elif command == TEMPLATES_COMMAND and user and is_sender:
-            for template in user.get_templates(details)[:QUERY_RESULTS_LIMIT]:
-                if type(template) == PollTemplate:
-                    query_result = InlineQueryResultArticle(
-                        id=f"ptemp_{template.temp_id}", title=template.name,
-                        description="Poll template",
-                        input_message_content=InputTextMessageContent(f"/ptemp_{template.temp_id}")
-                    )
-                elif type(template) == ListTemplate:
-                    query_result = InlineQueryResultArticle(
-                        id=f"ltemp_{template.temp_id}", title=template.name,
-                        description="List template",
-                        input_message_content=InputTextMessageContent(f"/ltemp_{template.temp_id}")
-                    )
-                else:
-                    continue
+        # Handle group templates query
+        elif command == GROUP_TEMPLATES_COMMAND and user and is_sender:
+            for template in user.get_group_templates(details)[:QUERY_RESULTS_LIMIT]:
+                query_result = InlineQueryResultArticle(
+                    id=f"gtemp_{template.temp_id}", title=template.name,
+                    description=f"{template.icon} {template.temp_type.capitalize()} template",
+                    input_message_content=InputTextMessageContent(f"/temp_{template.get_template_id()}")
+                )
                 results.append(query_result)
-            query.answer(results, switch_pm_text="Click to view all your templates", switch_pm_parameter=command)
+            query.answer(results, switch_pm_text="Click to view all your group templates", switch_pm_parameter=command)
             return
         # Handle invite query
         elif command == INVITE_COMMAND and user:
@@ -3979,7 +4196,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             for user in User.get_users_by_name(details)[:QUERY_RESULTS_LIMIT]:
                 if not user.is_leader():
                     query_result = InlineQueryResultArticle(
-                        id=user.get_uid(), title=user.get_name(), description=f"@{user.get_username()}",
+                        id=str(user.get_uid()), title=user.get_name(), description=f"@{user.get_username()}",
                         input_message_content=InputTextMessageContent(f"/promote {util.encode(user.get_uid())}"),
                     )
                     results.append(query_result)
@@ -4248,7 +4465,7 @@ def refresh_lists(_list: List, context: CallbackContext, only_buttons=False) -> 
 
 def deliver_group(update: Update, group: Group) -> None:
     """Delivers the group details."""
-    update.message.reply_html(group.render_group_details_text(), reply_markup=group.build_group_details_buttons())
+    update.message.reply_html(group.render_group_details_text(), reply_markup=group.build_main_buttons())
     return
 
 
@@ -4300,44 +4517,44 @@ def main() -> None:
     # Dispatcher to register handlers
     dispatcher = updater.dispatcher
 
+    private_filter = Filters.chat_type.private
+
     # Command handlers
-    dispatcher.add_handler(CommandHandler(START_COMMAND, handle_start, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(KEYBOARD_COMMAND, handle_keyboard, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(POLL_COMMAND, handle_poll, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(POLLS_COMMAND, handle_polls, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(LIST_COMMAND, handle_list, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(LISTS_COMMAND, handle_lists, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(GROUP_COMMAND, handle_group, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(GROUPS_COMMAND, handle_groups, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(GROUP_POLLS_COMMAND, handle_group_polls, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(GROUP_LISTS_COMMAND, handle_group_lists, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(INVITE_COMMAND, handle_invite, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(TEMPLATE_COMMAND, handle_template, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(TEMPLATES_COMMAND, handle_templates, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(HELP_COMMAND, handle_help, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(ACCESS_COMMAND, handle_access, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(ENROL_COMMAND, handle_enrol, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(PROMOTE_COMMAND, handle_promote, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(SAVE_COMMAND, handle_save, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler(LOAD_COMMAND, handle_load, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler(START_COMMAND, handle_start, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(KEYBOARD_COMMAND, handle_keyboard, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(POLL_COMMAND, handle_poll, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(POLLS_COMMAND, handle_polls, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(LIST_COMMAND, handle_list, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(LISTS_COMMAND, handle_lists, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(TEMPLATE_COMMAND, handle_template, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(TEMPLATES_COMMAND, handle_templates, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(GROUP_COMMAND, handle_group, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(GROUPS_COMMAND, handle_groups, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(GROUP_POLLS_COMMAND, handle_group_polls, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(GROUP_LISTS_COMMAND, handle_group_lists, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(GROUP_TEMPLATES_COMMAND, handle_group_templates, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(INVITE_COMMAND, handle_invite, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(HELP_COMMAND, handle_help, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(ACCESS_COMMAND, handle_access, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(ENROL_COMMAND, handle_enrol, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(PROMOTE_COMMAND, handle_promote, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(SAVE_COMMAND, handle_save, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(LOAD_COMMAND, handle_load, filters=private_filter))
 
     # Message handlers
     dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/poll_\w+$") & Filters.chat_type.private), handle_poll_view)
+        MessageHandler((Filters.regex(r"^\/poll_\w+$") & private_filter), handle_poll_view)
     )
     dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/list_\w+$") & Filters.chat_type.private), handle_list_view)
+        MessageHandler((Filters.regex(r"^\/list_\w+$") & private_filter), handle_list_view)
     )
     dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/group_\w+$") & Filters.chat_type.private), handle_group_view)
+        MessageHandler((Filters.regex(r"^\/group_\w+$") & private_filter), handle_group_view)
     )
     dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/ptemp_\w+$") & Filters.chat_type.private), handle_temp_poll_view)
+        MessageHandler((Filters.regex(r"^\/temp_\w+$") & private_filter), handle_template_view)
     )
-    dispatcher.add_handler(
-        MessageHandler((Filters.regex(r"^\/ltemp_\w+$") & Filters.chat_type.private), handle_temp_list_view)
-    )
-    dispatcher.add_handler(MessageHandler((Filters.text & Filters.chat_type.private), handle_message))
+    dispatcher.add_handler(MessageHandler((Filters.text & private_filter), handle_message))
 
     # Callback query handlers
     dispatcher.add_handler(CallbackQueryHandler(handle_callback_query))
