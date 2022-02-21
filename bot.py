@@ -999,7 +999,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     elif action == "list" and user:
         handle_list_conversation(update, context)
         return
-    elif action == "group" and is_leader:
+    elif action == models.GROUP and is_leader:
         handle_group_conversation(update, context)
         return
     elif action == "pass" and is_leader:
@@ -1340,52 +1340,93 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
 
 def handle_group_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the user to create a group."""
-    text = update.message.text.strip()
-    group_name, secret = context.user_data.get("name", ""), context.user_data.get("secret", "")
-
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
 
-    # Handle group name
-    if not group_name:
-        group_name = text.replace("\n", " ")
-        if len(group_name) > MAX_GROUP_NAME_LENGTH:
+    user, _, _ = get_user_permissions(update.effective_user.id)
+
+    text = util.strip_html_symbols(update.message.text.strip())
+    step, group_name, secret, gid = \
+        context.user_data.get("step", 1), context.user_data.get("name", ""), context.user_data.get("secret", ""), \
+        context.user_data.get("gid", "")
+
+    group = Group.get_group_by_id(gid)
+
+    if step == 1:
+        # Handle group name
+        if not group_name:
+            group_name = text.replace("\n", " ")
+            if len(group_name) > MAX_GROUP_NAME_LENGTH:
+                reply_message = update.message.reply_html(
+                    ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+
+            if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
+                reply_message = update.message.reply_html(
+                    ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+                )
+                context.user_data.update({"del": reply_message.message_id})
+                return
+
+            response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
             reply_message = update.message.reply_html(
-                ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+                response, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            )
+            context.user_data.update({"name": group_name, "del": reply_message.message_id})
+            return
+        # Handle secret
+        if not re.match(r"^[A-Za-z0-9]{4,20}$", text):
+            reply_message = update.message.reply_html(
+                ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
             context.user_data.update({"del": reply_message.message_id})
             return
 
-        if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
-            reply_message = update.message.reply_html(
-                ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+        # Create group
+        group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, text)
+
+        update.message.reply_html(GROUP_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+        deliver_group(update, group)
+
+        # Clear user data
+        context.user_data.clear()
+        return
+    # Handle change password
+    elif step == 11 and group:
+        if group.get_owner() != user.get_uid():
+            edit_conversation_message(
+                update, context, f"<b>{ERROR_ILLEGAL_SECRET_CHANGE}</b>",
+                reply_markup=group.build_single_back_button(models.SETTINGS)
             )
-            context.user_data.update({"del": reply_message.message_id})
+            context.user_data.clear()
+            logger.warning("Illegal password change!")
             return
 
-        response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
-        reply_message = update.message.reply_html(
-            response, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+        if not re.match(r"^[A-Za-z0-9]{4,20}$", text):
+            edit_conversation_message(
+                update, context, ERROR_INVALID_GROUP_PASS_FORMAT,
+                reply_markup=group.build_single_back_button(models.SECRET)
+            )
+            return
+
+        # Change password
+        group.edit_password(text)
+        edit_conversation_message(
+            update, context, "Group password changed successfully!",
+            reply_markup=group.build_single_back_button(models.SETTINGS, "Continue")
         )
-        context.user_data.update({"name": group_name, "del": reply_message.message_id})
+
+        # Clear user data
+        context.user_data.clear()
         return
-    # Handle secret
-    if not re.match(r"^[A-Za-z0-9]{4,20}$", text):
-        reply_message = update.message.reply_html(
-            ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
-        )
-        context.user_data.update({"del": reply_message.message_id})
+    # Handle invalid step
+    else:
+        logger.warning("Error with group conversation step index!!")
+        context.user_data.clear()
+        handle_help(update, context)
         return
-
-    # Create group
-    group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, text)
-
-    update.message.reply_html(GROUP_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
-    deliver_group(update, group)
-
-    # Clear user data
-    context.user_data.clear()
-    return
 
 
 def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> None:
@@ -3096,73 +3137,70 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
             reply_markup=group.build_remove_templates_buttons(user.get_templates(), is_owner=is_owner)
         )
         return
-
     # Handle settings button
     elif action == models.SETTINGS:
         query.edit_message_reply_markup(group.build_settings_buttons(is_owner=is_owner))
         query.answer(text=None)
+        context.user_data.clear()
+        return
+    # Handle change password button
+    elif action == models.SECRET and is_owner:
+        reply_message = query.edit_message_text(
+            "Enter a new <b>secret password</b> for your group.", parse_mode=ParseMode.HTML,
+            reply_markup=group.build_single_back_button(models.SETTINGS)
+        )
+        query.answer(text="Enter a new secret password.")
+        context.user_data.update({"action": models.GROUP, "step": 11, "gid": gid, "ed": reply_message.message_id})
         return
     # Handle delete group button
     elif action == models.DELETE and is_owner:
-        query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
-            delete_text="Delete", delete_action=action, back_action=models.SETTINGS)
-        )
+        query.edit_message_reply_markup(group.build_delete_confirm_buttons(models.GROUP, models.SETTINGS))
         query.answer(text="Confirm delete group?")
-    # Handle delete confirmation button
-    elif action.startswith(f"{models.DELETE_YES}_"):
-        match = re.match(r"^([^_\W]+)_([^_\W]+)_?([^_\W]+)?$", action)
-        if not match:
-            logger.warning("Invalid callback query data.")
-            query.answer(text="Invalid callback query data!")
-            query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
-                                    reply_markup=group.build_main_buttons())
-
-        sub_action, identifier = match.group(2), match.group(3)
-        if sub_action == models.REMOVE_MEMBER and is_owner:
-            status = group.remove_member(identifier)
-            query.answer(text=status)
-            query.edit_message_text(group.render_group_members_text(), parse_mode=ParseMode.HTML,
-                                    reply_markup=group.build_view_members_buttons(back_action=models.BACK))
-            return
-        elif sub_action == models.DELETE and is_owner:
-            status = User.get_user_by_id(uid).delete_group(gid)
-            query.answer(text=status)
-            query.message.delete()
-            return
-        elif sub_action == models.LEAVE_GROUP:
-            group.remove_member(uid)
-            query.answer("You have left the group.")
-            query.edit_message_reply_markup(None)
-            return
-        else:
-            logger.warning("Invalid callback query data.")
-            query.answer(text="Invalid callback query data!")
-            query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
-                                    reply_markup=group.build_main_buttons())
-            return
+    # Handle delete confirm button
+    elif action == f"{models.DELETE_YES}_{models.GROUP}" and is_owner:
+        status = user.delete_group(gid)
+        query.answer(text=status)
+        query.edit_message_reply_markup(None)
+        query.message.delete()
+        return
+    # Handle leave group button
+    elif action == models.LEAVE_GROUP and not is_owner:
+        query.edit_message_reply_markup(
+            group.build_delete_confirm_buttons(models.LEAVE_GROUP, models.SETTINGS, delete_text="Leave")
+        )
+        query.answer(text="Confirm leave group?")
+        return
+    elif action == f"{models.DELETE_YES}_{models.LEAVE_GROUP}" and not is_owner:
+        group.remove_member(user.get_uid())
+        query.answer(text="You have left the group.")
+        query.edit_message_reply_markup(None)
+        query.message.delete()
+        return
     # Handle leave group button
     elif action == models.LEAVE_GROUP:
         query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
             delete_text="Leave", delete_action=action, back_action=models.SETTINGS)
         )
         query.answer(text="Confirm leave group?")
-    # Handle change password button
-    elif action == models.CHANGE_SECRET and is_owner:
-        query.message.reply_html("Enter a new secret password for your group.")
-        query.answer(text="Enter a new secret password.")
-        context.user_data.clear()
-        context.user_data.update({"action": "pass", "gid": gid})
+    # Handle refresh button
+    elif action == models.REFRESH:
+        query.answer(text="Group details updated!")
+        query.edit_message_text(
+            group.render_group_details_text(), parse_mode=ParseMode.HTML, reply_markup=group.build_main_buttons()
+        )
         return
     # Handle back button
     elif action == models.BACK:
-        query.edit_message_text(group.render_group_details_text(), parse_mode=ParseMode.HTML,
-                                reply_markup=group.build_main_buttons())
+        query.edit_message_text(
+            group.render_group_details_text(), parse_mode=ParseMode.HTML, reply_markup=group.build_main_buttons()
+        )
         query.answer(text=None)
         return
     # Handle close button
     elif action == models.CLOSE:
-        message.delete()
         query.answer(text=None)
+        query.edit_message_reply_markup(None)
+        message.delete()
         return
     # Handle other cases
     else:
@@ -4126,7 +4164,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             for user in User.get_users_by_name(details)[:QUERY_RESULTS_LIMIT]:
                 if not user.is_leader():
                     query_result = InlineQueryResultArticle(
-                        id=user.get_uid(), title=user.get_name(), description=f"@{user.get_username()}",
+                        id=str(user.get_uid()), title=user.get_name(), description=f"@{user.get_username()}",
                         input_message_content=InputTextMessageContent(f"/promote {util.encode(user.get_uid())}"),
                     )
                     results.append(query_result)

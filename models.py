@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import pytz
 from collections import OrderedDict
 import re
-from typing import Tuple, Dict, Set, List as Lst, Union, List
+from typing import Tuple, Dict, Set, List as Lst, Union
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 import database as db
@@ -66,7 +66,7 @@ VIEW_GROUP_POLLS = "polls"
 ADD_POLL = "poll"
 REMOVE_POLL = "delPoll"
 SETTINGS = "set"
-CHANGE_SECRET = "pass"
+SECRET = "pass"
 GROUP_INVITE = "invite"
 LEAVE_GROUP = "leave"
 BOT_ACCESS = "bot"
@@ -951,7 +951,7 @@ class Group(object):
 
     def build_settings_buttons(self, is_owner=False) -> InlineKeyboardMarkup:
         if is_owner:
-            change_password_button = self.build_button("Change Password", CHANGE_SECRET)
+            change_password_button = self.build_button("Change Password", SECRET)
             delete_group_button = self.build_button("Delete Group", DELETE)
             buttons = [[change_password_button], [delete_group_button]]
         else:
@@ -961,8 +961,8 @@ class Group(object):
         buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_single_back_button(self, back_action: str) -> InlineKeyboardMarkup:
-        back_button = self.build_button("Back", back_action)
+    def build_single_back_button(self, back_action: str, back_text="Back") -> InlineKeyboardMarkup:
+        back_button = self.build_button(back_text, back_action)
         return InlineKeyboardMarkup([[back_button]])
 
     def build_delete_confirm_buttons(self, delete_action: str, back_action: str, delete_text="Delete", back_text="No") \
