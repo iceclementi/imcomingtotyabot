@@ -3208,7 +3208,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     elif action == models.CLOSE:
         query.answer(text=None)
         query.edit_message_reply_markup(None)
-        message.delete()
+        query.message.delete()
         return
     # Handle other cases
     else:

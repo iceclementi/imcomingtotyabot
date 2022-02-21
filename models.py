@@ -950,7 +950,11 @@ class Group(object):
         if not templates:
             return self.build_single_back_button(TEMPLATE)
 
-        buttons = [[self.build_button(template.name, f"{ADD}_{TEMPLATE}_{template.temp_id}")] for template in templates]
+        buttons = []
+        for template in templates:
+            icon = EMOJI_POLL if template.temp_type == "poll" else EMOJI_LIST if template.temp_type == "list" else ""
+            buttons.append([self.build_button(f"{icon} {template.name}", f"{ADD}_{TEMPLATE}_{template.temp_id}")])
+
         back_button = self.build_button("Back", TEMPLATE)
         buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
@@ -2271,7 +2275,7 @@ class ListTemplate(Template):
         return f"Response type is changed to {status}."
 
     def generate_linked_summary(self, include_creator=False) -> str:
-        title = f"<b>{self.name} {EMOJI_POLL}</b>"
+        title = f"<b>{self.name} {EMOJI_LIST}</b>"
         link = f"/ltemp_{self.temp_id}"
         creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
         return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
