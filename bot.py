@@ -1390,6 +1390,43 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
         # Clear user data
         context.user_data.clear()
         return
+    # Handle change group name
+    elif step == 10 and group:
+        if group.get_owner() != user.get_uid():
+            edit_conversation_message(
+                update, context, f"<b>Only group owners can change the group name!</b>",
+                reply_markup=group.build_single_back_button(models.SETTINGS)
+            )
+            context.user_data.clear()
+            logger.warning("Illegal group name change!")
+            return
+
+        group_name = text.replace("\n", " ")
+
+        if len(group_name) > MAX_GROUP_NAME_LENGTH:
+            edit_conversation_message(
+                update, context, ERROR_GROUP_NAME_TOO_LONG,
+                reply_markup=group.build_single_back_button(f"{models.RENAME}_{models.NAME}")
+            )
+            return
+
+        if user.has_group_with_name(group_name):
+            edit_conversation_message(
+                update, context, ERROR_GROUP_NAME_EXISTS,
+                reply_markup=group.build_single_back_button(f"{models.RENAME}_{models.NAME}")
+            )
+            return
+
+        # Change group name
+        group.edit_name(group_name)
+        edit_conversation_message(
+            update, context, "Group name changed successfully!",
+            reply_markup=group.build_single_back_button(models.SETTINGS, "Continue")
+        )
+
+        # Clear user data
+        context.user_data.clear()
+        return
     # Handle change password
     elif step == 11 and group:
         if group.get_owner() != user.get_uid():
@@ -3147,6 +3184,15 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         query.edit_message_reply_markup(group.build_settings_buttons(is_owner=is_owner))
         query.answer(text=None)
         context.user_data.clear()
+        return
+    # Handle change name button
+    elif action == f"{models.RENAME}_{models.NAME}" and is_owner:
+        reply_message = query.edit_message_text(
+            "Enter a new <b>name</b> for your group.", parse_mode=ParseMode.HTML,
+            reply_markup=group.build_single_back_button(models.SETTINGS)
+        )
+        query.answer(text="Enter a new group name.")
+        context.user_data.update({"action": models.GROUP, "step": 10, "gid": gid, "ed": reply_message.message_id})
         return
     # Handle change password button
     elif action == models.SECRET and is_owner:

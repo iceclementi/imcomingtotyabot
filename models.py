@@ -52,6 +52,7 @@ OPTION = "opt"
 OPTIONS = "opts"
 CHOICE = "choice"
 CHOICES = "choices"
+NAME = "name"
 USER_REFRESH = "userRefresh"
 REFRESH_OPT = "refreshOpt"
 CUSTOMISE = "custom"
@@ -1008,7 +1009,8 @@ class Group(object):
             return self.build_single_back_button(TEMPLATE)
 
         buttons = [
-            [self.build_button(template.name, f"{DELETE}_{TEMPLATE}_{template.temp_id}")] for template in templates
+            [self.build_button(f"{template.icon} {template.name}", f"{DELETE}_{TEMPLATE}_{template.temp_id}")]
+            for template in templates
         ]
         back_button = self.build_button("Back", TEMPLATE)
         buttons.append([back_button])
@@ -1016,9 +1018,10 @@ class Group(object):
 
     def build_settings_buttons(self, is_owner=False) -> InlineKeyboardMarkup:
         if is_owner:
+            change_name_button = self.build_button("Change Group Name", f"{RENAME}_{NAME}")
             change_password_button = self.build_button("Change Password", SECRET)
             delete_group_button = self.build_button("Delete Group", DELETE)
-            buttons = [[change_password_button], [delete_group_button]]
+            buttons = [[change_name_button], [change_password_button], [delete_group_button]]
         else:
             leave_group_button = self.build_button("Leave Group", LEAVE_GROUP)
             buttons = [[leave_group_button]]
