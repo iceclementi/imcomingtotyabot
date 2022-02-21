@@ -999,9 +999,6 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     elif action == models.GROUP and is_leader:
         handle_group_conversation(update, context)
         return
-    elif action == "pass" and is_leader:
-        handle_change_secret_conversation(update, context)
-        return
     elif action == models.TEMP_POLL and user:
         handle_temp_poll_conversation(update, context)
         return
@@ -2047,42 +2044,6 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
         return
 
 
-def handle_change_secret_conversation(update: Update, context: CallbackContext) -> None:
-    """Handles the conversation between the bot and the user to change the group secret."""
-    delete_chat_message(update.message)
-    delete_old_chat_message(update, context)
-
-    gid = context.user_data.get("gid", "")
-
-    group = Group.get_group_by_id(gid)
-    if not group or group.get_owner() != update.effective_user.id:
-        update.message.reply_html(
-            util.make_html_bold(ERROR_ILLEGAL_SECRET_CHANGE),
-            reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-        )
-        logger.warning("Illegal password change!")
-        return
-
-    new_secret = update.message.text.strip()
-
-    if not re.match(r"^[A-Za-z0-9]{4,20}$", new_secret):
-        reply_message = update.message.reply_html(
-            ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-        )
-        context.user_data.update({"del": reply_message.message_id})
-        return
-
-    # Change password
-    group.edit_password(new_secret)
-    update.message.reply_html(
-        "Group password changed!", reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-    )
-
-    # Clear user data
-    context.user_data.clear()
-    return
-
-
 # endregion
 
 # region CALLBACK QUERY HANDLERS
@@ -2742,7 +2703,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
             try:
                 context.bot.edit_message_text(
                     f"<b>{poll.get_title()}</b>\n<i>This poll has been <b>closed</b>.</i>",
-                    inline_message_id=mid, reply_markup=None
+                    inline_message_id=mid, parse_mode=ParseMode.HTML, reply_markup=None
                 )
             except telegram.error.TelegramError:
                 continue
@@ -2878,7 +2839,7 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
             try:
                 context.bot.edit_message_text(
                     f"<b>{_list.get_title()}</b>\n<i>This list has been <b>closed</b>.</i>",
-                    inline_message_id=mid, reply_markup=None
+                    inline_message_id=mid, parse_mode=ParseMode.HTML, reply_markup=None
                 )
             except telegram.error.TelegramError:
                 continue
@@ -3301,7 +3262,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
             message.reply_html(title_text, reply_markup=template.build_format_back_buttons(models.TEMP_TITLE))
             query.answer(text="Error parsing title format.")
             return
-        title = f"<b>Current Poll Title</b>\n{title_text}"
+        title = f"<b>Current Poll Title</b>\n<b>{title_text}</b>"
         body = f"Enter another format input to change the title or <b>Continue</b> to go to the next step."
         response = "\n\n".join([title] + [body])
         reply_message = message.reply_html(response, reply_markup=template.build_format_title_buttons())
@@ -3616,7 +3577,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
             message.reply_html(title_text, reply_markup=template.build_format_back_buttons(models.TEMP_TITLE))
             query.answer(text="Error parsing title format.")
             return
-        title = f"<b>Current List Title</b>\n{title_text}"
+        title = f"<b>Current List Title</b>\n<b>{title_text}</b>"
         body = f"Enter another format input to change the title or <b>Continue</b> to go to the next step."
         response = "\n\n".join([title] + [body])
         reply_message = message.reply_html(response, reply_markup=template.build_format_title_buttons())
