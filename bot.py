@@ -1726,7 +1726,7 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
             response = "Sorry, please ensure that the name consists only a maximum of 12 alphanumeric characters."
             edit_conversation_message(
                 update, context, response,
-                reply_markup=template.build_single_back_button(f"{models.RENAME}_{models.TEMPLATE}")
+                reply_markup=template.build_single_back_button(f"{models.RENAME}_{models.TEMPLATE}_{models.NAME}")
             )
             return
 
@@ -1734,7 +1734,7 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
             response = "Sorry, you already have a poll template with the same name. Please enter a different name."
             edit_conversation_message(
                 update, context, response,
-                reply_markup=template.build_single_back_button(f"{models.RENAME}_{models.TEMPLATE}")
+                reply_markup=template.build_single_back_button(f"{models.RENAME}_{models.TEMPLATE}_{models.NAME}")
             )
             return
 
@@ -2061,7 +2061,7 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
             response = "Sorry, please ensure that the name consists only a maximum of 12 alphanumeric characters."
             edit_conversation_message(
                 update, context, response,
-                reply_markup=template.build_single_back_button(f"{models.RENAME}_{models.TEMPLATE}")
+                reply_markup=template.build_single_back_button(f"{models.RENAME}_{models.TEMPLATE}_{models.NAME}")
             )
             return
 
@@ -2069,7 +2069,7 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
             response = "Sorry, you already have a poll template with the same name. Please enter a different name."
             edit_conversation_message(
                 update, context, response,
-                reply_markup=template.build_single_back_button(f"{models.RENAME}_{models.TEMPLATE}")
+                reply_markup=template.build_single_back_button(f"{models.RENAME}_{models.TEMPLATE}_{models.NAME}")
             )
             return
 
