@@ -1740,7 +1740,50 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
         # Clear user data
         context.user_data.clear()
         return
-    # Handle invalid step
+    # Handle rename template description
+    elif step == 26 and template:
+        if len(text) > 100:
+            response = "Sorry, please enter a shorter template description (maximum 100 characters)."
+            edit_conversation_message(
+                update, context, response,
+                reply_markup=template.build_single_back_button(
+                    f"{models.RENAME}_{models.TEMPLATE}_{models.DESCRIPTION}"
+                )
+            )
+            return
+
+        # Change template description
+        template.description = text
+        edit_conversation_message(
+            update, context, f"Poll template description successfully changed to <b>{template.description}</b>",
+            reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
+        )
+
+        # Clear user data
+        context.user_data.clear()
+        return
+    # Handle add template description:
+    elif step == 27 and template:
+        if len(text) > 100:
+            response = "Sorry, please enter a shorter template description (maximum 100 characters)."
+            edit_conversation_message(
+                update, context, response,
+                reply_markup=template.build_single_back_button(
+                    f"{models.ADD}_{models.TEMPLATE}_{models.DESCRIPTION}"
+                )
+            )
+            return
+
+        # Change template description
+        template.description = text
+        edit_conversation_message(
+            update, context, f"Poll template description successfully set to <b>{template.description}</b>",
+            reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
+        )
+
+        # Clear user data
+        context.user_data.clear()
+        return
     else:
         logger.warning("Error with preset poll conversation step index!!")
         context.user_data.clear()
@@ -2488,7 +2531,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
                 update, context, f"Poll template created! You may now use this template to generate a new poll!",
                 reply_markup=util.build_single_button_markup("Close", models.CLOSE)
             )
-            update.message.reply_html(
+            query.message.reply_html(
                 poll_template.render_text(),
                 reply_markup=poll_template.build_main_buttons()
             )
@@ -2577,7 +2620,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
                 update, context, f"List template created! You may now use this template to generate a new list!",
                 reply_markup=util.build_single_button_markup("Close", models.CLOSE)
             )
-            update.message.reply_html(
+            query.message.reply_html(
                 list_template.render_text(),
                 reply_markup=list_template.build_main_buttons()
             )
@@ -3549,7 +3592,38 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle rename template description button
     elif action == f"{models.RENAME}_{models.TEMPLATE}_{models.DESCRIPTION}":
-        query.answer(text="To be implemented.")
+        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        response = f"{template_name}\n\n{template_description}\n\nEnter a new <b>template description</b>."
+        reply_message = query.edit_message_text(
+            response, parse_mode=ParseMode.HTML,
+            reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}")
+        )
+        query.answer(text="Enter a new template description.")
+        context.user_data.update(
+            {"action": models.TEMP_POLL, "step": 25, "tempId": template.temp_id, "ed": reply_message.message_id}
+        )
+        return
+    # Handle remove template description button
+    elif action == f"{models.DELETE}_{models.TEMPLATE}_{models.DESCRIPTION}":
+        query.edit_message_reply_markup(template.build_delete_confirm_buttons(
+            f"{models.TEMPLATE}_{models.DESCRIPTION}", f"{models.EDIT}_{models.TEMPLATE}", delete_text="Remove")
+        )
+        query.answer(text="Confirm remove?")
+        return
+    # Handle add template description button
+    elif action == f"{models.ADD}_{models.TEMPLATE}_{models.DESCRIPTION}":
+        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        response = f"{template_name}\n\n{template_description}\n\nEnter a new <b>template description</b>."
+        reply_message = query.edit_message_text(
+            response, parse_mode=ParseMode.HTML,
+            reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}")
+        )
+        query.answer(text="Enter a new template description.")
+        context.user_data.update(
+            {"action": models.TEMP_POLL, "step": 27, "tempId": template.temp_id, "ed": reply_message.message_id}
+        )
         return
     # Handle edit title button
     elif action == f"{models.EDIT}_{models.TITLE}":
@@ -3617,7 +3691,8 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle add description button
     elif action == f"{models.ADD}_{models.DESCRIPTION}":
-        response = "Enter a new <b>description format</b>."
+        description_format = template.render_description_code("Current Description Format")
+        response = f"{description_format}\n\nEnter a new <b>description format</b>."
         reply_message = query.edit_message_text(
             response, parse_mode=ParseMode.HTML,
             reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.DESCRIPTION}")
@@ -3627,17 +3702,26 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
             {"action": models.TEMP_POLL, "step": 23, "tempId": template.temp_id, "ed": reply_message.message_id}
         )
         return
-    # Handle delete template button
+    # Handle confirm delete template button
     elif action == f"{models.DELETE_YES}_{models.TEMPLATE}" and is_creator:
         user.delete_temp_poll(temp_id)
         query.answer(text="Poll template deleted!")
         message.delete()
         return
-    # Handle remove description button
+    # Handle confirm remove description button
     elif action == f"{models.DELETE_YES}_{models.DESCRIPTION}":
         template.description_format = ""
         query.edit_message_text(
             template.render_text(), parse_mode=ParseMode.HTML,
+            reply_markup=template.build_edit_description_buttons()
+        )
+        query.answer(text="Description removed.")
+        return
+    # Handle confirm remove template description button
+    elif action == f"{models.DELETE_YES}_{models.TEMPLATE}_{models.DESCRIPTION}":
+        template.description = ""
+        query.edit_message_text(
+            template.render_description_code("Current Description Format"), parse_mode=ParseMode.HTML,
             reply_markup=template.build_edit_description_buttons()
         )
         query.answer(text="Description removed.")
@@ -3959,7 +4043,8 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle add description button
     elif action == f"{models.ADD}_{models.DESCRIPTION}":
-        response = "Enter a new <b>description format</b>."
+        description_format = template.render_description_code("Current Description Format")
+        response = f"{description_format}\n\nEnter a new <b>description format</b>."
         reply_message = query.edit_message_text(
             response, parse_mode=ParseMode.HTML,
             reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.DESCRIPTION}")
@@ -3979,7 +4064,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
     elif action == f"{models.DELETE_YES}_{models.DESCRIPTION}":
         template.description_format = ""
         query.edit_message_text(
-            template.render_text(), parse_mode=ParseMode.HTML,
+            template.render_description_code("Current Description Format"), parse_mode=ParseMode.HTML,
             reply_markup=template.build_edit_description_buttons()
         )
         query.answer(text="Description removed.")

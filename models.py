@@ -2217,8 +2217,13 @@ class PollTemplate(Template):
     def build_edit_template_details_buttons(self) -> InlineKeyboardMarkup:
         change_name_button = self.build_button("Change Template Name", f"{RENAME}_{TEMPLATE}_{NAME}")
         change_descr_button = self.build_button("Change Template Description", f"{RENAME}_{TEMPLATE}_{DESCRIPTION}")
+        remove_descr_button = self.build_button("Remove Template Description", f"{DELETE}_{TEMPLATE}_{DESCRIPTION}")
+        add_descr_button = self.build_button("Add Template Description", f"{ADD}_{TEMPLATE}_{DESCRIPTION}")
         back_button = self.build_button("Back", SETTINGS)
-        buttons = [[change_name_button], [change_descr_button], [back_button]]
+        if self.description:
+            buttons = [[change_name_button], [change_descr_button], [remove_descr_button], [back_button]]
+        else:
+            buttons = [[change_name_button], [add_descr_button], [back_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_edit_title_buttons(self) -> InlineKeyboardMarkup:
@@ -2447,8 +2452,13 @@ class ListTemplate(Template):
     def build_edit_template_details_buttons(self) -> InlineKeyboardMarkup:
         change_name_button = self.build_button("Change Template Name", f"{RENAME}_{TEMPLATE}_{NAME}")
         change_descr_button = self.build_button("Change Template Description", f"{RENAME}_{TEMPLATE}_{DESCRIPTION}")
+        remove_descr_button = self.build_button("Remove Template Description", f"{DELETE}_{TEMPLATE}_{DESCRIPTION}")
+        add_descr_button = self.build_button("Add Template Description", f"{ADD}_{TEMPLATE}_{DESCRIPTION}")
         back_button = self.build_button("Back", SETTINGS)
-        buttons = [[change_name_button], [change_descr_button], [back_button]]
+        if self.description:
+            buttons = [[change_name_button], [change_descr_button], [remove_descr_button], [back_button]]
+        else:
+            buttons = [[change_name_button], [add_descr_button], [back_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_edit_title_buttons(self) -> InlineKeyboardMarkup:
