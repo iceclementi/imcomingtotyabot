@@ -1500,7 +1500,7 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
         response = "\n\n".join([f"{header}\n{body}"] + [footer])
 
         edit_conversation_message(
-            update, context, response, reply_markup=build_progress_buttons("Continue")
+            update, context, response, reply_markup=build_progress_buttons(next_text="Continue")
         )
         context.user_data.update({"title": text})
         return
