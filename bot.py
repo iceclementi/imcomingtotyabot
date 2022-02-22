@@ -3740,6 +3740,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle confirm remove template description button
     elif action == f"{models.DELETE_YES}_{models.TEMPLATE}_{models.DESCRIPTION}":
+        template.description = ""
         template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
         template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
         query.edit_message_text(
@@ -4124,6 +4125,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle confirm remove template description button
     elif action == f"{models.DELETE_YES}_{models.TEMPLATE}_{models.DESCRIPTION}":
+        template.description = ""
         template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
         template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
         query.edit_message_text(
