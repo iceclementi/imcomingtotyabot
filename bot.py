@@ -2301,7 +2301,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
 
         user_action, step = context.user_data.get("action", ""), context.user_data.get("step", 0)
         if user_action == models.TEMP_POLL and step == 4:
-            response_text = "Finally, enter a unique <b>name</b> for your template for reference."
+            response_text = "Now, enter a unique <b>name</b> for your template for reference."
             query.edit_message_text(
                 response_text, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_buttons_markup(
                     util.generate_button_details("Cancel", models.RESET)
@@ -2311,7 +2311,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
             context.user_data.update({"step": 5, "response": is_single_response})
             return
         elif user_action == models.TEMP_LIST and step == 5:
-            response_text = "Finally, enter a unique <b>name</b> for your template for reference."
+            response_text = "Now, enter a unique <b>name</b> for your template for reference."
             query.edit_message_text(
                 response_text, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_buttons_markup(
                     util.generate_button_details("Cancel", models.RESET)
@@ -2435,6 +2435,9 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
             context.user_data.get("options", []), context.user_data.get("name", ""), \
             context.user_data.get("tempDescr", "")
+
+        logger.info(f"step={step}, title={title}, descr={description}, options={options}, "
+                    f"name={name}, tempDescr={temp_description}")
 
         if step == 1 and title:
             response = "Wonderful! Now, send me a <b>description format</b> for the poll template " \
