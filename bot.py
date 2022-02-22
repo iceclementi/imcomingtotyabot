@@ -1584,7 +1584,7 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Continue")
         )
-        context.user_data.update({"name", text})
+        context.user_data.update({"name": text})
         return
     # Handle template description
     elif step == 6 and title and description and options and name:
@@ -1601,7 +1601,7 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Create")
         )
-        context.user_data.update({"tempDescr", text})
+        context.user_data.update({"tempDescr": text})
         return
     # Handle format title
     elif step == 11 and template:
@@ -1932,7 +1932,7 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Continue")
         )
-        context.user_data.update({"name", text})
+        context.user_data.update({"name": text})
         return
     # Handle template description
     elif step == 7 and title and description and options and choices and name:
@@ -1949,7 +1949,7 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Create")
         )
-        context.user_data.update({"tempDescr", text})
+        context.user_data.update({"tempDescr": text})
         return
     # Handle format title
     elif step == 11 and template:
@@ -2435,9 +2435,6 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
             context.user_data.get("options", []), context.user_data.get("name", ""), \
             context.user_data.get("tempDescr", "")
-
-        logger.info(f"step={step}, title={title}, descr={description}, options={options}, "
-                    f"name={name}, tempDescr={temp_description}")
 
         if step == 1 and title:
             response = "Wonderful! Now, send me a <b>description format</b> for the poll template " \
