@@ -699,7 +699,7 @@ def handle_template(update: Update, context: CallbackContext) -> None:
                 return
             poll: Poll = user.create_poll_from_template(temp_poll.temp_id, title, description)
             update.message.reply_html(POLL_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
-            update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(user.get_uid()))
+            update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
             return
         elif template_type in ("l", "list"):
             temp_list = user.get_temp_list_by_name(name)
@@ -720,7 +720,7 @@ def handle_template(update: Update, context: CallbackContext) -> None:
                 return
             _list: List = user.create_list_from_template(temp_list.temp_id, title, description)
             update.message.reply_html(LIST_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
-            update.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(user.get_uid()))
+            update.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons())
             return
 
     response_text = "Which <b>template</b> do you want to create?"
@@ -2438,7 +2438,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             POLL_DONE, parse_mode=ParseMode.HTML,
             reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
-        query.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(query.from_user.id))
+        query.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
         query.answer(text="Poll created successfully!")
 
         # Clear user data
@@ -2481,7 +2481,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
                 LIST_DONE, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Close", models.CLOSE)
             )
-            query.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(query.from_user.id))
+            query.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons())
             query.answer(text="List created successfully!")
 
             # Clear user data
@@ -3507,7 +3507,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         message.edit_text(
             POLL_DONE, parse_mode=ParseMode.HTML, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
-        message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(user.get_uid()))
+        message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
         context.user_data.clear()
         return
     # Handle done button
@@ -3538,7 +3538,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
                 POLL_DONE, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Close", models.CLOSE)
             )
-            message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(user.get_uid()))
+            message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
             query.answer(text="Poll created successfully!")
             context.user_data.clear()
             return
@@ -3888,7 +3888,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         message.edit_text(
             LIST_DONE, parse_mode=ParseMode.HTML, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
-        message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(user.get_uid()))
+        message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons())
         context.user_data.clear()
         return
     # Handle done button
@@ -3919,7 +3919,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
                 LIST_DONE, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Close", models.CLOSE)
             )
-            message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(user.get_uid()))
+            message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons())
             query.answer(text="List created successfully!")
             context.user_data.clear()
             return
@@ -4741,7 +4741,7 @@ def delete_message_from_job(context: CallbackContext) -> None:
 
 def deliver_poll(update: Update, poll: Poll) -> None:
     """Delivers the poll."""
-    update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons(update.effective_user.id))
+    update.message.reply_html(poll.render_text(), reply_markup=poll.build_admin_buttons())
     return
 
 
@@ -4761,7 +4761,7 @@ def refresh_polls(poll: Poll, context: CallbackContext, only_buttons=False) -> N
 
 def deliver_list(update: Update, _list: List) -> None:
     """Delivers the list."""
-    update.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons(update.effective_user.id))
+    update.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons())
     return
 
 
