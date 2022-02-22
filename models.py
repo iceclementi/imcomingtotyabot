@@ -1263,7 +1263,7 @@ class Poll(object):
         buttons = [[toggle_response_button], [enforce_comments_button], [back_button]]
         if is_creator:
             delete_button = self.build_button("Delete Poll", DELETE)
-            buttons.insert(-1, delete_button)
+            buttons.insert(-1, [delete_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_option_comment_required_buttons(self) -> InlineKeyboardMarkup:
@@ -1607,7 +1607,7 @@ class List(object):
         buttons = [[toggle_response_button], [back_button]]
         if is_creator:
             delete_button = self.build_button("Delete List", DELETE)
-            buttons.insert(-1, delete_button)
+            buttons.insert(-1, [delete_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_choice_buttons(self, opt_id: int) -> InlineKeyboardMarkup:
