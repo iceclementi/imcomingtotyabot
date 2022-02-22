@@ -2889,6 +2889,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
         query.edit_message_reply_markup(None)
+        query.message.delete()
         return
 
 
@@ -2898,13 +2899,16 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
 
     # List is deleted or has error
     if not _list:
-        query.edit_message_reply_markup(None)
         query.answer(text=DELETED_LIST)
+        query.edit_message_reply_markup(None)
+        query.message.delete()
         return
 
     uid = query.from_user.id
+    user, _, _ = get_user_permissions(uid)
     message = query.message
     is_pm = is_private_chat(message)
+    is_creator = _list.get_creator_id() == uid
 
     # Handle list options button
     if action == models.OPTIONS:
@@ -2977,30 +2981,28 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
     elif action == models.REFRESH and is_pm:
         query.answer(text="Results updated!")
         query.edit_message_text(
-            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_admin_buttons(uid)
+            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_admin_buttons()
         )
         return
     # Handle customise button
-    elif action == models.CUSTOMISE and is_pm:
-        query.edit_message_reply_markup(_list.build_customise_buttons())
+    elif action == models.SETTINGS and is_pm:
+        query.edit_message_reply_markup(_list.build_settings_buttons(is_creator=is_creator))
         query.answer(text=None)
         return
     # Handle toggle response button
     elif action == models.RESPONSE and is_pm:
         status = _list.toggle_response_type()
         query.answer(text=status)
-        query.edit_message_reply_markup(_list.build_customise_buttons())
+        query.edit_message_reply_markup(_list.build_settings_buttons(is_creator=is_creator))
         return
     # Handle delete button
-    elif action == models.DELETE and is_pm:
-        query.edit_message_reply_markup(_list.build_delete_confirmation_buttons())
+    elif action == models.DELETE and is_pm and is_creator:
+        query.edit_message_reply_markup(_list.build_delete_confirm_buttons(models.LIST, models.SETTINGS))
         query.answer(text="Confirm delete?")
         return
     # Handle delete confirmation button
-    elif action == models.DELETE_YES and is_pm:
-        User.get_user_by_id(uid).delete_list(list_id)
-        message.delete()
-        query.answer(text="List deleted!")
+    elif action == f"{models.DELETE_YES}_{models.LIST}" and is_pm and is_creator:
+        user.delete_list(list_id)
         for mid in _list.get_message_details():
             try:
                 context.bot.edit_message_text(
@@ -3009,11 +3011,14 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
                 )
             except telegram.error.TelegramError:
                 continue
+        query.answer(text="List deleted!")
+        query.edit_message_reply_markup(None)
+        query.message.delete()
         return
     # Handle back button
     elif action == models.BACK and is_pm:
-        query.edit_message_reply_markup(_list.build_admin_buttons(uid))
         query.answer(text=None)
+        query.edit_message_reply_markup(_list.build_admin_buttons())
         return
     # Handle update done button
     elif action == models.UPDATE_DONE and is_pm:
@@ -3026,14 +3031,16 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         reply_message.delete()
     # Handle close button
     elif action == models.CLOSE:
-        message.delete()
         query.answer(text=None)
+        query.edit_message_reply_markup(None)
+        query.message.delete()
         return
     # Handle other cases
     else:
         logger.warning("Invalid callback query data.")
         query.answer(text="Invalid callback query data!")
         query.edit_message_reply_markup(None)
+        query.message.delete()
         return
 
 

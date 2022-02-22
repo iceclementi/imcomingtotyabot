@@ -1578,58 +1578,56 @@ class List(object):
 
     def build_update_buttons(self) -> InlineKeyboardMarkup:
         update_button = util.build_switch_button("Update", f"/update {self.get_list_hash()}", to_self=True)
-        refresh_button = util.build_button("Refresh", LIST_SUBJECT, USER_REFRESH, self.list_id)
+        refresh_button = self.build_button("Refresh", USER_REFRESH)
         buttons = [[update_button, refresh_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_option_buttons(self) -> InlineKeyboardMarkup:
         buttons = []
         for i, option in enumerate(self.options):
-            option_button = util.build_button(option.get_title(), LIST_SUBJECT, f"{OPTION}_{i}", self.list_id)
+            option_button = self.build_button(option.get_title(), f"{OPTION}_{i}")
             buttons.append([option_button])
-        refresh_button = util.build_button("Refresh", LIST_SUBJECT, REFRESH_OPT, self.list_id)
-        done_button = util.build_button("Done", LIST_SUBJECT, UPDATE_DONE, self.list_id)
+        refresh_button = self.build_button("Refresh", REFRESH_OPT)
+        done_button = self.build_button("Done", UPDATE_DONE)
         buttons.append([refresh_button, done_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_admin_buttons(self, uid: int) -> InlineKeyboardMarkup:
+    def build_admin_buttons(self) -> InlineKeyboardMarkup:
         publish_button = util.build_switch_button("Publish", self.title)
-        customise_button = util.build_button("Customise", LIST_SUBJECT, CUSTOMISE, self.list_id)
-        refresh_button = util.build_button("Refresh", LIST_SUBJECT, REFRESH, self.list_id)
-        close_button = util.build_button("Close", LIST_SUBJECT, CLOSE, self.list_id)
-
-        if uid == self.creator_id:
-            delete_button = util.build_button("Delete", LIST_SUBJECT, DELETE, self.list_id)
-            buttons = [[publish_button], [customise_button], [delete_button, refresh_button], [close_button]]
-        else:
-            buttons = [[publish_button], [customise_button], [refresh_button], [close_button]]
+        settings_button = self.build_button("Settings", SETTINGS)
+        refresh_button = self.build_button("Refresh", REFRESH)
+        close_button = self.build_button("Close", CLOSE)
+        buttons = [[publish_button], [settings_button], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_customise_buttons(self) -> InlineKeyboardMarkup:
+    def build_settings_buttons(self, is_creator=False) -> InlineKeyboardMarkup:
         response_text = "Multi-Response" if self.single_response else "Single Response"
-        toggle_response_button = util.build_button(f"Change to {response_text}", LIST_SUBJECT, RESPONSE, self.list_id)
-        back_button = util.build_button("Back", LIST_SUBJECT, BACK, self.list_id)
+        toggle_response_button = self.build_button(f"Change to {response_text}", RESPONSE)
+        back_button = self.build_button("Back", BACK)
         buttons = [[toggle_response_button], [back_button]]
+        if is_creator:
+            delete_button = self.build_button("Delete List", DELETE)
+            buttons.insert(-1, delete_button)
         return InlineKeyboardMarkup(buttons)
 
     def build_choice_buttons(self, opt_id: int) -> InlineKeyboardMarkup:
         buttons = []
         for i, choice in enumerate(self.choices):
-            choice_button = util.build_button(choice, LIST_SUBJECT, f"{CHOICE}_{opt_id}_{i}", self.list_id)
+            choice_button = self.build_button(choice, f"{CHOICE}_{opt_id}_{i}")
             buttons.append([choice_button])
-        back_button = util.build_button("Back", LIST_SUBJECT, OPTIONS, self.list_id)
+        back_button = self.build_button("Back", OPTIONS)
         buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_delete_confirmation_buttons(self) -> InlineKeyboardMarkup:
-        yes_button = util.build_button("Delete", LIST_SUBJECT, DELETE_YES, self.list_id)
-        no_button = util.build_button("No", LIST_SUBJECT, BACK, self.list_id)
-        buttons = [[yes_button, no_button]]
+    def build_delete_confirm_buttons(self, delete_action: str, back_action: str, delete_text="Delete", back_text="No") \
+            -> InlineKeyboardMarkup:
+        delete_button = self.build_button(delete_text, f"{DELETE_YES}_{delete_action}")
+        back_button = self.build_button(back_text, back_action)
+        buttons = [[delete_button, back_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_single_button(self, text: str, action: str):
-        button = util.build_button(text, LIST_SUBJECT, action, self.list_id)
-        return InlineKeyboardMarkup([[button]])
+    def build_button(self, text: str, action: str) -> InlineKeyboardButton:
+        return util.build_button(text, LIST_SUBJECT, action, self.list_id)
 
     def to_json(self) -> dict:
         return {
