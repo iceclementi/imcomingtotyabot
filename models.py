@@ -306,21 +306,19 @@ class User(object):
     def get_temp_poll_by_name(self, name: str) -> PollTemplate:
         return next((temp_poll for temp_poll in self.get_temp_polls() if temp_poll.name.lower() == name.lower()), None)
 
-    def create_temp_poll(self, name: str, title: str, description: str, options: list,
-                         is_single_response: bool) -> Tuple[PollTemplate, str]:
-        temp_poll = PollTemplate.create_new(name, title, description, options, is_single_response, self.uid)
+    def create_temp_poll(self, name: str, description: str, format_title_string: str, description_format_string: str,
+                         options: list, is_single_response: bool) -> Tuple[PollTemplate, str]:
+        temp_poll = PollTemplate.create_new(
+            name, description, format_title_string, description_format_string, options, is_single_response, self.uid
+        )
         self._temp_poll_ids.add(temp_poll.temp_id)
         return temp_poll, f"Poll template {util.make_html_bold(name)} created!"
 
-    def delete_temp_poll(self, temp_id: str) -> str:
-        if temp_id not in self._temp_poll_ids:
-            return "No such poll template exists."
+    def delete_temp_poll(self, temp_id: str) -> None:
         self._temp_poll_ids.remove(temp_id)
-
         temp_poll = PollTemplate.get_template_by_id(temp_id)
         temp_poll.delete()
-
-        return f"Poll {util.make_html_bold(temp_poll.get_title())} has been deleted."
+        return
 
     def has_temp_poll_with_name(self, name: str) -> bool:
         return any(temp_poll.name.lower() == name.lower() for temp_poll in self.get_temp_polls())
@@ -343,21 +341,20 @@ class User(object):
     def get_temp_list_by_name(self, name: str) -> ListTemplate:
         return next((temp_list for temp_list in self.get_temp_lists() if temp_list.name.lower() == name.lower()), None)
 
-    def create_temp_list(self, name: str, title: str, description: str, options: Lst[str], choices: Lst[str],
-                         is_single_response: bool) -> Tuple[ListTemplate, str]:
-        temp_list = ListTemplate.create_new(name, title, description, options, choices, is_single_response, self.uid)
+    def create_temp_list(self, name: str, description: str, title_format_string: str, description_format_string: str,
+                         options: Lst[str], choices: Lst[str], is_single_response: bool) -> Tuple[ListTemplate, str]:
+        temp_list = ListTemplate.create_new(
+            name, description, title_format_string, description_format_string, options, choices,
+            is_single_response, self.uid
+        )
         self._temp_list_ids.add(temp_list.temp_id)
         return temp_list, f"List template {util.make_html_bold(name)} created!"
 
-    def delete_temp_list(self, temp_id: str) -> str:
-        if temp_id not in self._temp_list_ids:
-            return "No such list template exists."
+    def delete_temp_list(self, temp_id: str) -> None:
         self._temp_list_ids.remove(temp_id)
-
         temp_list = ListTemplate.get_template_by_id(temp_id)
         temp_list.delete()
-
-        return f"List {util.make_html_bold(temp_list.get_title())} has been deleted."
+        return
 
     def has_temp_list_with_name(self, name: str) -> bool:
         return any(temp_list.name.lower() == name.lower() for temp_list in self.get_temp_lists())
@@ -1970,12 +1967,13 @@ class Template(object):
     TEMPLATE_TYPES = {"P": "poll", "L": "list"}
     TEMPLATE_ICONS = {"poll": EMOJI_POLL, "list": EMOJI_LIST}
 
-    def __init__(self, temp_id: str, name: str, formatted_title: FormatTextCode, formatted_description: FormatTextCode,
-                 creator_id: int) -> None:
+    def __init__(self, temp_id: str, name: str, description: str,
+                 title_format: FormatTextCode, description_format: FormatTextCode, creator_id: int) -> None:
         self._temp_id = temp_id
         self._name = name
-        self._formatted_title = formatted_title
-        self._formatted_description = formatted_description
+        self._description = description
+        self._title_format = title_format
+        self._description_format = description_format
         self._creator_id = creator_id
 
     @staticmethod
@@ -2016,21 +2014,30 @@ class Template(object):
         return
 
     @property
-    def formatted_title(self) -> FormatTextCode:
-        return self._formatted_title
+    def description(self) -> str:
+        return self._description
 
-    @formatted_title.setter
-    def formatted_title(self, new_title: str) -> None:
-        self._formatted_title = FormatTextCode.create_new(new_title)
+    @description.setter
+    def description(self, new_description: str) -> None:
+        self._description = new_description
         return
 
     @property
-    def formatted_description(self) -> FormatTextCode:
-        return self._formatted_description
+    def title_format(self) -> FormatTextCode:
+        return self._title_format
 
-    @formatted_description.setter
-    def formatted_description(self, new_description: str) -> None:
-        self._formatted_description = FormatTextCode.create_new(new_description)
+    @title_format.setter
+    def title_format(self, new_title: str) -> None:
+        self._title_format = FormatTextCode.create_new(new_title)
+        return
+
+    @property
+    def description_format(self) -> FormatTextCode:
+        return self._description_format
+
+    @description_format.setter
+    def description_format(self, new_description: str) -> None:
+        self._description_format = FormatTextCode.create_new(new_description)
         return
 
     @property
@@ -2051,9 +2058,10 @@ class Template(object):
 
 
 class PollTemplate(Template):
-    def __init__(self, temp_id: str, name: str, formatted_title: FormatTextCode, formatted_description: FormatTextCode,
-                 options: Lst[str], single_response: bool, creator_id: int) -> None:
-        super().__init__(temp_id, name, formatted_title, formatted_description, creator_id)
+    def __init__(self, temp_id: str, name: str, description: str, title_format: FormatTextCode,
+                 description_format: FormatTextCode, options: Lst[str], single_response: bool,
+                 creator_id: int) -> None:
+        super().__init__(temp_id, name, description, title_format, description_format, creator_id)
         self._options = options
         self._is_single_response = single_response
 
@@ -2067,29 +2075,31 @@ class PollTemplate(Template):
         return [template for template in template_lists if filters.lower() in template.name.lower()]
 
     @classmethod
-    def create_new(cls, name: str, format_title: str, format_description: str, options: Lst[str], single_response: bool,
-                   creator_id: int) -> PollTemplate:
+    def create_new(cls, name: str, description: str, title_format_string: str, description_format_string: str,
+                   options: Lst[str], single_response: bool, creator_id: int) -> PollTemplate:
         temp_id = "P" + util.generate_random_id(POLL_ID_LENGTH, set(temp_poll_storage.keys()))
-        formatted_title = FormatTextCode.create_new(format_title)
-        formatted_description = FormatTextCode.create_new(format_description)
-        template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
+        title_format = FormatTextCode.create_new(title_format_string)
+        description_format = FormatTextCode.create_new(description_format_string)
+        template = \
+            cls(temp_id, name, description, title_format, description_format, options, single_response, creator_id)
         temp_poll_storage[temp_id] = template
         return template
 
     @classmethod
-    def load(cls, temp_id: str, name: str, title: Dict[str, Dict[str, Lst[str]]],
-             description: Dict[str, Dict[str, Lst[str]]], options: Lst[str], single_response: bool,
+    def load(cls, temp_id: str, name: str, description: str, title_format_data: Dict[str, Dict[str, Lst[str]]],
+             description_format_data: Dict[str, Dict[str, Lst[str]]], options: Lst[str], single_response: bool,
              creator_id: int) -> None:
-        formatted_title = FormatTextCode.load(
-            title.get(db.FORMAT_TEXT, ""),
-            title.get(db.FORMAT_CODES, dict())
+        title_format = FormatTextCode.load(
+            title_format_data.get(db.FORMAT_TEXT, ""),
+            title_format_data.get(db.FORMAT_CODES, dict())
         )
-        formatted_description = FormatTextCode.load(
-            description.get(db.FORMAT_TEXT, ""),
-            description.get(db.FORMAT_CODES, dict())
+        description_format = FormatTextCode.load(
+            description_format_data.get(db.FORMAT_TEXT, ""),
+            description_format_data.get(db.FORMAT_CODES, dict())
         )
 
-        template = cls(temp_id, name, formatted_title, formatted_description, options, single_response, creator_id)
+        template = \
+            cls(temp_id, name, description, title_format, description_format, options, single_response, creator_id)
         temp_poll_storage[temp_id] = template
         return
 
@@ -2115,45 +2125,49 @@ class PollTemplate(Template):
         return f"Response type is changed to {status}."
 
     def generate_linked_summary(self, include_creator=False) -> str:
-        title = f"<b>{self.name} {EMOJI_POLL}</b>"
+        header = f"<b>{self.name} {EMOJI_POLL}</b>"
+        if self.description:
+            header += f"\n<i>{self.description}</i>"
         link = f"/temp_{self.temp_id}"
         creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
-        return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
+        return "\n".join([header] + [f"{link} {creator}"]) if include_creator else "\n".join([header] + [link])
 
     def render_text(self) -> str:
-        header = f"<b>{EMOJI_POLL} Poll Template ({self.name})</b>"
-        title_body = f"<b>Title</b>\n{self.formatted_title.render_details()}"
-        description_body = f"<b>Description</b>\n{self.formatted_description.render_details()}"
+        header = f"<b>{EMOJI_POLL} {self.name} (Template)</b>"
+        if self.description:
+            header += f"\n<i>{self.description}</i>"
+        title_body = f"<b>Title</b>\n{self.title_format.render_details()}"
+        description_body = f"<b>Description</b>\n{self.description_format.render_details()}"
         options_body = f"<b>Options</b>\n{util.list_to_indexed_list_string(self.options)}"
         response_type_body = f"<b>Response Type</b> - {'Single' if self.is_single_response else 'Multiple'}"
         return "\n\n".join([header] + [title_body] + [description_body] + [options_body] + [response_type_body])
 
     def render_title_code(self, header="") -> str:
-        return f"<b>{header}</b>\n{self.formatted_title.render_details()}" if header \
-            else f"<b>Title Format</b>\n{self.formatted_title.render_details()}"
+        return f"<b>{header}</b>\n{self.title_format.render_details()}" if header \
+            else f"<b>Title Format</b>\n{self.title_format.render_details()}"
 
     def render_description_code(self, header="") -> str:
-        return f"<b>{header}</b>\n{self.formatted_description.render_details()}" if header \
-            else f"<b>Description Format</b>\n{self.formatted_description.render_details()}"
+        return f"<b>{header}</b>\n{self.description_format.render_details()}" if header \
+            else f"<b>Description Format</b>\n{self.description_format.render_details()}"
 
     def render_title(self, format_inputs="") -> Tuple[str, bool]:
-        return self.formatted_title.render_format_text(format_inputs)
+        return self.title_format.render_format_text(format_inputs)
 
     def render_description(self, format_inputs="") -> Tuple[str, bool]:
-        return self.formatted_description.render_format_text(format_inputs)
+        return self.description_format.render_format_text(format_inputs)
 
     def render_title_and_description(self, format_inputs="") -> Tuple[str, str, bool]:
-        offset = len(self.formatted_title.format_codes)
+        offset = len(self.title_format.format_codes)
 
         # Separate title and description format inputs using ".." as separator
         match = re.match(r"^((?:.|\n)*)(?:(?<=^)|(?<=\n))\.\.(?=$|\n)((?:.|\n)*)$", format_inputs)
         if not match:
-            title_result, is_title_valid = self.formatted_title.render_format_text(format_inputs.strip())
-            description_result, is_description_valid = self.formatted_description.render_format_text()
+            title_result, is_title_valid = self.title_format.render_format_text(format_inputs.strip())
+            description_result, is_description_valid = self.description_format.render_format_text()
         else:
-            title_result, is_title_valid = self.formatted_title.render_format_text(match.group(1).strip())
+            title_result, is_title_valid = self.title_format.render_format_text(match.group(1).strip())
             description_result, is_description_valid = \
-                self.formatted_description.render_format_text(match.group(2).strip(), offset=offset)
+                self.description_format.render_format_text(match.group(2).strip(), offset=offset)
 
         if not is_title_valid:
             return title_result, "", False
@@ -2165,10 +2179,9 @@ class PollTemplate(Template):
     def build_main_buttons(self) -> InlineKeyboardMarkup:
         generate_poll_button = self.build_button("Generate Poll", POLL)
         settings_buttons = self.build_button("Settings", SETTINGS)
-        delete_template_button = self.build_button("Delete", DELETE)
         refresh_button = self.build_button("Refresh", REFRESH)
         close_button = self.build_button("Close", CLOSE)
-        buttons = [[generate_poll_button], [settings_buttons], [delete_template_button, refresh_button], [close_button]]
+        buttons = [[generate_poll_button], [settings_buttons], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_format_title_buttons(self) -> InlineKeyboardMarkup:
@@ -2186,17 +2199,35 @@ class PollTemplate(Template):
         buttons = [[description_code_button], [skip_button], [cancel_button, build_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_settings_buttons(self) -> InlineKeyboardMarkup:
-        edit_title_button = self.build_button("Edit Title", f"{EDIT}_{TITLE}")
-        edit_description_button = self.build_button("Edit Description", f"{EDIT}_{DESCRIPTION}")
+    def build_settings_buttons(self, is_creator=False) -> InlineKeyboardMarkup:
+        edit_template_details_button = self.build_button("Edit Template Details", f"{EDIT}_{TEMPLATE}")
+        edit_title_button = self.build_button("Edit Title Format", f"{EDIT}_{TITLE}")
+        edit_description_button = self.build_button("Edit Description Format", f"{EDIT}_{DESCRIPTION}")
         edit_options_button = self.build_button("Edit Options", f"{EDIT}_{OPTIONS}")
         response_text = "Multi-Response" if self.is_single_response else "Single Response"
         toggle_response_button = self.build_button(f"Change to {response_text}", f"{EDIT}_{RESPONSE}")
         back_button = self.build_button("Back", BACK)
         buttons = [
-            [edit_title_button], [edit_description_button], [edit_options_button],
+            [edit_template_details_button], [edit_title_button], [edit_description_button], [edit_options_button],
             [toggle_response_button], [back_button]
         ]
+
+        if is_creator:
+            delete_template_button = self.build_button("Delete Template", DELETE)
+            buttons.insert(-1, [delete_template_button])
+
+        return InlineKeyboardMarkup(buttons)
+
+    def build_edit_template_details_buttons(self) -> InlineKeyboardMarkup:
+        change_name_button = self.build_button("Change Template Name", f"{RENAME}_{TEMPLATE}_{NAME}")
+        change_descr_button = self.build_button("Change Template Description", f"{RENAME}_{TEMPLATE}_{DESCRIPTION}")
+        remove_descr_button = self.build_button("Remove Template Description", f"{DELETE}_{TEMPLATE}_{DESCRIPTION}")
+        add_descr_button = self.build_button("Add Template Description", f"{ADD}_{TEMPLATE}_{DESCRIPTION}")
+        back_button = self.build_button("Back", SETTINGS)
+        if self.description:
+            buttons = [[change_name_button], [change_descr_button], [remove_descr_button], [back_button]]
+        else:
+            buttons = [[change_name_button], [add_descr_button], [back_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_edit_title_buttons(self) -> InlineKeyboardMarkup:
@@ -2206,7 +2237,7 @@ class PollTemplate(Template):
         return InlineKeyboardMarkup(buttons)
 
     def build_edit_description_buttons(self) -> InlineKeyboardMarkup:
-        if self.formatted_description.format_text:
+        if self.description_format.format_text:
             change_description_button = self.build_button("Change Format Description", f"{RENAME}_{DESCRIPTION}")
             remove_description_button = self.build_button("Remove Format Description", f"{DELETE}_{DESCRIPTION}")
             buttons = [[change_description_button], [remove_description_button]]
@@ -2229,8 +2260,8 @@ class PollTemplate(Template):
         buttons = [[back_button, confirm_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_single_back_button(self, back_action: str) -> InlineKeyboardMarkup:
-        back_button = self.build_button("Back", back_action)
+    def build_single_back_button(self, back_action: str, back_text="Back") -> InlineKeyboardMarkup:
+        back_button = self.build_button(back_text, back_action)
         return InlineKeyboardMarkup([[back_button]])
 
     def build_delete_confirm_buttons(self, delete_action: str, back_action: str, delete_text="Delete", back_text="No") \
@@ -2247,8 +2278,9 @@ class PollTemplate(Template):
         return {
             db.TEMP_POLL_ID: self.temp_id,
             db.TEMP_POLL_NAME: self.name,
-            db.TEMP_POLL_FORMATTED_TITLE: self.formatted_title.to_json(),
-            db.TEMP_POLL_FORMATTED_DESCRIPTION: self.formatted_description.to_json(),
+            db.TEMP_POLL_DESCRIPTION: self.description,
+            db.TEMP_POLL_TITLE_FORMAT: self.title_format.to_json(),
+            db.TEMP_POLL_DESCRIPTION_FORMAT: self.description_format.to_json(),
             db.TEMP_POLL_OPTIONS: self.options,
             db.TEMP_POLL_SINGLE_RESPONSE: self.is_single_response,
             db.TEMP_POLL_CREATOR_ID: self.creator_id,
@@ -2256,9 +2288,10 @@ class PollTemplate(Template):
 
 
 class ListTemplate(Template):
-    def __init__(self, temp_id: str, name: str, formatted_title: FormatTextCode, formatted_description: FormatTextCode,
-                 options: Lst[str], choices: Lst[str], single_response: bool, creator_id: int) -> None:
-        super().__init__(temp_id, name, formatted_title, formatted_description, creator_id)
+    def __init__(self, temp_id: str, name: str, description: str, title_format: FormatTextCode,
+                 description_format: FormatTextCode, options: Lst[str], choices: Lst[str], single_response: bool,
+                 creator_id: int) -> None:
+        super().__init__(temp_id, name, description, title_format, description_format, creator_id)
         self._options = options
         self._choices = choices
         self._is_single_response = single_response
@@ -2273,31 +2306,31 @@ class ListTemplate(Template):
         return [template for template in template_lists if filters.lower() in template.name.lower()]
 
     @classmethod
-    def create_new(cls, name: str, format_title: str, format_description: str, options: Lst[str], choices: Lst[str],
-                   single_response: bool, creator_id: int) -> ListTemplate:
+    def create_new(cls, name: str, description: str, title_format_string: str, description_format_string: str,
+                   options: Lst[str], choices: Lst[str], single_response: bool, creator_id: int) -> ListTemplate:
         temp_id = "L" + util.generate_random_id(LIST_ID_LENGTH, set(temp_list_storage.keys()))
-        formatted_title = FormatTextCode.create_new(format_title)
-        formatted_description = FormatTextCode.create_new(format_description)
-        template = \
-            cls(temp_id, name, formatted_title, formatted_description, options, choices, single_response, creator_id)
+        title_format = FormatTextCode.create_new(title_format_string)
+        description_format = FormatTextCode.create_new(description_format_string)
+        template = cls(temp_id, name, description, title_format, description_format, options, choices,
+                       single_response, creator_id)
         temp_list_storage[temp_id] = template
         return template
 
     @classmethod
-    def load(cls, temp_id: str, name: str, title: Dict[str, Dict[str, Lst[str]]],
-             description: Dict[str, Dict[str, Lst[str]]], options: Lst[str], choices: Lst[str], single_response: bool,
-             creator_id: int) -> None:
-        formatted_title = FormatTextCode.load(
-            title.get(db.FORMAT_TEXT, ""),
-            title.get(db.FORMAT_CODES, dict())
+    def load(cls, temp_id: str, name: str, description: str, title_format_data: Dict[str, Dict[str, Lst[str]]],
+             description_format_data: Dict[str, Dict[str, Lst[str]]], options: Lst[str], choices: Lst[str],
+             single_response: bool, creator_id: int) -> None:
+        title_format = FormatTextCode.load(
+            title_format_data.get(db.FORMAT_TEXT, ""),
+            title_format_data.get(db.FORMAT_CODES, dict())
         )
-        formatted_description = FormatTextCode.load(
-            description.get(db.FORMAT_TEXT, ""),
-            description.get(db.FORMAT_CODES, dict())
+        description_format = FormatTextCode.load(
+            description_format_data.get(db.FORMAT_TEXT, ""),
+            description_format_data.get(db.FORMAT_CODES, dict())
         )
 
-        template = \
-            cls(temp_id, name, formatted_title, formatted_description, options, choices, single_response, creator_id)
+        template = cls(temp_id, name, description, title_format, description_format, options, choices,
+                       single_response, creator_id)
         temp_list_storage[temp_id] = template
         return
 
@@ -2327,15 +2360,19 @@ class ListTemplate(Template):
         return f"Response type is changed to {status}."
 
     def generate_linked_summary(self, include_creator=False) -> str:
-        title = f"<b>{self.name} {EMOJI_LIST}</b>"
+        header = f"<b>{self.name} {EMOJI_LIST}</b>"
+        if self.description:
+            header += f"\n<i>{self.description}</i>"
         link = f"/temp_{self.temp_id}"
         creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
-        return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
+        return "\n".join([header] + [f"{link} {creator}"]) if include_creator else "\n".join([header] + [link])
 
     def render_text(self) -> str:
-        header = f"<b>{EMOJI_LIST} List Template ({self.name})</b>"
-        title_body = f"<b>Title</b>\n{self.formatted_title.render_details()}"
-        description_body = f"<b>Description</b>\n{self.formatted_description.render_details()}"
+        header = f"<b>{EMOJI_LIST} {self.name} (Template)</b>"
+        if self.description:
+            header += f"\n<i>{self.description}</i>"
+        title_body = f"<b>Title</b>\n{self.title_format.render_details()}"
+        description_body = f"<b>Description</b>\n{self.description_format.render_details()}"
         options_body = f"<b>Options</b>\n{util.list_to_indexed_list_string(self.options)}"
         choices_body = f"<b>Choices</b>\n{util.list_to_indexed_list_string(self.choices)}"
         response_type_body = f"<b>Response Type</b> - {'Single' if self.is_single_response else 'Multiple'}"
@@ -2344,31 +2381,31 @@ class ListTemplate(Template):
         )
 
     def render_title_code(self, header="") -> str:
-        return f"<b>{header}</b>\n{self.formatted_title.render_details()}" if header \
-            else f"<b>Title Format</b>\n{self.formatted_title.render_details()}"
+        return f"<b>{header}</b>\n{self.title_format.render_details()}" if header \
+            else f"<b>Title Format</b>\n{self.title_format.render_details()}"
 
     def render_description_code(self, header="") -> str:
-        return f"<b>{header}</b>\n{self.formatted_description.render_details()}" if header \
-            else f"<b>Description Format</b>\n{self.formatted_description.render_details()}"
+        return f"<b>{header}</b>\n{self.description_format.render_details()}" if header \
+            else f"<b>Description Format</b>\n{self.description_format.render_details()}"
 
     def render_title(self, format_inputs="") -> Tuple[str, bool]:
-        return self.formatted_title.render_format_text(format_inputs)
+        return self.title_format.render_format_text(format_inputs)
 
     def render_description(self, format_inputs="") -> Tuple[str, bool]:
-        return self.formatted_description.render_format_text(format_inputs)
+        return self.description_format.render_format_text(format_inputs)
 
     def render_title_and_description(self, format_inputs="") -> Tuple[str, str, bool]:
-        offset = len(self.formatted_title.format_codes)
+        offset = len(self.title_format.format_codes)
 
         # Separate title and description format inputs using ".." as separator
         match = re.match(r"^((?:.|\n)*)(?:(?<=^)|(?<=\n))\.\.(?=$|\n)((?:.|\n)*)$", format_inputs)
         if not match:
-            title_result, is_title_valid = self.formatted_title.render_format_text(format_inputs.strip())
-            description_result, is_description_valid = self.formatted_description.render_format_text()
+            title_result, is_title_valid = self.title_format.render_format_text(format_inputs.strip())
+            description_result, is_description_valid = self.description_format.render_format_text()
         else:
-            title_result, is_title_valid = self.formatted_title.render_format_text(match.group(1).strip())
+            title_result, is_title_valid = self.title_format.render_format_text(match.group(1).strip())
             description_result, is_description_valid = \
-                self.formatted_description.render_format_text(match.group(2).strip(), offset=offset)
+                self.description_format.render_format_text(match.group(2).strip(), offset=offset)
 
         if not is_title_valid:
             return title_result, "", False
@@ -2380,10 +2417,9 @@ class ListTemplate(Template):
     def build_main_buttons(self) -> InlineKeyboardMarkup:
         generate_list_button = self.build_button("Generate List", LIST)
         settings_buttons = self.build_button("Settings", SETTINGS)
-        delete_template_button = self.build_button("Delete", DELETE)
         refresh_button = self.build_button("Refresh", REFRESH)
         close_button = self.build_button("Close", CLOSE)
-        buttons = [[generate_list_button], [settings_buttons], [delete_template_button, refresh_button], [close_button]]
+        buttons = [[generate_list_button], [settings_buttons], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_format_title_buttons(self) -> InlineKeyboardMarkup:
@@ -2401,7 +2437,8 @@ class ListTemplate(Template):
         buttons = [[description_code_button], [skip_button], [cancel_button, build_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_settings_buttons(self) -> InlineKeyboardMarkup:
+    def build_settings_buttons(self, is_creator=False) -> InlineKeyboardMarkup:
+        edit_template_details_button = self.build_button("Edit Template Details", f"{EDIT}_{TEMPLATE}")
         edit_title_button = self.build_button("Edit Title", f"{EDIT}_{TITLE}")
         edit_description_button = self.build_button("Edit Description", f"{EDIT}_{DESCRIPTION}")
         edit_options_button = self.build_button("Edit Options", f"{EDIT}_{OPTIONS}")
@@ -2410,9 +2447,26 @@ class ListTemplate(Template):
         toggle_response_button = self.build_button(f"Change to {response_text}", f"{EDIT}_{RESPONSE}")
         back_button = self.build_button("Back", BACK)
         buttons = [
-            [edit_title_button], [edit_description_button], [edit_options_button], [edit_choices_button],
-            [toggle_response_button], [back_button]
+            [edit_template_details_button], [edit_title_button], [edit_description_button], [edit_options_button],
+            [edit_choices_button], [toggle_response_button], [back_button]
         ]
+
+        if is_creator:
+            delete_template_button = self.build_button("Delete Template", DELETE)
+            buttons.insert(-1, [delete_template_button])
+
+        return InlineKeyboardMarkup(buttons)
+
+    def build_edit_template_details_buttons(self) -> InlineKeyboardMarkup:
+        change_name_button = self.build_button("Change Template Name", f"{RENAME}_{TEMPLATE}_{NAME}")
+        change_descr_button = self.build_button("Change Template Description", f"{RENAME}_{TEMPLATE}_{DESCRIPTION}")
+        remove_descr_button = self.build_button("Remove Template Description", f"{DELETE}_{TEMPLATE}_{DESCRIPTION}")
+        add_descr_button = self.build_button("Add Template Description", f"{ADD}_{TEMPLATE}_{DESCRIPTION}")
+        back_button = self.build_button("Back", SETTINGS)
+        if self.description:
+            buttons = [[change_name_button], [change_descr_button], [remove_descr_button], [back_button]]
+        else:
+            buttons = [[change_name_button], [add_descr_button], [back_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_edit_title_buttons(self) -> InlineKeyboardMarkup:
@@ -2422,7 +2476,7 @@ class ListTemplate(Template):
         return InlineKeyboardMarkup(buttons)
 
     def build_edit_description_buttons(self) -> InlineKeyboardMarkup:
-        if self.formatted_description.format_text:
+        if self.description_format.format_text:
             change_description_button = self.build_button("Change Format Description", f"{RENAME}_{DESCRIPTION}")
             remove_description_button = self.build_button("Remove Format Description", f"{DELETE}_{DESCRIPTION}")
             buttons = [[change_description_button], [remove_description_button]]
@@ -2445,8 +2499,8 @@ class ListTemplate(Template):
         buttons = [[back_button, confirm_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_single_back_button(self, back_action: str) -> InlineKeyboardMarkup:
-        back_button = self.build_button("Back", back_action)
+    def build_single_back_button(self, back_action: str, back_text="Back") -> InlineKeyboardMarkup:
+        back_button = self.build_button(back_text, back_action)
         return InlineKeyboardMarkup([[back_button]])
 
     def build_delete_confirm_buttons(self, delete_action: str, back_action: str, delete_text="Delete", back_text="No") \
@@ -2463,8 +2517,9 @@ class ListTemplate(Template):
         return {
             db.TEMP_LIST_ID: self.temp_id,
             db.TEMP_LIST_NAME: self.name,
-            db.TEMP_LIST_FORMATTED_TITLE: self.formatted_title.to_json(),
-            db.TEMP_LIST_FORMATTED_DESCRIPTION: self.formatted_description.to_json(),
+            db.TEMP_LIST_DESCRIPTION: self.description,
+            db.TEMP_LIST_TITLE_FORMAT: self.title_format.to_json(),
+            db.TEMP_LIST_DESCRIPTION_FORMAT: self.description_format.to_json(),
             db.TEMP_LIST_OPTIONS: self.options,
             db.TEMP_LIST_CHOICES: self.choices,
             db.TEMP_LIST_SINGLE_RESPONSE: self.is_single_response,
@@ -2565,8 +2620,9 @@ class BotManager(object):
                 PollTemplate.load(
                     temp_poll_data[db.TEMP_POLL_ID],
                     temp_poll_data[db.TEMP_POLL_NAME],
-                    temp_poll_data[db.TEMP_POLL_FORMATTED_TITLE],
-                    temp_poll_data[db.TEMP_POLL_FORMATTED_DESCRIPTION],
+                    temp_poll_data[db.TEMP_POLL_DESCRIPTION],
+                    temp_poll_data[db.TEMP_POLL_TITLE_FORMAT],
+                    temp_poll_data[db.TEMP_POLL_DESCRIPTION_FORMAT],
                     temp_poll_data[db.TEMP_POLL_OPTIONS],
                     temp_poll_data[db.TEMP_POLL_SINGLE_RESPONSE],
                     temp_poll_data[db.TEMP_POLL_CREATOR_ID]
@@ -2577,8 +2633,9 @@ class BotManager(object):
                 ListTemplate.load(
                     temp_list_data[db.TEMP_LIST_ID],
                     temp_list_data[db.TEMP_LIST_NAME],
-                    temp_list_data[db.TEMP_LIST_FORMATTED_TITLE],
-                    temp_list_data[db.TEMP_LIST_FORMATTED_DESCRIPTION],
+                    temp_list_data[db.TEMP_LIST_DESCRIPTION],
+                    temp_list_data[db.TEMP_LIST_TITLE_FORMAT],
+                    temp_list_data[db.TEMP_LIST_DESCRIPTION_FORMAT],
                     temp_list_data[db.TEMP_LIST_OPTIONS],
                     temp_list_data[db.TEMP_LIST_CHOICES],
                     temp_list_data[db.TEMP_LIST_SINGLE_RESPONSE],
