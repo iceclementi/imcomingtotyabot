@@ -3622,7 +3622,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         )
         query.answer(text="Enter a new template description.")
         context.user_data.update(
-            {"action": models.TEMP_POLL, "step": 25, "tempId": template.temp_id, "ed": reply_message.message_id}
+            {"action": models.TEMP_POLL, "step": 26, "tempId": template.temp_id, "ed": reply_message.message_id}
         )
         return
     # Handle remove template description button
@@ -4003,7 +4003,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         )
         query.answer(text="Enter a new template description.")
         context.user_data.update(
-            {"action": models.TEMP_LIST, "step": 25, "tempId": template.temp_id, "ed": reply_message.message_id}
+            {"action": models.TEMP_LIST, "step": 26, "tempId": template.temp_id, "ed": reply_message.message_id}
         )
         return
     # Handle remove template description button
