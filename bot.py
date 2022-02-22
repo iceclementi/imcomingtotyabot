@@ -1468,10 +1468,9 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
     user, _, _ = get_user_permissions(update.effective_user.id)
 
     text = util.strip_html_symbols(update.message.text.strip())
-    step, title, description, options, single_response, name, temp_id = \
+    step, title, description, options, name, temp_id = \
         context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
-        context.user_data.get("options", []), context.user_data.get("response", True), \
-        context.user_data.get("name", ""), context.user_data.get("tempId", "")
+        context.user_data.get("options", []), context.user_data.get("name", ""), context.user_data.get("tempId", "")
 
     template: PollTemplate = PollTemplate.get_template_by_id(temp_id)
 
@@ -1757,10 +1756,10 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
     user, _, _ = get_user_permissions(update.effective_user.id)
 
     text = util.strip_html_symbols(update.message.text.strip())
-    step, title, description, options, choices, single_response, name, temp_id = \
+    step, title, description, options, choices, name, temp_id = \
         context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
         context.user_data.get("options", []), context.user_data.get("choices", []), \
-        context.user_data.get("response", True), context.user_data.get("name", ""), context.user_data.get("tempId", "")
+        context.user_data.get("name", ""), context.user_data.get("tempId", "")
 
     template: ListTemplate = ListTemplate.get_template_by_id(temp_id)
 
@@ -2431,10 +2430,10 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             return
     # Handle preset poll
     elif action == models.TEMP_POLL:
-        step, title, description, options, name, temp_description = \
+        step, title, description, options, single_response, name, temp_description = \
             context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
-            context.user_data.get("options", []), context.user_data.get("name", ""), \
-            context.user_data.get("tempDescr", "")
+            context.user_data.get("options", []), context.user_data.get("response", True), \
+            context.user_data.get("name", ""), context.user_data.get("tempDescr", "")
 
         if step == 1 and title:
             response = "Wonderful! Now, send me a <b>description format</b> for the poll template " \
@@ -2503,10 +2502,11 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             return
     # Handle preset list
     elif action == models.TEMP_LIST:
-        step, title, description, options, choices, name, temp_description = \
+        step, title, description, options, choices, single_response, name, temp_description = \
             context.user_data.get("step", 1), context.user_data.get("title", ""), context.user_data.get("descr", ""), \
             context.user_data.get("options", []), context.user_data.get("choices", []), \
-            context.user_data.get("name", ""), context.user_data.get("tempDescr", "")
+            context.user_data.get("response", True), context.user_data.get("name", ""), \
+            context.user_data.get("tempDescr", "")
 
         if step == 1 and title:
             response = "Fantastic! Now, send me a <b>description format</b> for the list template " \
