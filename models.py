@@ -2365,7 +2365,7 @@ class ListTemplate(Template):
             header += f"\n<i>{self.description}</i>"
         link = f"/temp_{self.temp_id}"
         creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
-        return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
+        return "\n".join([header] + [f"{link} {creator}"]) if include_creator else "\n".join([header] + [link])
 
     def render_text(self) -> str:
         header = f"<b>{EMOJI_LIST} {self.name} (Template)</b>"
