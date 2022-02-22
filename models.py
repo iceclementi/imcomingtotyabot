@@ -2131,7 +2131,9 @@ class PollTemplate(Template):
         return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
 
     def render_text(self) -> str:
-        header = f"<b>{EMOJI_POLL} Poll Template ({self.name})</b>"
+        header = f"<b>{EMOJI_POLL} {self.name} (Template)</b>"
+        if self.description:
+            header += f"\n<i>{self.description}</i>"
         title_body = f"<b>Title</b>\n{self.title_format.render_details()}"
         description_body = f"<b>Description</b>\n{self.description_format.render_details()}"
         options_body = f"<b>Options</b>\n{util.list_to_indexed_list_string(self.options)}"
@@ -2362,7 +2364,9 @@ class ListTemplate(Template):
         return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
 
     def render_text(self) -> str:
-        header = f"<b>{EMOJI_LIST} List Template ({self.name})</b>"
+        header = f"<b>{EMOJI_LIST} {self.name} (Template)</b>"
+        if self.description:
+            header += f"\n<i>{self.description}</i>"
         title_body = f"<b>Title</b>\n{self.title_format.render_details()}"
         description_body = f"<b>Description</b>\n{self.description_format.render_details()}"
         options_body = f"<b>Options</b>\n{util.list_to_indexed_list_string(self.options)}"
