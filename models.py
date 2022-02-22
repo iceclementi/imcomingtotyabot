@@ -1238,59 +1238,49 @@ class Poll(object):
                     option.get_title(), f"/vote {self.get_poll_hash()}_{i}", to_self=True
                 )
             else:
-                option_button = util.build_button(option.get_title(), POLL_SUBJECT, str(i), self.poll_id)
+                option_button = self.build_button(option.get_title(), str(i))
             buttons.append([option_button])
         edit_comments_button = util.build_switch_button(
             "Comment", f"/comment {self.get_poll_hash()}", to_self=True
         )
-        refresh_button = util.build_button("Refresh", POLL_SUBJECT, REFRESH_OPT, self.poll_id)
+        refresh_button = self.build_button("Refresh", REFRESH_OPT)
         buttons.append([edit_comments_button, refresh_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_admin_buttons(self, uid: int) -> InlineKeyboardMarkup:
+    def build_admin_buttons(self) -> InlineKeyboardMarkup:
         publish_button = util.build_switch_button("Publish", self.title)
-        customise_button = util.build_button("Customise", POLL_SUBJECT, CUSTOMISE, self.poll_id)
-        refresh_button = util.build_button("Refresh", POLL_SUBJECT, REFRESH, self.poll_id)
-        close_button = util.build_button("Close", POLL_SUBJECT, CLOSE, self.poll_id)
-
-        if uid == self.creator_id:
-            delete_button = util.build_button("Delete", POLL_SUBJECT, DELETE, self.poll_id)
-            buttons = [[publish_button], [customise_button], [delete_button, refresh_button], [close_button]]
-        else:
-            buttons = [[publish_button], [customise_button], [refresh_button], [close_button]]
+        settings_button = self.build_button("Settings", SETTINGS)
+        refresh_button = self.build_button("Refresh", REFRESH)
+        close_button = self.build_button("Close", CLOSE)
+        buttons = [[publish_button], [settings_button], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_customise_buttons(self) -> InlineKeyboardMarkup:
+    def build_settings_buttons(self, is_creator=False) -> InlineKeyboardMarkup:
         response_text = "Multi-Response" if self.single_response else "Single Response"
-        toggle_response_button = util.build_button(f"Change to {response_text}", POLL_SUBJECT, RESPONSE, self.poll_id)
-        enforce_comments_button = util.build_button("Change Comment Requirements", POLL_SUBJECT, COMMENT, self.poll_id)
-        back_button = util.build_button("Back", POLL_SUBJECT, BACK, self.poll_id)
+        toggle_response_button = self.build_button(f"Change to {response_text}", RESPONSE)
+        enforce_comments_button = self.build_button("Change Comment Requirements", COMMENT)
+        back_button = self.build_button("Back", BACK)
         buttons = [[toggle_response_button], [enforce_comments_button], [back_button]]
+        if is_creator:
+            delete_button = self.build_button("Delete Poll", DELETE)
+            buttons.insert(-1, delete_button)
         return InlineKeyboardMarkup(buttons)
 
     def build_option_comment_required_buttons(self) -> InlineKeyboardMarkup:
         buttons = []
         for i, option in enumerate(self.options):
             button_text = option.get_title() + (" (required)" if option.is_comment_required() else "")
-            option_button = util.build_button(button_text, POLL_SUBJECT, f"{COMMENT}_{i}", self.poll_id)
+            option_button = self.build_button(button_text, f"{COMMENT}_{i}")
             buttons.append([option_button])
-        back_button = util.build_button("Back", POLL_SUBJECT, BACK, self.poll_id)
+        back_button = self.build_button("Back", BACK)
         buttons.append([back_button])
-        return InlineKeyboardMarkup(buttons)
-
-    def build_delete_confirmation_buttons(self) -> InlineKeyboardMarkup:
-        yes_button = util.build_button("Delete", POLL_SUBJECT, DELETE_YES, self.poll_id)
-        no_button = util.build_button("No", POLL_SUBJECT, BACK, self.poll_id)
-        buttons = [[yes_button, no_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_option_comment_text_and_buttons(self, uid: int) -> tuple:
         buttons = []
         for i, option in enumerate(self.options):
             if option.is_voted_by_user(uid):
-                option_button = util.build_button(
-                    option.get_title(), POLL_SUBJECT, f"{EDIT_COMMENT}_{i}", self.poll_id
-                )
+                option_button = self.build_button(option.get_title(), f"{EDIT_COMMENT}_{i}")
                 buttons.append([option_button])
 
         if buttons:
@@ -1298,10 +1288,17 @@ class Poll(object):
         else:
             response = util.make_html_italic("You have to vote first before you can enter a comment.")
 
-        close_button = util.build_button("Close", POLL_SUBJECT, CLOSE, self.poll_id)
+        close_button = self.build_button("Close", CLOSE)
         buttons.append([close_button])
 
         return response, InlineKeyboardMarkup(buttons)
+
+    def build_delete_confirm_buttons(self, delete_action: str, back_action: str, delete_text="Delete", back_text="No") \
+            -> InlineKeyboardMarkup:
+        delete_button = self.build_button(delete_text, f"{DELETE_YES}_{delete_action}")
+        back_button = self.build_button(back_text, back_action)
+        buttons = [[delete_button, back_button]]
+        return InlineKeyboardMarkup(buttons)
 
     def build_button(self, text: str, action: str) -> InlineKeyboardButton:
         return util.build_button(text, POLL_SUBJECT, action, self.poll_id)

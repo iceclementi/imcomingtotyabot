@@ -2764,13 +2764,16 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
 
     # Poll is deleted or has error
     if not poll:
-        query.edit_message_reply_markup(None)
         query.answer(text=DELETED_POLL)
+        query.edit_message_reply_markup(None)
+        query.message.delete()
         return
 
     uid, user_profile = extract_user_data(query.from_user)
+    user, _, _ = get_user_permissions(uid)
     message = query.message
     is_pm = is_private_chat(message)
+    is_creator = poll.get_creator_id() == uid
 
     # Handle poll option button
     if action.isdigit():
@@ -2788,19 +2791,19 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     elif action == models.REFRESH and is_pm:
         query.answer(text="Results updated!")
         query.edit_message_text(
-            poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons(uid)
+            poll.render_text(), parse_mode=ParseMode.HTML, reply_markup=poll.build_admin_buttons()
         )
         return
     # Handle customise button
-    elif action == models.CUSTOMISE and is_pm:
-        query.edit_message_reply_markup(poll.build_customise_buttons())
+    elif action == models.SETTINGS and is_pm:
+        query.edit_message_reply_markup(poll.build_settings_buttons(is_creator=is_creator))
         query.answer(text=None)
         return
     # Handle toggle response button
     elif action == models.RESPONSE and is_pm:
         status = poll.toggle_response_type()
+        query.edit_message_reply_markup(poll.build_settings_buttons(is_creator=is_creator))
         query.answer(text=status)
-        query.edit_message_reply_markup(poll.build_customise_buttons())
         return
     # Handle enforce comments button
     elif action == models.COMMENT and is_pm:
@@ -2851,15 +2854,13 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         query.answer(text="Please enter a reason/comment for your selected option.")
         return
     # Handle delete button
-    elif action == models.DELETE and is_pm:
-        query.edit_message_reply_markup(poll.build_delete_confirmation_buttons())
+    elif action == models.DELETE and is_pm and is_creator:
+        query.edit_message_reply_markup(poll.build_delete_confirm_buttons(models.POLL, models.SETTINGS))
         query.answer(text="Confirm delete?")
         return
     # Handle delete confirmation button
-    elif action == models.DELETE_YES and is_pm:
-        User.get_user_by_id(uid).delete_poll(poll_id)
-        message.delete()
-        query.answer(text="Poll deleted!")
+    elif action == f"{models.DELETE_YES}_{models.POLL}" and is_pm and is_creator:
+        user.delete_poll(poll_id)
         for mid in poll.get_message_details():
             try:
                 context.bot.edit_message_text(
@@ -2868,16 +2869,20 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
                 )
             except telegram.error.TelegramError:
                 continue
+        query.answer(text="Poll deleted!")
+        query.edit_message_reply_markup(None)
+        query.message.delete()
         return
     # Handle back button
     elif action == models.BACK and is_pm:
-        query.edit_message_reply_markup(poll.build_admin_buttons(uid))
+        query.edit_message_reply_markup(poll.build_admin_buttons())
         query.answer(text=None)
         return
     # Handle close button
     elif action == models.CLOSE:
-        message.delete()
         query.answer(text=None)
+        query.edit_message_reply_markup(None)
+        query.message.delete()
         return
     # Handle other cases
     else:
