@@ -948,11 +948,11 @@ def handle_help(update: Update, context: CallbackContext) -> None:
     body = [START_HELP, KEYBOARD_HELP]
     if user:
         if is_leader:
-            body += [POLL_HELP, POLLS_HELP, LIST_HELP, LISTS_HELP, GROUP_HELP, GROUPS_HELP, GROUP_POLLS_HELP,
-                     GROUP_LISTS_HELP, INVITE_HELP, TEMPLATE_HELP, TEMPLATES_HELP]
+            body += [POLL_HELP, POLLS_HELP, LIST_HELP, LISTS_HELP, TEMPLATE_HELP, TEMPLATES_HELP, GROUP_HELP,
+                     GROUPS_HELP, GROUP_POLLS_HELP, GROUP_LISTS_HELP, GROUP_TEMPLATES_HELP, INVITE_HELP]
         else:
-            body += [POLL_HELP, POLLS_HELP, LIST_HELP, LISTS_HELP, GROUPS_HELP, GROUP_POLLS_HELP,
-                     GROUP_LISTS_HELP, INVITE_HELP, TEMPLATE_HELP, TEMPLATES_HELP]
+            body += [POLL_HELP, POLLS_HELP, LIST_HELP, LISTS_HELP, TEMPLATE_HELP, TEMPLATES_HELP, GROUPS_HELP,
+                     GROUP_POLLS_HELP, GROUP_LISTS_HELP, GROUP_TEMPLATES_HELP, INVITE_HELP]
     body += [HELP_HELP]
 
     if not user:
@@ -1044,6 +1044,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
 
     # Handle title
     if not title:
+        text = text.replace("\n", " ").strip()
         if len(text) > MAX_TITLE_LENGTH:
             reply_message = update.message.reply_html(
                 ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
@@ -1125,6 +1126,7 @@ def handle_list_conversation(update: Update, context: CallbackContext) -> None:
 
     # Handle title
     if step == 1:
+        text = text.replace("\n", " ").strip()
         if len(text) > MAX_TITLE_LENGTH:
             reply_message = update.message.reply_html(
                 ERROR_TITLE_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
@@ -1476,6 +1478,7 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
 
     # Handle title
     if step == 1:
+        text = text.replace("\n", " ").strip()
         if len(text) > MAX_TITLE_LENGTH:
             edit_conversation_message(
                 update, context, ERROR_TITLE_TOO_LONG,
@@ -1808,6 +1811,7 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
 
     # Handle title
     if step == 1:
+        text = text.replace("\n", " ").strip()
         if len(text) > MAX_TITLE_LENGTH:
             edit_conversation_message(
                 update, context, ERROR_TITLE_TOO_LONG,
@@ -1948,6 +1952,7 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
         return
     # Handle template description
     elif step == 7 and title and description and options and choices and name:
+        text = text.replace("\n", " ").strip()
         if len(text) > 100:
             response = "Sorry, please enter a shorter template description (maximum 100 characters)."
             edit_conversation_message(
@@ -2103,6 +2108,7 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
         return
     # Handle rename template description
     elif step == 26 and template:
+        text = text.replace("\n", " ").strip()
         if len(text) > 100:
             response = "Sorry, please enter a shorter template description (maximum 100 characters)."
             edit_conversation_message(
@@ -2125,6 +2131,7 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
         return
     # Handle add template description:
     elif step == 27 and template:
+        text = text.replace("\n", " ").strip()
         if len(text) > 100:
             response = "Sorry, please enter a shorter template description (maximum 100 characters)."
             edit_conversation_message(
@@ -3995,7 +4002,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         )
         query.answer(text="Enter a new template description.")
         context.user_data.update(
-            {"action": models.TEMP_POLL, "step": 25, "tempId": template.temp_id, "ed": reply_message.message_id}
+            {"action": models.TEMP_LIST, "step": 25, "tempId": template.temp_id, "ed": reply_message.message_id}
         )
         return
     # Handle remove template description button
@@ -4016,7 +4023,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         )
         query.answer(text="Enter a new template description.")
         context.user_data.update(
-            {"action": models.TEMP_POLL, "step": 27, "tempId": template.temp_id, "ed": reply_message.message_id}
+            {"action": models.TEMP_LIST, "step": 27, "tempId": template.temp_id, "ed": reply_message.message_id}
         )
         return
     # Handle edit title button
@@ -4396,7 +4403,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             for template in user.get_templates(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
                     id=f"temp_{template.temp_id}", title=template.name,
-                    description=f"{template.icon} {template.temp_type.capitalize()} template",
+                    description=(template.description or f"{template.icon} {template.temp_type.capitalize()} template"),
                     input_message_content=InputTextMessageContent(f"/temp_{template.temp_id}")
                 )
                 results.append(query_result)
@@ -4450,8 +4457,8 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             for template in user.get_group_templates(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
                     id=f"gtemp_{template.temp_id}", title=template.name,
-                    description=f"{template.icon} {template.temp_type.capitalize()} template",
-                    input_message_content=InputTextMessageContent(f"/temp_{template.get_template_id()}")
+                    description=(template.description or f"{template.icon} {template.temp_type.capitalize()} template"),
+                    input_message_content=InputTextMessageContent(f"/temp_{template.temp_id}")
                 )
                 results.append(query_result)
             query.answer(results, switch_pm_text="Click to view all your group templates", switch_pm_parameter=command)

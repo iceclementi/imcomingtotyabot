@@ -2125,10 +2125,12 @@ class PollTemplate(Template):
         return f"Response type is changed to {status}."
 
     def generate_linked_summary(self, include_creator=False) -> str:
-        title = f"<b>{self.name} {EMOJI_POLL}</b>"
+        header = f"<b>{self.name} {EMOJI_POLL}</b>"
+        if self.description:
+            header += f"\n<i>{self.description}</i>"
         link = f"/temp_{self.temp_id}"
         creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
-        return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
+        return "\n".join([header] + [f"{link} {creator}"]) if include_creator else "\n".join([header] + [link])
 
     def render_text(self) -> str:
         header = f"<b>{EMOJI_POLL} {self.name} (Template)</b>"
@@ -2358,7 +2360,9 @@ class ListTemplate(Template):
         return f"Response type is changed to {status}."
 
     def generate_linked_summary(self, include_creator=False) -> str:
-        title = f"<b>{self.name} {EMOJI_LIST}</b>"
+        header = f"<b>{self.name} {EMOJI_LIST}</b>"
+        if self.description:
+            header += f"\n<i>{self.description}</i>"
         link = f"/temp_{self.temp_id}"
         creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
         return "\n".join([title] + [f"{link} {creator}"]) if include_creator else "\n".join([title] + [link])
