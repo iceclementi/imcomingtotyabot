@@ -523,7 +523,7 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
         context.user_data.update({"ed": reply_message.message_id})
         return
 
-    response = f"Your new poll title is\n<b>{title}</b>\n\n" \
+    response = f"Your new poll <b>title</b> is\n<b>{title}</b>\n\n" \
                f"<b>Continue</b> to the next step or re-enter another title."
     reply_message = update.message.reply_html(
         response, reply_markup=build_progress_buttons(next_text="Continue")
@@ -606,7 +606,7 @@ def handle_list(update: Update, context: CallbackContext) -> None:
         context.user_data.update({"ed": reply_message.message_id})
         return
 
-    response = f"Your new list title is\n<b>{title}</b>\n\n" \
+    response = f"Your new list <b>title</b> is\n<b>{title}</b>\n\n" \
                f"<b>Continue</b> to the next step or re-enter another title."
     reply_message = update.message.reply_html(
         response, reply_markup=build_progress_buttons(next_text="Continue")
@@ -1047,7 +1047,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
             )
             return
 
-        response = f"Your new poll title is\n<b>{text}</b>\n\n" \
+        response = f"Your new poll <b>title</b> is\n<b>{text}</b>\n\n" \
                    f"<b>Continue</b> to the next step or re-enter another title."
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Continue")
@@ -1056,7 +1056,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         return
     # Handle description
     elif step == 2 and title:
-        response = f"Your new poll description is\n<i>{text}</i>\n\n" \
+        response = f"Your new poll <b>description</b> is\n<i>{text}</i>\n\n" \
                    f"<b>Continue</b> to the next step or re-enter another description."
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Continue")
@@ -1127,7 +1127,7 @@ def handle_list_conversation(update: Update, context: CallbackContext) -> None:
             )
             return
 
-        response = f"Your new list title is\n<b>{text}</b>\n\n" \
+        response = f"Your new list <b>title</b> is\n<b>{text}</b>\n\n" \
                    f"<b>Continue</b> to the next step or re-enter another title."
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Continue")
@@ -1136,7 +1136,7 @@ def handle_list_conversation(update: Update, context: CallbackContext) -> None:
         return
     # Handle description
     elif step == 2 and title:
-        response = f"Your new list description is\n<i>{text}</i>\n\n" \
+        response = f"Your new list <b>description</b> is\n<i>{text}</i>\n\n" \
                    f"<b>Continue</b> to the next step or re-enter another description."
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Continue")
@@ -1547,7 +1547,7 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
             )
             return
 
-        response = f"Your new poll template name is <b>{text}</b>\n\n" \
+        response = f"Your new poll <b>template name</b> is <b>{text}</b>\n\n" \
                    f"<b>Continue</b> to the next step or re-enter another name for your template."
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Continue")
@@ -1557,14 +1557,14 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
     # Handle template description
     elif step == 6 and title and description and options and name:
         if len(text) > 100:
-            response = "Sorry, please enter a shorter template description (maximum 100 characters)."
+            response = "Sorry, please enter a shorter <b>template description</b> (maximum 100 characters)."
             edit_conversation_message(
                 update, context, response,
                 reply_markup=build_progress_buttons(next_text="Skip")
             )
             return
 
-        response = f"Your new poll template description is <b>{text}</b>\n\n" \
+        response = f"Your new poll <b>template description</b> is\n<i>{text}</i>\n\n" \
                    f"<b>Create</b> the poll template or re-enter another description for your template."
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Create")
@@ -1896,7 +1896,8 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
     elif step == 6 and title and description and options and choices:
         name_match = re.match(r"^\w{1,12}$", text)
         if not name_match:
-            response = "Sorry, please ensure that the name consists only a maximum of 12 alphanumeric characters."
+            response = "Sorry, please ensure that the <b>name</b> consists only a maximum of " \
+                       "12 alphanumeric characters."
             edit_conversation_message(
                 update, context, response, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
@@ -1909,7 +1910,7 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
             )
             return
 
-        response = f"Your new list template name is <b>{text}</b>\n\n" \
+        response = f"Your new list <b>template name</b> is\n<b>{text}</b>\n\n" \
                    f"<b>Continue</b> to the next step or re-enter another name for your template."
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Continue")
@@ -1920,14 +1921,14 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
     elif step == 7 and title and description and options and choices and name:
         text = text.replace("\n", " ").strip()
         if len(text) > 100:
-            response = "Sorry, please enter a shorter template description (maximum 100 characters)."
+            response = "Sorry, please enter a shorter <b>template description</b> (maximum 100 characters)."
             edit_conversation_message(
                 update, context, response,
                 reply_markup=build_progress_buttons(next_text="Skip")
             )
             return
 
-        response = f"Your new list template description is <b>{text}</b>\n\n" \
+        response = f"Your new list template <b>description</b> is\n<i>{text}</i>\n\n" \
                    f"<b>Create</b> the list template or re-enter another description for your template."
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Create")
@@ -4668,9 +4669,9 @@ def edit_conversation_message(update: Update, context: CallbackContext, text: st
         context.bot.edit_message_text(
             text, chat_id=update.effective_chat.id, message_id=mid, parse_mode=ParseMode.HTML, reply_markup=reply_markup
         )
-    except telegram.error.TelegramError:
+    except telegram.error.TelegramError as err:
         response = "Error editing chat message!"
-        logger.warning(response)
+        logger.warning(f"{response} - {err}")
         update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
         context.user_data.clear()
         return
