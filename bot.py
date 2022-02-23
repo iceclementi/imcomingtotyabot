@@ -1330,7 +1330,7 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
             return
 
         response = f"Your new group <b>name</b> is\n<b>{text}</b>\n\n" \
-                   f"<b>Continue</b> to the next step or re-enter another name."
+                   f"<b>Continue</b> to the next step or re-enter another group name."
         edit_conversation_message(
             update, context, response, reply_markup=build_progress_buttons(next_text="Continue")
         )
@@ -3292,18 +3292,13 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         )
         query.answer(text="Confirm leave group?")
         return
+    # Handle confirm leave group button
     elif action == f"{models.DELETE_YES}_{models.LEAVE_GROUP}" and not is_owner:
         group.remove_member(user.get_uid())
         query.answer(text="You have left the group.")
         query.edit_message_reply_markup(None)
         query.message.delete()
         return
-    # Handle leave group button
-    elif action == models.LEAVE_GROUP:
-        query.edit_message_reply_markup(group.build_delete_confirmation_buttons(
-            delete_text="Leave", delete_action=action, back_action=models.SETTINGS)
-        )
-        query.answer(text="Confirm leave group?")
     # Handle refresh button
     elif action == models.REFRESH:
         query.answer(text="Group details updated!")
@@ -3327,6 +3322,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     # Handle other cases
     else:
         logger.warning("Invalid callback query data.")
+        logger.info(f"data = {query.data}")
         query.answer(text="Invalid callback query data!")
         query.edit_message_reply_markup(None)
         query.message.delete()
