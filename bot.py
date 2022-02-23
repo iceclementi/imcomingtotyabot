@@ -504,7 +504,7 @@ def handle_poll(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    context.user_data.update({"action": "poll", "title": "", "descr": "", "options": []})
+    context.user_data.update({"action": models.POLL, "step": 1, "title": "", "descr": "", "options": []})
 
     match = re.match(r"^/poll\s+((?:\n|.)+)$", update.message.text.strip())
     if not match:
@@ -772,6 +772,7 @@ def handle_group(update: Update, context: CallbackContext) -> None:
     """Begins creating a new group."""
     delete_chat_message(update.message)
     delete_old_chat_message(update, context)
+    context.user_data.clear()
 
     user, is_leader, _ = get_user_permissions(update.effective_user.id)
 
@@ -779,8 +780,7 @@ def handle_group(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    context.user_data.clear()
-    context.user_data.update({"action": "group", "name": "", "secret": ""})
+    context.user_data.update({"action": models.GROUP, "step": 1, "name": "", "secret": ""})
 
     match = re.match(r"^/group\s+((?:\n|.)+)$", update.message.text.strip())
     if not match:
@@ -796,24 +796,22 @@ def handle_group(update: Update, context: CallbackContext) -> None:
         reply_message = update.message.reply_html(
             ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
         )
-        context.user_data.update({"del": reply_message.message_id})
+        context.user_data.update({"ed": reply_message.message_id})
         return
 
-    if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
+    if user.has_group_with_name(group_name):
         reply_message = update.message.reply_html(
-            ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cance;", models.RESET)
+            ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
         )
-        context.user_data.update({"del": reply_message.message_id})
+        context.user_data.update({"ed": reply_message.message_id})
         return
 
-    response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
+    response = f"Your new group <b>name</b> is\n<b>{group_name}</b>\n\n" \
+               f"<b>Continue</b> to the next step or re-enter another group name."
     reply_message = update.message.reply_html(
-        response, reply_markup=util.build_multiple_buttons_markup(
-            util.generate_button_details("Skip", models.DONE),
-            util.generate_button_details("Cancel", models.RESET)
-        )
+        response, reply_markup=build_progress_buttons(next_text="Continue")
     )
-    context.user_data.update({"name": group_name, "del": reply_message.message_id})
+    context.user_data.update({"name": group_name, "ed": reply_message.message_id})
     return
 
 
@@ -978,7 +976,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if action == "bot_access" and is_admin:
         handle_bot_access_conversation(update, context)
         return
-    elif action == "poll" and user:
+    elif action == models.POLL and user:
         handle_poll_conversation(update, context)
         return
     elif action == "vote":
@@ -1314,46 +1312,45 @@ def handle_group_conversation(update: Update, context: CallbackContext) -> None:
 
     group = Group.get_group_by_id(gid)
 
+    # Handle group name
     if step == 1:
-        # Handle group name
-        if not group_name:
-            group_name = text.replace("\n", " ")
-            if len(group_name) > MAX_GROUP_NAME_LENGTH:
-                reply_message = update.message.reply_html(
-                    ERROR_GROUP_NAME_TOO_LONG, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
-                )
-                context.user_data.update({"del": reply_message.message_id})
-                return
-
-            if User.get_user_by_id(update.effective_user.id).has_group_with_name(group_name):
-                reply_message = update.message.reply_html(
-                    ERROR_GROUP_NAME_EXISTS, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
-                )
-                context.user_data.update({"del": reply_message.message_id})
-                return
-
-            response = GROUP_PASSWORD_REQUEST.format(util.make_html_bold(group_name))
-            reply_message = update.message.reply_html(
-                response, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+        text = text.replace("\n", " ")
+        if len(group_name) > MAX_GROUP_NAME_LENGTH:
+            edit_conversation_message(
+                update, context, ERROR_GROUP_NAME_TOO_LONG,
+                reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
-            context.user_data.update({"name": group_name, "del": reply_message.message_id})
             return
-        # Handle secret
+
+        if user.has_group_with_name(text):
+            edit_conversation_message(
+                update, context, ERROR_GROUP_NAME_EXISTS,
+                reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            )
+            return
+
+        response = f"Your new group <b>name</b> is\n<b>{text}</b>\n\n" \
+                   f"<b>Continue</b> to the next step or re-enter another name."
+        edit_conversation_message(
+            update, context, response, reply_markup=build_progress_buttons(next_text="Continue")
+        )
+        context.user_data.update({"name": text})
+        return
+    # Handle secret
+    elif step == 2 and group_name:
         if not re.match(r"^[A-Za-z0-9]{4,20}$", text):
-            reply_message = update.message.reply_html(
-                ERROR_INVALID_GROUP_PASS_FORMAT, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+            edit_conversation_message(
+                update, context, ERROR_INVALID_GROUP_PASS_FORMAT,
+                reply_markup=build_progress_buttons(next_text="Skip")
             )
-            context.user_data.update({"del": reply_message.message_id})
             return
 
-        # Create group
-        group, _ = User.get_user_by_id(update.effective_user.id).create_group(group_name, text)
-
-        update.message.reply_html(GROUP_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
-        deliver_group(update, group)
-
-        # Clear user data
-        context.user_data.clear()
+        response = f"Your new group <b>password</b> is added successfully.\n\n" \
+                   f"<b>Create</b> the group or re-enter another password."
+        edit_conversation_message(
+            update, context, response, reply_markup=build_progress_buttons(next_text="Create")
+        )
+        context.user_data.update({"secret": text})
         return
     # Handle change group name
     elif step == 10 and group:
@@ -2580,31 +2577,35 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             return
     # Handle group
     elif action == models.GROUP:
-        group_name = context.user_data.setdefault("name", "")
+        step, group_name, secret = \
+            context.user_data.get("step", 1), context.user_data.get("name", ""), context.user_data.get("secret", "")
 
-        # Check if there is a group name
-        if not group_name:
-            reply_message = query.edit_message_text(
-                ERROR_EARLY_DONE_GROUP_NAME, parse_mode=ParseMode.HTML,
-                reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+        if step == 1 and group_name:
+            response = "Great! Now, send me a secret <b>password</b> for the group or <b>Skip</b> this step."
+            query.edit_message_text(
+                response, parse_mode=ParseMode.HTML, reply_markup=build_progress_buttons(next_text="Skip")
             )
-            context.user_data.update({"del": reply_message.message_id})
-            query.answer(text=ERROR_EARLY_DONE_GROUP_NAME)
+            query.answer(text="Enter a password for the group.")
+            context.user_data.update({"step": 2})
             return
+        elif step == 2 and group_name:
+            # Create group
+            group, _ = user.create_group(group_name, secret)
 
-        # Create group
-        group, _ = User.get_user_by_id(query.from_user.id).create_group(group_name, "")
-
-        query.edit_message_text(
-            GROUP_DONE, parse_mode=ParseMode.HTML,
-            reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-        )
-        query.message.reply_html(group.render_group_details_text(), reply_markup=group.build_main_buttons())
-        query.answer(text="Group created successfully!")
-
-        # Clear user data
-        context.user_data.clear()
-        return
+            query.edit_message_text(
+                GROUP_DONE, parse_mode=ParseMode.HTML,
+                reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+            )
+            query.message.reply_html(group.render_group_details_text(), reply_markup=group.build_main_buttons())
+            query.answer(text="Group created successfully!")
+            context.user_data.clear()
+            return
+        else:
+            query.answer(text="Invalid callback query data!")
+            logger.warning("Invalid callback query data.")
+            query.edit_message_reply_markup(None)
+            query.message.delete()
+            return
     # Handle other cases
     else:
         query.answer(text="Invalid callback query data!")
