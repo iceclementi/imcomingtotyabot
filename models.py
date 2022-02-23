@@ -76,7 +76,6 @@ CLOSE = "close"
 RESET = "reset"
 DONE = "done"
 SKIP = "skip"
-UPDATE_DONE = "updateDone"
 SHOW = "show"
 HIDE = "hide"
 TEMPLATE = "temp"
@@ -93,6 +92,7 @@ ADD = "add"
 VIEW = "view"
 DELETE = "del"
 DELETE_YES = "delYes"
+RETURN = "return"
 
 # endregion
 
@@ -1276,7 +1276,7 @@ class Poll(object):
         buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_option_comment_text_and_buttons(self, uid: int) -> tuple:
+    def build_option_comment_text_and_buttons(self, uid: int) -> Tuple[str, InlineKeyboardMarkup]:
         buttons = []
         for i, option in enumerate(self.options):
             if option.is_voted_by_user(uid):
@@ -1288,10 +1288,16 @@ class Poll(object):
         else:
             response = util.make_html_italic("You have to vote first before you can enter a comment.")
 
-        close_button = self.build_button("Close", CLOSE)
-        buttons.append([close_button])
+        return_button = self.build_button("Cancel", RETURN)
+        buttons.append([return_button])
 
         return response, InlineKeyboardMarkup(buttons)
+
+    def build_comment_complete_buttons(self) -> InlineKeyboardMarkup:
+        back_button = self.build_button("Back", EDIT_COMMENT)
+        return_button = self.build_button("Return to Chat", RETURN)
+        buttons = [[back_button, return_button]]
+        return InlineKeyboardMarkup(buttons)
 
     def build_delete_confirm_buttons(self, delete_action: str, back_action: str, delete_text="Delete", back_text="No") \
             -> InlineKeyboardMarkup:
@@ -1588,7 +1594,7 @@ class List(object):
             option_button = self.build_button(option.get_title(), f"{OPTION}_{i}")
             buttons.append([option_button])
         refresh_button = self.build_button("Refresh", REFRESH_OPT)
-        done_button = self.build_button("Done", UPDATE_DONE)
+        done_button = self.build_button("Done", RETURN)
         buttons.append([refresh_button, done_button])
         return InlineKeyboardMarkup(buttons)
 

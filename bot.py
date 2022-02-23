@@ -325,8 +325,7 @@ def handle_comment_pm(update: Update, context: CallbackContext, details: str) ->
         return
 
     response, buttons = poll.build_option_comment_text_and_buttons(update.effective_user.id)
-    reply_message = update.message.reply_html(response, reply_markup=buttons)
-    delete_message_with_timer(reply_message, 300)
+    update.message.reply_html(response, reply_markup=buttons)
     return
 
 
@@ -335,7 +334,7 @@ def handle_vote_pm(update: Update, context: CallbackContext, details: str) -> No
     match = re.match(r"^([^_\W]+_[^_\W]+)_(\d+)$", details)
     if not match:
         update.message.reply_html(
-            ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+            ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", models.RETURN)
         )
         logger.warning("Invalid poll vote request!")
         return
@@ -346,14 +345,14 @@ def handle_vote_pm(update: Update, context: CallbackContext, details: str) -> No
 
     if not poll or poll.get_poll_hash() != poll_hash:
         update.message.reply_html(
-            ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+            ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", models.RETURN)
         )
         logger.warning("Invalid poll vote request!")
         return
 
     if opt_id >= len(poll.get_options()):
         update.message.reply_html(
-            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", models.RETURN)
         )
         logger.warning("Invalid option selected from poll vote!")
         return
@@ -373,10 +372,9 @@ def handle_vote_pm(update: Update, context: CallbackContext, details: str) -> No
 
     reply_message = update.message.reply_html(
         REASON.format(util.make_html_bold(option.get_title())),
-        reply_markup=util.build_single_button_markup("Close", models.RESET),
+        reply_markup=util.build_single_button_markup("Cancel", models.RETURN),
     )
-    context.user_data.update({"action": "vote", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
-    delete_message_with_timer(reply_message, 900)
+    context.user_data.update({"action": models.VOTE, "pid": poll_id, "opt": opt_id, "ed": reply_message.message_id})
     return
 
 
@@ -451,7 +449,7 @@ def handle_enrol(update: Update, context: CallbackContext) -> None:
         ACCESS_ENTER_USER_ID,
         reply_markup=util.build_single_button_markup("Cancel", models.RESET)
     )
-    context.user_data.update({"action": "bot_access", "del": reply_message.message_id})
+    context.user_data.update({"action": models.BOT_ACCESS, "ed": reply_message.message_id})
     return
 
 
@@ -973,16 +971,16 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
     # Handle messages according to their action type
     action = context.user_data.get("action", "")
-    if action == "bot_access" and is_admin:
+    if action == models.BOT_ACCESS and is_admin:
         handle_bot_access_conversation(update, context)
         return
     elif action == models.POLL and user:
         handle_poll_conversation(update, context)
         return
-    elif action == "vote":
+    elif action == models.VOTE:
         handle_vote_conversation(update, context)
         return
-    elif action == "comment":
+    elif action == models.COMMENT:
         handle_comment_conversation(update, context)
         return
     elif action == models.LIST and user:
@@ -1014,13 +1012,14 @@ def handle_bot_access_conversation(update: Update, context: CallbackContext) -> 
 
     if not uid.isdigit():
         response = "You've entered an invalid user id. Please enter again."
-        buttons = util.build_single_button_markup("Cancel", models.RESET)
-        reply_message = update.message.reply_html(response, reply_markup=buttons)
-        context.user_data.update({"del": reply_message.message_id})
+        edit_conversation_message(
+            update, context, response,
+            reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+        )
         return
 
     response, buttons = BotManager.build_bot_access_enrol_text_and_button(int(uid))
-    update.message.reply_html(response, reply_markup=buttons)
+    edit_conversation_message(update, context, response, reply_markup=buttons)
     context.user_data.clear()
     return
 
@@ -1216,84 +1215,88 @@ def handle_list_conversation(update: Update, context: CallbackContext) -> None:
 
 def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the user to vote a poll option."""
-    poll_id = context.user_data.get("pid", "")
-    opt_id = int(context.user_data.get("opt", -1))
-    uid, user_profile = extract_user_data(update.effective_user)
-
     delete_chat_message(update.message),
     delete_old_chat_message(update, context)
-    context.user_data.clear()
+
+    poll_id, opt_id = context.user_data.get("pid", ""), int(context.user_data.get("opt", -1))
+    uid, user_profile = extract_user_data(update.effective_user)
+    text = update.message.text.strip()
 
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
-        update.message.reply_html(DELETED_POLL, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+        edit_conversation_message(
+            update, context, DELETED_POLL,
+            reply_markup=util.build_single_button_markup("Close", models.RETURN)
+        )
         logger.warning("Poll deleted before vote.")
         return
 
     if opt_id >= len(poll.get_options()) or opt_id < 0:
-        update.message.reply_html(
-            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+        edit_conversation_message(
+            update, context, ERROR_INVALID_POLL_OPTION_REQUEST,
+            reply_markup=util.build_single_button_markup("Close", models.RETURN)
         )
         logger.warning("Invalid option selected from poll vote!")
         return
 
     if poll.get_options()[opt_id].is_voted_by_user(uid):
-        update.message.reply_html(
-            ERROR_ALREADY_VOTED, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-        )
-        logger.warning("Poll option already voted by user!")
-        return
+        poll.edit_user_comment(opt_id, uid, text)
+    else:
+        poll.toggle(opt_id, uid, user_profile, text)
 
-    response = poll.toggle(opt_id, uid, user_profile, update.message.text)
+    response = f"Comment has been updated! {models.EMOJI_HAPPY}\n\n" \
+               f"<b>Return to Chat</b> or re-enter another comment to change."
 
-    reply_message = update.message.reply_html(
-        util.make_html_bold(f"{response} {models.EMOJI_HAPPY}"),
-        reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
+    edit_conversation_message(
+        update, context, response,
+        reply_markup=util.build_single_button_markup("Return To Chat", models.RETURN)
     )
-
-    reply_message.delete()
     refresh_polls(poll, context)
     return
 
 
 def handle_comment_conversation(update: Update, context: CallbackContext) -> None:
     """Handles the conversation between the bot and the user to comment a poll option."""
-    poll_id = context.user_data.get("pid", "")
-    opt_id = int(context.user_data.get("opt", -1))
-    uid, user_profile = extract_user_data(update.effective_user)
-
     delete_chat_message(update.message),
     delete_old_chat_message(update, context)
-    context.user_data.clear()
+
+    poll_id, opt_id = context.user_data.get("pid", ""), int(context.user_data.get("opt", -1))
+    uid, user_profile = extract_user_data(update.effective_user)
+    text = update.message.text.strip()
 
     poll = Poll.get_poll_by_id(poll_id)
     if not poll:
-        update.message.reply_html(DELETED_POLL, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
+        edit_conversation_message(
+            update, context, DELETED_POLL,
+            reply_markup=util.build_single_button_markup("Close", models.RETURN)
+        )
         logger.warning("Poll deleted before vote.")
         return
 
     if opt_id >= len(poll.get_options()) or opt_id < 0:
-        update.message.reply_html(
-            ERROR_INVALID_POLL_OPTION_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+        edit_conversation_message(
+            update, context, ERROR_INVALID_POLL_OPTION_REQUEST,
+            reply_markup=util.build_single_button_markup("Close", models.RETURN)
         )
         logger.warning("Invalid option selected from poll vote!")
         return
 
     if not poll.get_options()[opt_id].is_voted_by_user(uid):
-        update.message.reply_html(
-            ERROR_NOT_VOTED, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+        edit_conversation_message(
+            update, context, ERROR_NOT_VOTED,
+            reply_markup=util.build_single_button_markup("Close", models.RETURN)
         )
         logger.warning("Poll option not voted by user!")
         return
 
     poll.edit_user_comment(opt_id, uid, update.message.text)
 
-    reply_message = update.message.reply_html(
-        util.make_html_bold(f"Comment updated successfully! {models.EMOJI_HAPPY}"),
-        reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
-    )
+    response = f"Comment has been updated! {models.EMOJI_HAPPY}\n\n" \
+               f"<b>Return to Chat</b> or re-enter another comment to change."
 
-    reply_message.delete()
+    edit_conversation_message(
+        update, context, response, reply_markup=poll.build_comment_complete_buttons()
+    )
     refresh_polls(poll, context)
     return
 
@@ -2176,7 +2179,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
             ACCESS_ENTER_USER_ID, parse_mode=ParseMode.HTML,
             reply_markup=util.build_single_button_markup("Cancel", models.RESET)
         )
-        context.user_data.update({"action": "bot_access", "del": reply_message.message_id})
+        context.user_data.update({"action": models.BOT_ACCESS, "ed": reply_message.message_id})
         return
     # Handle leader access button
     elif action == models.PROMOTE and is_admin:
@@ -2205,6 +2208,17 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
     elif action == models.CLOSE:
         query.message.delete()
         query.answer(text=None)
+        return
+    # Handle return button
+    elif action == models.RETURN:
+        query.answer(text="Returning to chat...")
+        response = "Returning to chat..."
+        reply_message = query.message.reply_html(
+            response, reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
+        )
+        context.user_data.clear()
+        reply_message.delete()
+        query.message.delete()
         return
     # Handle reset button
     elif action == models.RESET:
@@ -2749,12 +2763,14 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         query.answer(text=status)
         refresh_polls(poll, context, only_buttons=True)
         return
-    # Handle vote button
-    elif action == models.VOTE and is_pm:
-        query.edit_message_reply_markup(poll.build_option_buttons())
-        query.answer(text="You may now vote!")
-        return
     # Handle edit comment button
+    elif action == models.EDIT_COMMENT:
+        response, buttons = poll.build_option_comment_text_and_buttons(uid)
+        query.edit_message_text(response, parse_mode=HTML, reply_markup=buttons)
+        query.answer(text=None)
+        context.user_data.clear()
+        return
+    # Handle edit comment choice button
     elif action.startswith(f"{models.EDIT_COMMENT}_") and is_pm:
         _, opt_id = action.rsplit("_", 1)
         if not opt_id.isdigit():
@@ -2765,20 +2781,20 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         opt_id = int(opt_id)
 
         if opt_id >= len(poll.get_options()):
-            query.answer(text=ERROR_INVALID_POLL_OPTION_REQUEST)
             logger.warning("Invalid option selected from poll vote!")
+            query.answer(text=ERROR_INVALID_POLL_OPTION_REQUEST)
             return
 
         option = poll.get_options()[opt_id]
 
-        reply_message = message.reply_html(
-            REASON.format(util.make_html_bold(option.get_title())),
-            reply_markup=util.build_single_button_markup("Close", models.RESET),
+        reply_message = query.edit_message_text(
+            REASON.format(util.make_html_bold(option.get_title())), parse_mode=ParseMode.HTML,
+            reply_markup=util.build_single_button_markup("Back", models.EDIT_COMMENT)
         )
-        context.user_data.update({"action": "comment", "pid": poll_id, "opt": opt_id, "del": reply_message.message_id})
-        message.delete()
-        delete_message_with_timer(reply_message, 900)
         query.answer(text="Please enter a reason/comment for your selected option.")
+        context.user_data.update(
+            {"action": models.COMMENT, "pid": poll_id, "opt": opt_id, "ed": reply_message.message_id}
+        )
         return
     # Handle delete button
     elif action == models.DELETE and is_pm and is_creator:
@@ -2805,6 +2821,16 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
         query.edit_message_reply_markup(poll.build_admin_buttons())
         query.answer(text=None)
         return
+    # Handle return to chat button
+    elif action == models.RETURN and is_pm:
+        query.answer("Returning to chat...")
+        reply_message = query.message.reply_html(
+            "Returning to chat...",
+            reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
+        )
+        context.user_data.clear()
+        query.message.delete()
+        reply_message.delete()
     # Handle close button
     elif action == models.CLOSE:
         query.answer(text=None)
@@ -2947,13 +2973,14 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         query.answer(text=None)
         query.edit_message_reply_markup(_list.build_admin_buttons())
         return
-    # Handle update done button
-    elif action == models.UPDATE_DONE and is_pm:
+    # Handle return to chat button
+    elif action == models.RETURN and is_pm:
+        query.answer("Returning to chat...")
         reply_message = query.message.reply_html(
             "Returning to chat...",
             reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
         )
-
+        context.user_data.clear()
         query.message.delete()
         reply_message.delete()
     # Handle close button
@@ -4478,9 +4505,9 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
 
 def handle_inline_pm_query(query: InlineQuery, action: str, details: str) -> None:
     """Handles specific inline to pm queries."""
-    if action == "vote":
+    if action == models.VOTE:
         text = "Click here to toggle your vote."
-    elif action == "comment":
+    elif action == models.COMMENT:
         text = "Click here to add a comment to the poll."
     elif action == "update":
         text = "Click here to update the list."
