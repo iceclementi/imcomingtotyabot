@@ -1284,7 +1284,7 @@ class Poll(object):
                 buttons.append([option_button])
 
         if buttons:
-            response = util.make_html_bold("Select the option to add or change your comment.")
+            response = "Select the option to add or change your comment."
         else:
             response = util.make_html_italic("You have to vote first before you can enter a comment.")
 

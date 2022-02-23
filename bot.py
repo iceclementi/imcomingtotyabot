@@ -1246,7 +1246,7 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
     else:
         poll.toggle(opt_id, uid, user_profile, text)
 
-    response = f"Comment has been updated! {models.EMOJI_HAPPY}\n\n" \
+    response = f"{models.EMOJI_HAPPY} Comment has been updated to <b>{text}</b>\n\n" \
                f"<b>Return to Chat</b> or re-enter another comment to change."
 
     edit_conversation_message(
@@ -1293,7 +1293,7 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
 
     poll.edit_user_comment(opt_id, uid, text)
 
-    response = f"Comment has been updated! {models.EMOJI_HAPPY}\n\n" \
+    response = f"{models.EMOJI_HAPPY} Comment has been updated to <b>{text}</b>\n\n" \
                f"<b>Return to Chat</b> or re-enter another comment to change."
 
     edit_conversation_message(
