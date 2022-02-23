@@ -339,6 +339,8 @@ def handle_vote_pm(update: Update, context: CallbackContext, details: str) -> No
         logger.warning("Invalid poll vote request!")
         return
 
+    uid, user_profile = extract_user_data(update.effective_user)
+
     poll_hash, opt_id = match.group(1), int(match.group(2))
     poll_id = poll_hash.split("_")[0]
     poll = Poll.get_poll_by_id(poll_id)
@@ -359,7 +361,7 @@ def handle_vote_pm(update: Update, context: CallbackContext, details: str) -> No
 
     option = poll.get_options()[opt_id]
 
-    if option.is_voted_by_user(update.effective_user.id):
+    if option.is_voted_by_user(uid):
         response = poll.toggle(opt_id, uid, user_profile)
 
         reply_message = update.message.reply_html(
@@ -1289,7 +1291,7 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
         logger.warning("Poll option not voted by user!")
         return
 
-    poll.edit_user_comment(opt_id, uid, update.message.text)
+    poll.edit_user_comment(opt_id, uid, text)
 
     response = f"Comment has been updated! {models.EMOJI_HAPPY}\n\n" \
                f"<b>Return to Chat</b> or re-enter another comment to change."
@@ -2766,7 +2768,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
     # Handle edit comment button
     elif action == models.EDIT_COMMENT:
         response, buttons = poll.build_option_comment_text_and_buttons(uid)
-        query.edit_message_text(response, parse_mode=HTML, reply_markup=buttons)
+        query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
         query.answer(text=None)
         context.user_data.clear()
         return
