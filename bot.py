@@ -2979,7 +2979,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         query.edit_message_reply_markup(None)
         query.message.delete()
         return
-    logger.info(f"data = {query.data}")
+
     group = Group.get_group_by_id(gid)
 
     # Group is deleted or has error
@@ -3322,7 +3322,6 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     # Handle other cases
     else:
         logger.warning("Invalid callback query data.")
-        logger.info(f"data = {query.data}")
         query.answer(text="Invalid callback query data!")
         query.edit_message_reply_markup(None)
         query.message.delete()
