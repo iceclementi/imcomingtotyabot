@@ -594,9 +594,8 @@ def handle_list(update: Update, context: CallbackContext) -> None:
 
     match = re.match(r"^\s*/list\s+(.+)$", update.message.text.strip())
     if not match:
-        reply_message = update.message.edit_text(
-            NEW_LIST, parse_mode=ParseMode.HTML,
-            reply_markup=util.build_single_button_markup("Cancel", models.RESET)
+        reply_message = update.message.reply_html(
+            NEW_LIST, reply_markup=util.build_single_button_markup("Cancel", models.RESET)
         )
         context.user_data.update({"ed": reply_message.message_id})
         return
@@ -611,11 +610,8 @@ def handle_list(update: Update, context: CallbackContext) -> None:
         return
 
     response = NEW_LIST_DESCRIPTION.format(f"<b>{title}</b>")
-    reply_message = update.message.edit_text(
-        response, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_buttons_markup(
-            util.generate_button_details("Skip", models.DONE),
-            util.generate_button_details("Cancel", models.RESET)
-        )
+    reply_message = update.message.reply_html(
+        response, reply_markup=build_progress_buttons(next_text="Skip")
     )
     context.user_data.update({"step": 2, "title": title, "ed": reply_message.message_id})
     return
