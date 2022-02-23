@@ -1556,8 +1556,8 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
         return
     # Handle template description
     elif step == 6 and title and description and options and name:
-        if len(text) > 100:
-            response = "Sorry, please enter a shorter <b>template description</b> (maximum 100 characters)."
+        if len(text) > 50:
+            response = "Sorry, please enter a shorter <b>template description</b> (maximum 50 characters)."
             edit_conversation_message(
                 update, context, response,
                 reply_markup=build_progress_buttons(next_text="Skip")
@@ -1733,8 +1733,8 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
         return
     # Handle add template description:
     elif step == 27 and template:
-        if len(text) > 100:
-            response = "Sorry, please enter a shorter template description (maximum 100 characters)."
+        if len(text) > 50:
+            response = "Sorry, please enter a shorter template description (maximum 50 characters)."
             edit_conversation_message(
                 update, context, response,
                 reply_markup=template.build_single_back_button(
@@ -1753,6 +1753,7 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
         # Clear user data
         context.user_data.clear()
         return
+    # Handle invalid step
     else:
         logger.warning("Error with preset poll conversation step index!!")
         context.user_data.clear()
@@ -1920,8 +1921,8 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
     # Handle template description
     elif step == 7 and title and description and options and choices and name:
         text = text.replace("\n", " ").strip()
-        if len(text) > 100:
-            response = "Sorry, please enter a shorter <b>template description</b> (maximum 100 characters)."
+        if len(text) > 50:
+            response = "Sorry, please enter a shorter <b>template description</b> (maximum 50 characters)."
             edit_conversation_message(
                 update, context, response,
                 reply_markup=build_progress_buttons(next_text="Skip")
@@ -2099,8 +2100,8 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
     # Handle add template description:
     elif step == 27 and template:
         text = text.replace("\n", " ").strip()
-        if len(text) > 100:
-            response = "Sorry, please enter a shorter template description (maximum 100 characters)."
+        if len(text) > 50:
+            response = "Sorry, please enter a shorter template description (maximum 50 characters)."
             edit_conversation_message(
                 update, context, response,
                 reply_markup=template.build_single_back_button(
