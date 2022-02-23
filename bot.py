@@ -2186,23 +2186,6 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         query.answer(response)
         query.edit_message_text(response, parse_mode=ParseMode.HTML, reply_markup=buttons)
         return
-    # Handle skip button
-    elif action == models.SKIP:
-        user_action = context.user_data.get("action", "")
-        if user_action == "poll":
-            query.answer(text=None)
-            response = NEW_POLL_OPTION.format("")
-            reply_message = query.edit_message_text(
-                response, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_buttons_markup(
-                    util.generate_button_details("Cancel", models.RESET)
-                )
-            )
-            context.user_data.update({"descr": " ", "del": reply_message.message_id})
-            return
-        else:
-            query.answer(text="Invalid callback query data!")
-            logger.warning("Invalid callback query data.")
-            return
     # Handle done button
     elif action == models.DONE:
         user_action = context.user_data.get("action", "")
@@ -2281,40 +2264,6 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
             reply_markup=util.build_single_button_markup("Back", models.TEMPLATE)
         )
         return
-    # Handle edit button
-    elif action == models.EDIT:
-        user_action, step = context.user_data.get("action", ""), context.user_data.get("step", 0)
-        if user_action == models.TEMP_POLL:
-            if not step:
-                query.answer(text="Invalid callback query data in preset poll edit!")
-                logger.warning("Invalid callback query data.")
-                return
-            if step == 1:
-                query.answer(text="Enter a title for the poll template")
-                response_text = "Enter a <b>title</b> for the poll template."
-                reply_message = query.edit_message_text(
-                    response_text, parse_mode=ParseMode.HTML,
-                    reply_markup=util.build_multiple_buttons_markup(
-                        util.generate_button_details("Cancel", models.RESET)
-                    )
-                )
-                context.user_data.update({"del": reply_message.message_id})
-                return
-            elif step == 2:
-                query.answer(text="Enter a description for the poll template")
-                response_text = "Send me a <b>description</b> for the poll template or <b>Skip</b> this step."
-                reply_message = query.edit_message_text(
-                    response_text, parse_mode=ParseMode.HTML, reply_markup=util.build_multiple_stacked_buttons_markup(
-                        [
-                            util.generate_button_details("Cancel", models.RESET),
-                            util.generate_button_details("Skip", models.DONE)
-                        ]
-                    )
-                )
-                context.user_data.update({"del": reply_message.message_id})
-            else:
-                query.answer(text=None)
-                return
     # Handle response button
     elif action.startswith(f"{models.RESPONSE}_"):
         _, response_type = action.split("_", 1)
@@ -4670,6 +4619,8 @@ def edit_conversation_message(update: Update, context: CallbackContext, text: st
             text, chat_id=update.effective_chat.id, message_id=mid, parse_mode=ParseMode.HTML, reply_markup=reply_markup
         )
     except telegram.error.TelegramError as err:
+        if "Message is not modified" in err:
+            return
         response = "Error editing chat message!"
         logger.warning(f"{response} - {err}")
         update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
