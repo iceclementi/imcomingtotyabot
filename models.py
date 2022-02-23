@@ -1225,7 +1225,7 @@ class Poll(object):
     def render_text(self) -> str:
         title = util.make_html_bold(self.title)
         description = util.make_html_italic(self.description)
-        header = [f"{title}\n{description}" if description else title]
+        header = [f"{EMOJI_POLL} {title}\n{description}" if description else title]
         body = [option.render_text() for option in self.options]
         footer = [f"{EMOJI_PEOPLE} {self.generate_respondents_summary()}"]
         return "\n\n".join(header + body + footer)
@@ -1571,7 +1571,7 @@ class List(object):
     def render_text(self) -> str:
         title = util.make_html_bold(self.title)
         description = util.make_html_italic(self.description)
-        header = [f"{title}\n{description}" if description else title]
+        header = [f"{EMOJI_LIST} {title}\n{description}" if description else title]
         body = [option.render_text() for option in self.options]
         footer = [f"{EMOJI_PEOPLE} {self.generate_allocations_summary()}"]
         return "\n\n".join(header + body + footer)

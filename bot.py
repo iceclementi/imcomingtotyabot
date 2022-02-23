@@ -49,60 +49,60 @@ QUERY_RESULTS_LIMIT = 20
 ACCESS_REQUEST = "To explore the full potential of this bot, please request for access from the bot admins \U0001f60e"
 ACCESS_ENTER_USER_ID = "Enter the ID of the user you want to give access to."
 ACCESS_DENIED = "Sorry, invalid or expired access key."
-ACCESS_GRANTED = "Woohoo!! \U0001f973 You now have access to the bot!\n\nUse /start to get started."
+ACCESS_GRANTED = "Woohoo!! \U0001f973 You now have access to the bot!\n\nUse <b>/start</b> to get started."
 USER_PROMOTED = "Yay!! \U0001f389 {} is now a bot leader!!"
 
-NEW_POLL = "Let's create a new poll! First, send me the title."
-NEW_POLL_DESCRIPTION = "{}\n\nNice! Now send me a poll description or skip this step."
-NEW_POLL_OPTION = "{}\n\nAlright, now send me your very first option."
-NEXT_POLL_OPTION = "Nice! {} added!\n\n{}\n\nNow send me another option or press <b>Done</b> to finish."
+NEW_POLL = "Let's create a new poll! First, send me the <b>title</b>."
+NEW_POLL_DESCRIPTION = "{}\n\nNice! Now send me a poll <b>description</b> or <b>Skip</b> this step."
+NEW_POLL_OPTION = "{}\n\nAlright, now send me your very first <b>option</b>."
+NEXT_POLL_OPTION = "Nice! {} added!\n\n{}\n\nNow send me another <b>option</b> or press <b>Done</b> to finish."
 POLL_DONE = "\U0001f44d Poll created! You may now publish it to your friends or share it with a group."
 DELETED_POLL = "Sorry, the poll has been deleted."
 
-NEW_LIST = "Let's create a new list! First, send me the title."
-NEW_LIST_DESCRIPTION = "{}\n\nNice! Now send me a list description or skip this step."
-NEW_LIST_OPTION = "{}\n\nAlright, now send me your very first option."
+NEW_LIST = "Let's create a new list! First, send me the <b>title</b>."
+NEW_LIST_DESCRIPTION = "{}\n\nNice! Now send me a list <b>description</b> or <b>Skip</b> this step."
+NEW_LIST_OPTION = "{}\n\nAlright, now send me your very first <b>option</b>."
 NEXT_LIST_OPTION = "Nice! {} added!\n\n{}\n\n" \
-                   "Now send me another answer option or press <b>Done</b> to go to the next step."
-NEW_LIST_CHOICE = "Okay, now send me your first choice item."
-NEXT_LIST_CHOICE = "Great! {} added!\n\n{}\n\nNow send me another choice item or press <b>Done</b> to finish."
+                   "Now send me another <b>option</b> or press <b>Done</b> to go to the next step."
+NEW_LIST_CHOICE = "Okay, now send me your first <b>choice</b> item."
+NEXT_LIST_CHOICE = "Great! {} added!\n\n{}\n\nNow send me another <b>choice</b> item or press <b>Done</b> to finish."
 LIST_DONE = "\U0001f44d List created! You may now publish it to your friends or share it with a group."
 DELETED_LIST = "Sorry, the list has been deleted."
 
-NEW_GROUP = "Let's create a new group! To begin, send me the group name."
-GROUP_PASSWORD_REQUEST = "{}\n\nGreat! Now enter a secret password for your group or skip this step."
+NEW_GROUP = "Let's create a new group! To begin, send me the group <b>name</b>."
+GROUP_PASSWORD_REQUEST = "{}\n\nGreat! Now enter a secret <b>password</b> for your group or <b>Skip</b> this step."
 GROUP_DONE = "\U0001f44d Group created! You are now the owner of this group. " \
              "Use /invite to invite your friends to join the group."
 DELETED_GROUP = "Sorry, the group has been deleted."
 GROUP_INVITATION = "Which group's invite code do you want to send?"
 
 REASON = "You've selected {}.\nPlease enter a reason/comment for your selected option."
-START = "Welcome to the bot! \U0001f60a\n\nUse /keyboard to show and hide the command keyboard.\n\n" \
-        "Use /help to check the description for each bot command."
+START = "Welcome to the bot! \U0001f60a\n\nUse <b>/keyboard</b> to show and hide the command keyboard.\n\n" \
+        "Use <b>/help</b> to check the description for each bot command."
 
-ERROR_ACCESS_ALREADY_GRANTED = "You already have access to the bot! Use /start to get started."
+ERROR_ACCESS_ALREADY_GRANTED = "You already have access to the bot! Use <b>/start</b> to get started."
 ERROR_ALREADY_PROMOTED = "The user is already a bot leader!"
-ERROR_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_TITLE_LENGTH} characters)."
-ERROR_OPTION_TITLE_TOO_LONG = f"Sorry, please enter a shorter title (maximum {MAX_OPTION_TITLE_LENGTH} characters)."
-ERROR_CHOICE_NAME_TOO_LONG = f"Sorry, please enter a shorter name (maximum {MAX_CHOICE_ITEM_NAME_LENGTH} characters)."
-ERROR_DUPLICATE_OPTION_TITLE = "Sorry, there's already an option with the same title.\n\n{}\n\n" \
-                               "Please enter a different option title."
-ERROR_DUPLICATE_CHOICE_NAME = "Sorry, there's already a choice item with the same name.\n\n{}\n\n" \
-                               "Please enter a different choice item name."
-ERROR_EARLY_DONE_POLL_TITLE = "Sorry, please add a title to the poll."
-ERROR_EARLY_DONE_POLL_OPTION = "Sorry, please add at least one option to the poll."
-ERROR_EARLY_DONE_LIST_TITLE = "Sorry, please add a title to the list."
-ERROR_EARLY_DONE_LIST_OPTION = "Sorry, please add at least one option to the list."
-ERROR_EARLY_DONE_LIST_CHOICE = "Sorry, please add at least one choice item to the list."
-ERROR_GROUP_NAME_EXISTS = "You already have a group with this name. Please enter another group name."
-ERROR_GROUP_NAME_TOO_LONG = f"Sorry, please enter a shorter group name (maximum {MAX_GROUP_NAME_LENGTH} characters)."
+ERROR_TITLE_TOO_LONG = f"Sorry, please enter a shorter <b>title</b> (maximum {MAX_TITLE_LENGTH} characters)."
+ERROR_OPTION_TITLE_TOO_LONG = \
+    f"Sorry, please enter a shorter <b>title</b> (maximum {MAX_OPTION_TITLE_LENGTH} characters)."
+ERROR_CHOICE_NAME_TOO_LONG = \
+    f"Sorry, please enter a shorter <b>name</b> (maximum {MAX_CHOICE_ITEM_NAME_LENGTH} characters)."
+ERROR_DUPLICATE_OPTION_TITLE = "Sorry, there's already an <b>option</b> with the same title.\n\n{}\n\n" \
+                               "Please enter a different <b>option</b> title."
+ERROR_DUPLICATE_CHOICE_NAME = "Sorry, there's already a <b>choice</b> item with the same name.\n\n{}\n\n" \
+                               "Please enter a different <b>choice</b> item name."
+ERROR_EARLY_DONE_POLL_TITLE = "Sorry, please add a <b>title</b> to the poll."
+ERROR_EARLY_DONE_POLL_OPTION = "Sorry, please add at least one <b>option</b> to the poll."
+ERROR_GROUP_NAME_EXISTS = "You already have a group with this <b>name</b>. Please enter another group <b>name</b>."
+ERROR_GROUP_NAME_TOO_LONG = \
+    f"Sorry, please enter a shorter group <b>name</b> (maximum {MAX_GROUP_NAME_LENGTH} characters)."
 ERROR_INVALID_GROUP_PASS_FORMAT = \
-    f"Sorry, please ensure that you group secret key is between {MIN_GROUP_PASS_LENGTH} and {MAX_GROUP_PASS_LENGTH} " \
+    f"Sorry, please ensure that you group <b>password</b> is between {MIN_GROUP_PASS_LENGTH} and {MAX_GROUP_PASS_LENGTH} " \
     f"characters long and contains only alphanumeric characters."
-ERROR_EARLY_DONE_GROUP_NAME = "Sorry, please add a group name."
+ERROR_EARLY_DONE_GROUP_NAME = "Sorry, please add a group <b>name</b>."
 ERROR_INVALID_GROUP_INVITE = "Sorry, invalid or expired group invitation code."
-ERROR_ALREADY_IN_GROUP = "You're already in the group! Use /groups to view all your groups."
-ERROR_ILLEGAL_SECRET_CHANGE = "Only group owners can change the group's password!"
+ERROR_ALREADY_IN_GROUP = "You're already in the group! Use <b>/groups</b> to view all your groups."
+ERROR_ILLEGAL_SECRET_CHANGE = "Only group owners can change the group's <b>password</b>!"
 ERROR_ALREADY_VOTED = "You've already voted for this option in the poll!"
 ERROR_NOT_VOTED = "Sorry, you've not voted for this option in the poll."
 ERROR_USER_NOT_FOUND = "Sorry, the user does not exist."
