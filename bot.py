@@ -4701,13 +4701,21 @@ def refresh_polls(poll: Poll, context: CallbackContext, only_buttons=False) -> N
     """Refreshes all polls to update changes."""
     if only_buttons:
         for mid in poll.get_message_details():
-            context.bot.edit_message_reply_markup(inline_message_id=mid, reply_markup=poll.build_option_buttons())
+            try:
+                context.bot.edit_message_reply_markup(inline_message_id=mid, reply_markup=poll.build_option_buttons())
+            except telegram.error.TelegramError as err:
+                logger.warning(err)
+                continue
     else:
         for mid in poll.get_message_details():
-            context.bot.edit_message_text(
-                poll.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
-                reply_markup=poll.build_option_buttons()
-            )
+            try:
+                context.bot.edit_message_text(
+                    poll.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
+                    reply_markup=poll.build_option_buttons()
+                )
+            except telegram.error.TelegramError as err:
+                logger.warning(err)
+                continue
     return
 
 
@@ -4721,13 +4729,21 @@ def refresh_lists(_list: List, context: CallbackContext, only_buttons=False) -> 
     """Refreshes all lists to update changes."""
     if only_buttons:
         for mid in _list.get_message_details():
-            context.bot.edit_message_reply_markup(inline_message_id=mid, reply_markup=_list.build_update_buttons())
+            try:
+                context.bot.edit_message_reply_markup(inline_message_id=mid, reply_markup=_list.build_update_buttons())
+            except telegram.error.TelegramError as err:
+                logger.warning(err)
+                continue
     else:
         for mid in _list.get_message_details():
-            context.bot.edit_message_text(
-                _list.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
-                reply_markup=_list.build_update_buttons()
-            )
+            try:
+                context.bot.edit_message_text(
+                    _list.render_text(), inline_message_id=mid, parse_mode=ParseMode.HTML,
+                    reply_markup=_list.build_update_buttons()
+                )
+            except telegram.error.TelegramError as err:
+                logger.warning(err)
+                continue
     return
 
 
