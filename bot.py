@@ -54,16 +54,18 @@ USER_PROMOTED = "Yay!! \U0001f389 {} is now a bot leader!!"
 
 NEW_POLL = "Let's create a new poll! First, send me the <b>title</b>."
 NEW_POLL_DESCRIPTION = "{}\n\nNice! Now send me a poll <b>description</b> or <b>Skip</b> this step."
-NEW_POLL_OPTION = "{}\n\nAlright, now send me your very first <b>option</b>."
-NEXT_POLL_OPTION = "Nice! {} added!\n\n{}\n\nNow send me another <b>option</b> or press <b>Done</b> to finish."
+NEW_POLL_OPTION = "{}\n\nAlright, now send me your very first <b>option</b>.\n\n" \
+                  "You may also enter multiple options, each separated by a new line."
+NEXT_POLL_OPTION = "Nice! {} added!\n\n{}\n\nNow send me another <b>option(s)</b> or press <b>Done</b> to finish."
 POLL_DONE = "\U0001f44d Poll created! You may now publish it to your friends or share it with a group."
 DELETED_POLL = "Sorry, the poll has been deleted."
 
 NEW_LIST = "Let's create a new list! First, send me the <b>title</b>."
 NEW_LIST_DESCRIPTION = "{}\n\nNice! Now send me a list <b>description</b> or <b>Skip</b> this step."
-NEW_LIST_OPTION = "{}\n\nAlright, now send me your very first <b>option</b>."
+NEW_LIST_OPTION = "{}\n\nAlright, now send me your very first <b>option</b>.\n\n" \
+                  "You may also enter multiple options, each separated by a new line."
 NEXT_LIST_OPTION = "Nice! {} added!\n\n{}\n\n" \
-                   "Now send me another <b>option</b> or press <b>Done</b> to go to the next step."
+                   "Now send me another <b>option(s)</b> or press <b>Done</b> to go to the next step."
 NEW_LIST_CHOICE = "Okay, now send me your first <b>choice</b> item."
 NEXT_LIST_CHOICE = "Great! {} added!\n\n{}\n\nNow send me another <b>choice</b> item or press <b>Done</b> to finish."
 LIST_DONE = "\U0001f44d List created! You may now publish it to your friends or share it with a group."
@@ -91,19 +93,15 @@ ERROR_DUPLICATE_OPTION_TITLE = "Sorry, there's already an <b>option</b> with the
                                "Please enter a different <b>option</b> title."
 ERROR_DUPLICATE_CHOICE_NAME = "Sorry, there's already a <b>choice</b> item with the same name.\n\n{}\n\n" \
                                "Please enter a different <b>choice</b> item name."
-ERROR_EARLY_DONE_POLL_TITLE = "Sorry, please add a <b>title</b> to the poll."
-ERROR_EARLY_DONE_POLL_OPTION = "Sorry, please add at least one <b>option</b> to the poll."
 ERROR_GROUP_NAME_EXISTS = "You already have a group with this <b>name</b>. Please enter another group <b>name</b>."
 ERROR_GROUP_NAME_TOO_LONG = \
     f"Sorry, please enter a shorter group <b>name</b> (maximum {MAX_GROUP_NAME_LENGTH} characters)."
 ERROR_INVALID_GROUP_PASS_FORMAT = \
     f"Sorry, please ensure that you group <b>password</b> is between {MIN_GROUP_PASS_LENGTH} and {MAX_GROUP_PASS_LENGTH} " \
     f"characters long and contains only alphanumeric characters."
-ERROR_EARLY_DONE_GROUP_NAME = "Sorry, please add a group <b>name</b>."
 ERROR_INVALID_GROUP_INVITE = "Sorry, invalid or expired group invitation code."
 ERROR_ALREADY_IN_GROUP = "You're already in the group! Use <b>/groups</b> to view all your groups."
 ERROR_ILLEGAL_SECRET_CHANGE = "Only group owners can change the group's <b>password</b>!"
-ERROR_ALREADY_VOTED = "You've already voted for this option in the poll!"
 ERROR_NOT_VOTED = "Sorry, you've not voted for this option in the poll."
 ERROR_USER_NOT_FOUND = "Sorry, the user does not exist."
 ERROR_INVALID_POLL_COMMENT_REQUEST = "Sorry, invalid poll comment request."
@@ -1069,34 +1067,55 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
         else:
             buttons = build_progress_buttons()
 
-        if len(text) > MAX_OPTION_TITLE_LENGTH:
-            edit_conversation_message(
-                update, context, ERROR_OPTION_TITLE_TOO_LONG, reply_markup=buttons
-            )
-            return
+        input_options = [option.strip() for option in text.split("\n")]
+        long_options = [option for option in input_options if len(option) > MAX_OPTION_TITLE_LENGTH]
 
-        if text in options:
+        if long_options:
+            long_options_list = util.list_to_indexed_list_string(long_options)
             edit_conversation_message(
-                update, context, ERROR_DUPLICATE_OPTION_TITLE.format(util.list_to_indexed_list_string(options)),
+                update, context,
+                f"{ERROR_OPTION_TITLE_TOO_LONG}\n<i>{long_options_list}</i>",
                 reply_markup=buttons
             )
             return
 
-        options.append(text)
+        unique_options, duplicate_options = [], []
+        for option in input_options:
+            if option in options:
+                duplicate_options.append(option)
+                continue
+            duplicate_options.append(option) if option in unique_options else unique_options.append(option)
+
+        current_max_options = MAX_OPTIONS - len(options)
+        is_over_max_options = len(unique_options) >= current_max_options
+        unique_options = unique_options[:current_max_options]
+
+        options.extend(unique_options)
         context.user_data.update({"options": options})
 
-        if len(options) >= MAX_OPTIONS:
-            response_text = f"You have a maximum of {MAX_OPTIONS} options already!\n\n" \
-                            f"{util.list_to_indexed_list_string(options)}\n\n" \
-                            f"Press <b>Done</b> to finish."
-            edit_conversation_message(update, context, response_text, reply_markup=buttons)
+        response = ""
+        if duplicate_options:
+            if len(duplicate_options) == 1:
+                response = "Sorry, there's already an <b>option</b> with the same title."
+            else:
+                response = "Sorry, there are already <b>options</b> with the same titles."
+            response = f"{response}\n<i>{util.list_to_indexed_list_string(duplicate_options)}</i>\n\n"
+
+        if not unique_options:
+            response += f"Please enter a different option title."
+            edit_conversation_message(update, context, response, reply_markup=buttons)
             return
 
-        edit_conversation_message(
-            update, context,
-            NEXT_LIST_OPTION.format(f"<b>{text}</b>", util.list_to_indexed_list_string(options)),
-            reply_markup=build_progress_buttons()
-        )
+        response += f"Nice! {util.list_to_sentence(unique_options, bolded=True)} added!\n\n" \
+                    f"{util.list_to_indexed_list_string(options)}\n\n"
+
+        if is_over_max_options:
+            response += f"You have a maximum of {MAX_OPTIONS} options already!\n\n" \
+                        f"Press <b>Done</b> to finish."
+        else:
+            response += f"Now send me another <b>option(s)</b> or press <b>Done</b> to go to the next step."
+
+        edit_conversation_message(update, context, response, reply_markup=build_progress_buttons())
         return
     # Handle invalid step
     else:
@@ -1295,12 +1314,11 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
 
     response = f"{models.EMOJI_HAPPY} Comment has been updated to\n<b>{text}</b>\n\n" \
                f"<b>Return to Chat</b> or re-enter another comment to change."
-
-    refresh_polls(poll, context)
-    
     edit_conversation_message(
         update, context, response, reply_markup=poll.build_comment_complete_buttons()
     )
+
+    refresh_polls(poll, context)
     return
 
 

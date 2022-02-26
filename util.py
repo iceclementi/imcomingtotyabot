@@ -166,6 +166,28 @@ def list_to_indexed_list_string(_list: List[str], start=1, line_spacing=1) -> st
     return spacing.join(indexed_list)
 
 
+def list_to_sentence(text_list: List[str], bolded=False, italicised=False, underlined=False) -> str:
+    if len(text_list) == 0:
+        return ""
+    if len(text_list) == 1:
+        return style_text(text_list[0], bolded=bolded, italicised=italicised, underlined=underlined)
+    else:
+        sentence = ", ".join(style_text(text, bolded, italicised, underlined) for text in text_list[:-1])
+        sentence = f"{sentence} and {style_text(text_list[-1], bolded, italicised, underlined)}"
+        return sentence
+
+
+def style_text(text: str, bolded=False, italicised=False, underlined=False) -> str:
+    styled_text = text
+    if bolded:
+        styled_text = f"<b>{styled_text}</b>"
+    if italicised:
+        styled_text = f"<i>{styled_text}</i>"
+    if underlined:
+        styled_text = f"<u>{styled_text}</u>"
+    return styled_text
+
+
 def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[str, str]], None], bool]:
     format_results = dict()
 
