@@ -5,7 +5,7 @@ import re
 import typing
 from datetime import datetime
 from hashlib import blake2b as blake
-from typing import List, Tuple, Set, Union, Dict
+from typing import List as Lst, Tuple, Set, Union, Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 ENCODE_KEY = string.digits + string.ascii_letters
@@ -260,3 +260,13 @@ def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[
         format_string = re.sub(r"%([A-Za-z]+)(#\w+)?(\$\(.+\))?", f"<u>{label}</u>", format_string, count=1)
 
     return format_string, format_results, True
+
+
+def get_unique_and_duplicate_items(items: List[str], existing_items: List[str]) -> Tuple[List[str], List[str]]:
+    unique_items, duplicate_items = [], []
+    for item in items:
+        if item in existing_items:
+            duplicate_items.append(item)
+            continue
+        duplicate_items.append(item) if item in unique_items else unique_items.append(item)
+    return unique_items, duplicate_items

@@ -1079,12 +1079,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
             )
             return
 
-        unique_options, duplicate_options = [], []
-        for option in input_options:
-            if option in options:
-                duplicate_options.append(option)
-                continue
-            duplicate_options.append(option) if option in unique_options else unique_options.append(option)
+        unique_options, duplicate_options = util.get_unique_and_duplicate_items(input_options, options)
 
         current_max_options = MAX_OPTIONS - len(options)
         is_over_max_options = len(unique_options) >= current_max_options
@@ -1113,7 +1108,7 @@ def handle_poll_conversation(update: Update, context: CallbackContext) -> None:
             response += f"You have a maximum of {MAX_OPTIONS} options already!\n\n" \
                         f"Press <b>Done</b> to finish."
         else:
-            response += f"Now send me another <b>option(s)</b> or press <b>Done</b> to go to the next step."
+            response += f"Now send me another <b>option(s)</b> or press <b>Done</b> to finish."
 
         edit_conversation_message(update, context, response, reply_markup=build_progress_buttons())
         return
@@ -1168,34 +1163,50 @@ def handle_list_conversation(update: Update, context: CallbackContext) -> None:
         else:
             buttons = build_progress_buttons()
 
-        if len(text) > MAX_OPTION_TITLE_LENGTH:
-            edit_conversation_message(
-                update, context, ERROR_OPTION_TITLE_TOO_LONG, reply_markup=buttons
-            )
-            return
+        input_options = [option.strip() for option in text.split("\n")]
+        long_options = [option for option in input_options if len(option) > MAX_OPTION_TITLE_LENGTH]
 
-        if text in options:
+        if long_options:
+            long_options_list = util.list_to_indexed_list_string(long_options)
             edit_conversation_message(
-                update, context, ERROR_DUPLICATE_OPTION_TITLE.format(util.list_to_indexed_list_string(options)),
+                update, context,
+                f"{ERROR_OPTION_TITLE_TOO_LONG}\n<i>{long_options_list}</i>",
                 reply_markup=buttons
             )
             return
 
-        options.append(text)
+        unique_options, duplicate_options = util.get_unique_and_duplicate_items(input_options, options)
+
+        current_max_options = MAX_OPTIONS - len(options)
+        is_over_max_options = len(unique_options) >= current_max_options
+        unique_options = unique_options[:current_max_options]
+
+        options.extend(unique_options)
         context.user_data.update({"options": options})
 
-        if len(options) >= MAX_OPTIONS:
-            response_text = f"You have a maximum of {MAX_OPTIONS} options already!\n\n" \
-                            f"{util.list_to_indexed_list_string(options)}\n\n" \
-                            f"Press <b>Done</b> to go to the next step."
-            edit_conversation_message(update, context, response_text, reply_markup=buttons)
+        response = ""
+        if duplicate_options:
+            if len(duplicate_options) == 1:
+                response = "Sorry, there's already an <b>option</b> with the same title."
+            else:
+                response = "Sorry, there are already <b>options</b> with the same titles."
+            response = f"{response}\n<i>{util.list_to_indexed_list_string(duplicate_options)}</i>\n\n"
+
+        if not unique_options:
+            response += f"Please enter a different option title."
+            edit_conversation_message(update, context, response, reply_markup=buttons)
             return
 
-        edit_conversation_message(
-            update, context,
-            NEXT_LIST_OPTION.format(f"<b>{text}</b>", util.list_to_indexed_list_string(options)),
-            reply_markup=build_progress_buttons()
-        )
+        response += f"Nice! {util.list_to_sentence(unique_options, bolded=True)} added!\n\n" \
+                    f"{util.list_to_indexed_list_string(options)}\n\n"
+
+        if is_over_max_options:
+            response += f"You have a maximum of {MAX_OPTIONS} options already!\n\n" \
+                        f"Press <b>Done</b> to go to the next step."
+        else:
+            response += f"Now send me another <b>option(s)</b> or press <b>Done</b> to go to the next step."
+
+        edit_conversation_message(update, context, response, reply_markup=build_progress_buttons())
         return
     # Handle choice
     elif step == 4 and title and description and options:
@@ -1204,27 +1215,41 @@ def handle_list_conversation(update: Update, context: CallbackContext) -> None:
         else:
             buttons = build_progress_buttons()
 
-        if len(text) > MAX_CHOICE_ITEM_NAME_LENGTH:
-            edit_conversation_message(
-                update, context, ERROR_CHOICE_NAME_TOO_LONG, reply_markup=error_buttons
-            )
-            return
+        input_choices = [choice.strip() for choice in text.split("\n")]
+        long_choices = [choice for choice in input_choices if len(choice) > MAX_CHOICE_ITEM_NAME_LENGTH]
 
-        if text in choices:
+        if long_choices:
+            long_choices_list = util.list_to_indexed_list_string(long_choices)
             edit_conversation_message(
-                update, context, ERROR_DUPLICATE_CHOICE_NAME.format(util.list_to_indexed_list_string(choices)),
+                update, context,
+                f"{ERROR_CHOICE_NAME_TOO_LONG}\n<i>{long_choices_list}</i>",
                 reply_markup=buttons
             )
             return
 
-        choices.append(text)
+        unique_choices, duplicate_choices = util.get_unique_and_duplicate_items(input_choices, choices)
+
+        options.extend(unique_choices)
         context.user_data.update({"choices": choices})
 
-        edit_conversation_message(
-            update, context,
-            NEXT_LIST_CHOICE.format(f"<b>{text}</b>", util.list_to_indexed_list_string(choices)),
-            reply_markup=build_progress_buttons()
-        )
+        response = ""
+        if duplicate_choices:
+            if len(duplicate_choices) == 1:
+                response = "Sorry, there's already a <b>choice</b> with the same name."
+            else:
+                response = "Sorry, there are already <b>choices</b> with the same names."
+            response = f"{response}\n<i>{util.list_to_indexed_list_string(duplicate_choices)}</i>\n\n"
+
+        if not unique_choices:
+            response += f"Please enter a different choice item."
+            edit_conversation_message(update, context, response, reply_markup=buttons)
+            return
+
+        response += f"Nice! {util.list_to_sentence(unique_choices, bolded=True)} added!\n\n" \
+                    f"{util.list_to_indexed_list_string(choices)}\n\n" \
+                    f"Now send me another <b>choice(s)</b> or press <b>Done</b> to finish."
+
+        edit_conversation_message(update, context, response, reply_markup=build_progress_buttons())
         return
     # Handle invalid step
     else:
@@ -1522,34 +1547,50 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
         else:
             buttons = build_progress_buttons()
 
-        if len(text) > MAX_OPTION_TITLE_LENGTH:
-            edit_conversation_message(
-                update, context, ERROR_OPTION_TITLE_TOO_LONG, reply_markup=buttons
-            )
-            return
+        input_options = [option.strip() for option in text.split("\n")]
+        long_options = [option for option in input_options if len(option) > MAX_OPTION_TITLE_LENGTH]
 
-        if text in options:
+        if long_options:
+            long_options_list = util.list_to_indexed_list_string(long_options)
             edit_conversation_message(
-                update, context, ERROR_DUPLICATE_OPTION_TITLE.format(util.list_to_indexed_list_string(options)),
+                update, context,
+                f"{ERROR_OPTION_TITLE_TOO_LONG}\n<i>{long_options_list}</i>",
                 reply_markup=buttons
             )
             return
 
-        options.append(text)
+        unique_options, duplicate_options = util.get_unique_and_duplicate_items(input_options, options)
+
+        current_max_options = MAX_OPTIONS - len(options)
+        is_over_max_options = len(unique_options) >= current_max_options
+        unique_options = unique_options[:current_max_options]
+
+        options.extend(unique_options)
         context.user_data.update({"options": options})
 
-        if len(options) >= MAX_OPTIONS:
-            response_text = f"You have a maximum of {MAX_OPTIONS} options already!\n\n" \
-                            f"{util.list_to_indexed_list_string(options)}\n\n" \
-                            f"Press <b>Done</b> to go to the next step."
-            edit_conversation_message(update, context, response_text, reply_markup=buttons)
+        response = ""
+        if duplicate_options:
+            if len(duplicate_options) == 1:
+                response = "Sorry, there's already an <b>option</b> with the same title."
+            else:
+                response = "Sorry, there are already <b>options</b> with the same titles."
+            response = f"{response}\n<i>{util.list_to_indexed_list_string(duplicate_options)}</i>\n\n"
+
+        if not unique_options:
+            response += f"Please enter a different option title."
+            edit_conversation_message(update, context, response, reply_markup=buttons)
             return
 
-        edit_conversation_message(
-            update, context,
-            NEXT_POLL_OPTION.format(f"<b>{text}</b>", util.list_to_indexed_list_string(options)),
-            reply_markup=build_progress_buttons()
-        )
+        response += f"Nice! {util.list_to_sentence(unique_options, bolded=True)} added!\n\n" \
+                    f"{util.list_to_indexed_list_string(options)}\n\n"
+
+        if is_over_max_options:
+            response += f"You have a maximum of {MAX_OPTIONS} options already!\n\n" \
+                        f"Press <b>Done</b> to go to the next step."
+        else:
+            response += f"Now send me another <b>option(s)</b> or press <b>Done</b> to go to the next step."
+
+        edit_conversation_message(update, context, response, reply_markup=build_progress_buttons())
         return
     # Handle template name
     elif step == 5 and title and description and options:
@@ -1856,34 +1897,50 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
         else:
             buttons = build_progress_buttons()
 
-        if len(text) > MAX_OPTION_TITLE_LENGTH:
-            edit_conversation_message(
-                update, context, ERROR_OPTION_TITLE_TOO_LONG, reply_markup=buttons
-            )
-            return
+        input_options = [option.strip() for option in text.split("\n")]
+        long_options = [option for option in input_options if len(option) > MAX_OPTION_TITLE_LENGTH]
 
-        if text in options:
+        if long_options:
+            long_options_list = util.list_to_indexed_list_string(long_options)
             edit_conversation_message(
-                update, context, ERROR_DUPLICATE_OPTION_TITLE.format(util.list_to_indexed_list_string(options)),
+                update, context,
+                f"{ERROR_OPTION_TITLE_TOO_LONG}\n<i>{long_options_list}</i>",
                 reply_markup=buttons
             )
             return
 
-        options.append(text)
+        unique_options, duplicate_options = util.get_unique_and_duplicate_items(input_options, options)
+
+        current_max_options = MAX_OPTIONS - len(options)
+        is_over_max_options = len(unique_options) >= current_max_options
+        unique_options = unique_options[:current_max_options]
+
+        options.extend(unique_options)
         context.user_data.update({"options": options})
 
-        if len(options) >= MAX_OPTIONS:
-            response_text = f"You have a maximum of {MAX_OPTIONS} options already!\n\n" \
-                            f"{util.list_to_indexed_list_string(options)}\n\n" \
-                            f"Press <b>Done</b> to go to the next step."
-            edit_conversation_message(update, context, response_text, reply_markup=buttons)
+        response = ""
+        if duplicate_options:
+            if len(duplicate_options) == 1:
+                response = "Sorry, there's already an <b>option</b> with the same title."
+            else:
+                response = "Sorry, there are already <b>options</b> with the same titles."
+            response = f"{response}\n<i>{util.list_to_indexed_list_string(duplicate_options)}</i>\n\n"
+
+        if not unique_options:
+            response += f"Please enter a different option title."
+            edit_conversation_message(update, context, response, reply_markup=buttons)
             return
 
-        edit_conversation_message(
-            update, context,
-            NEXT_LIST_OPTION.format(f"<b>{text}</b>", util.list_to_indexed_list_string(options)),
-            reply_markup=build_progress_buttons()
-        )
+        response += f"Nice! {util.list_to_sentence(unique_options, bolded=True)} added!\n\n" \
+                    f"{util.list_to_indexed_list_string(options)}\n\n"
+
+        if is_over_max_options:
+            response += f"You have a maximum of {MAX_OPTIONS} options already!\n\n" \
+                        f"Press <b>Done</b> to go to the next step."
+        else:
+            response += f"Now send me another <b>option(s)</b> or press <b>Done</b> to go to the next step."
+
+        edit_conversation_message(update, context, response, reply_markup=build_progress_buttons())
         return
     # Handle choice
     elif step == 4 and title and description and options:
@@ -1892,27 +1949,41 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
         else:
             buttons = build_progress_buttons()
 
-        if len(text) > MAX_CHOICE_ITEM_NAME_LENGTH:
-            edit_conversation_message(
-                update, context, ERROR_CHOICE_NAME_TOO_LONG, reply_markup=error_buttons
-            )
-            return
+        input_choices = [choice.strip() for choice in text.split("\n")]
+        long_choices = [choice for choice in input_choices if len(choice) > MAX_CHOICE_ITEM_NAME_LENGTH]
 
-        if text in choices:
+        if long_choices:
+            long_choices_list = util.list_to_indexed_list_string(long_choices)
             edit_conversation_message(
-                update, context, ERROR_DUPLICATE_CHOICE_NAME.format(util.list_to_indexed_list_string(choices)),
+                update, context,
+                f"{ERROR_CHOICE_NAME_TOO_LONG}\n<i>{long_choices_list}</i>",
                 reply_markup=buttons
             )
             return
 
-        choices.append(text)
+        unique_choices, duplicate_choices = util.get_unique_and_duplicate_items(input_choices, choices)
+
+        options.extend(unique_choices)
         context.user_data.update({"choices": choices})
 
-        edit_conversation_message(
-            update, context,
-            NEXT_LIST_CHOICE.format(f"<b>{text}</b>", util.list_to_indexed_list_string(choices)),
-            reply_markup=build_progress_buttons()
-        )
+        response = ""
+        if duplicate_choices:
+            if len(duplicate_choices) == 1:
+                response = "Sorry, there's already a <b>choice</b> with the same name."
+            else:
+                response = "Sorry, there are already <b>choices</b> with the same names."
+            response = f"{response}\n<i>{util.list_to_indexed_list_string(duplicate_choices)}</i>\n\n"
+
+        if not unique_choices:
+            response += f"Please enter a different choice item."
+            edit_conversation_message(update, context, response, reply_markup=buttons)
+            return
+
+        response += f"Nice! {util.list_to_sentence(unique_choices, bolded=True)} added!\n\n" \
+                    f"{util.list_to_indexed_list_string(choices)}\n\n" \
+                    f"Now send me another <b>choice(s)</b> or press <b>Done</b> to go to the next step."
+
+        edit_conversation_message(update, context, response, reply_markup=build_progress_buttons())
         return
     # Handle template name
     elif step == 6 and title and description and options and choices:
@@ -2372,16 +2443,18 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             return
         elif step == 2 and title:
             if not description:
-                response = "Awesome! Now send me your very first <b>option</b>."
+                response = "Awesome! Now send me your very first <b>option</b>.\n\n" \
+                           "You may also enter multiple options, each separated by a new line."
                 context.user_data.update({"descr": " "})
             else:
-                response = "Awesome, description added! Now send me your first <b>option</b>."
+                response = "Awesome, description added! Now send me your first <b>option</b>.\n\n" \
+                           "You may also enter multiple options, each separated by a new line."
 
             query.edit_message_text(
                 response, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
-            query.answer(text="Enter your first option.")
+            query.answer(text="Enter your options.")
             context.user_data.update({"step": 3})
             return
         elif step == 3 and title and description and options:
@@ -2418,25 +2491,28 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             return
         elif step == 2 and title:
             if not description:
-                response = "Awesome! Now send me your very first <b>option</b>."
+                response = "Awesome! Now send me your very first <b>option</b>.\n\n" \
+                           "You may also enter multiple options, each separated by a new line."
                 context.user_data.update({"descr": " "})
             else:
-                response = "Awesome, description added! Now send me your first <b>option</b>."
+                response = "Awesome, description added! Now send me your first <b>option</b>.\n\n" \
+                           "You may also enter multiple options, each separated by a new line."
 
             query.edit_message_text(
                 response, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
-            query.answer(text="Enter your first option.")
+            query.answer(text="Enter your options.")
             context.user_data.update({"step": 3})
             return
         elif step == 3 and title and description and options:
-            response = "Okay, now send me your first <b>choice</b> item."
+            response = "Okay, now send me your first <b>choice</b> item.\n\n" \
+                       "You may also enter multiple choices, each separated by a new line."
             query.edit_message_text(
                 response, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
-            query.answer(text="Enter your first choice item.")
+            query.answer(text="Enter your choices.")
             context.user_data.update({"step": 4})
             return
         elif step == 4 and title and description and options and choices:
@@ -2474,16 +2550,18 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             context.user_data.update({"step": 2})
         elif step == 2 and title:
             if not description:
-                response = "Awesome! Now send me your first <b>option</b>."
+                response = "Awesome! Now send me your very first <b>option</b>.\n\n" \
+                           "You may also enter multiple options, each separated by a new line."
                 context.user_data.update({"descr": " "})
             else:
-                response = "Awesome, description format added! Now send me your first <b>option</b>."
+                response = "Awesome, description added! Now send me your first <b>option</b>.\n\n" \
+                           "You may also enter multiple options, each separated by a new line."
 
             query.edit_message_text(
                 response, parse_mode=ParseMode.HTML,
-                reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
-            query.answer(text="Enter your first option.")
+            query.answer(text="Enter your options.")
             context.user_data.update({"step": 3})
             return
         elif step == 3 and title and description and options:
@@ -2547,26 +2625,28 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             context.user_data.update({"step": 2})
         elif step == 2 and title:
             if not description:
-                response = "Awesome! Now send me your first <b>option</b>."
+                response = "Awesome! Now send me your very first <b>option</b>.\n\n" \
+                           "You may also enter multiple options, each separated by a new line."
                 context.user_data.update({"descr": " "})
             else:
-                response = "Awesome, description format added! Now send me your first <b>option</b>."
+                response = "Awesome, description added! Now send me your first <b>option</b>.\n\n" \
+                           "You may also enter multiple options, each separated by a new line."
 
             query.edit_message_text(
                 response, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
-            query.answer(text="Enter your first option.")
+            query.answer(text="Enter your options.")
             context.user_data.update({"step": 3})
             return
         elif step == 3 and title and description and options:
-            response = "Very nice! Now send me your first <b>choice</b> item."
-
+            response = "Okay, now send me your first <b>choice</b> item.\n\n" \
+                       "You may also enter multiple choices, each separated by a new line."
             query.edit_message_text(
                 response, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Cancel", models.RESET)
             )
-            query.answer(text="Enter your first choice item.")
+            query.answer(text="Enter your choices.")
             context.user_data.update({"step": 4})
             return
         elif step == 4 and title and description and options and choices:
