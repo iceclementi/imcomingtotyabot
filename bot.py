@@ -4905,7 +4905,8 @@ def load_data_job(context: CallbackContext) -> None:
 
 
 def ping_server_job(context: CallbackContext) -> None:
-    util.ping(WEB_URL)
+    status = util.ping(WEB_URL)
+    logger.info(status)
     return
 
 
@@ -4971,7 +4972,7 @@ def main() -> None:
     # Start database operations
     updater.job_queue.run_once(load_data_job, 0, name="Load data job")
     updater.job_queue.run_repeating(save_data_job, 600, first=60, name="Save data job")
-    updater.job_queue.run_repeating(ping_server_job, 900, first=10, name="Ping server job")
+    updater.job_queue.run_repeating(ping_server_job, 900, first=900, name="Ping server job")
 
     # Start the bot
     updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=WEB_URL + TOKEN)
