@@ -2,7 +2,6 @@
 import string
 import random
 import re
-import typing
 from datetime import datetime
 from hashlib import blake2b as blake
 import requests
