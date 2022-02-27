@@ -1229,7 +1229,7 @@ def handle_list_conversation(update: Update, context: CallbackContext) -> None:
 
         unique_choices, duplicate_choices = util.get_unique_and_duplicate_items(input_choices, choices)
 
-        options.extend(unique_choices)
+        choices.extend(unique_choices)
         context.user_data.update({"choices": choices})
 
         response = ""
@@ -1963,7 +1963,7 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
 
         unique_choices, duplicate_choices = util.get_unique_and_duplicate_items(input_choices, choices)
 
-        options.extend(unique_choices)
+        choices.extend(unique_choices)
         context.user_data.update({"choices": choices})
 
         response = ""
