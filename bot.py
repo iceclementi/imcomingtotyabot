@@ -4885,22 +4885,31 @@ def build_progress_buttons(next_action=models.DONE, back_action=models.RESET, ne
         [util.generate_button_details(back_text, back_action), util.generate_button_details(next_text, next_action)]
     )
 
+# endregion
 
-def save_data(context: CallbackContext) -> None:
+# region JOBS
+
+
+def save_data_job(context: CallbackContext) -> None:
     """Saves data to database."""
     status = BotManager.save_data()
     logger.info(status)
     return
 
 
-def load_data(context: CallbackContext) -> None:
+def load_data_job(context: CallbackContext) -> None:
     """Loads data from database."""
     status = BotManager.load_data()
     logger.info(status)
     return
 
-# endregion
 
+def ping_server_job(context: CallbackContext) -> None:
+    util.ping(WEB_URL)
+    return
+
+
+# endregion
 
 def main() -> None:
     """Starts the bot."""
@@ -4960,8 +4969,9 @@ def main() -> None:
     dispatcher.add_error_handler(handle_error)
 
     # Start database operations
-    updater.job_queue.run_once(load_data, 0)
-    updater.job_queue.run_repeating(save_data, 600, first=60)
+    updater.job_queue.run_once(load_data_job, 0, name="Load data job")
+    updater.job_queue.run_repeating(save_data_job, 600, first=60, name="Save data job")
+    updater.job_queue.run_repeating(ping_server_job, 900, first=10, name="Ping server job")
 
     # Start the bot
     updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=WEB_URL + TOKEN)
