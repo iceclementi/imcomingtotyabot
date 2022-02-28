@@ -5,10 +5,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMa
 
 import util
 
-EMOJI_UP = "🔼"
-EMOJI_DOWN = "🔽"
-EMOJI_LEFT = "◀"
-EMOJI_RIGHT = "▶"
+EMOJI_UP = "︿"
+EMOJI_DOWN = "﹀"
+ICON_LEFT = "❮❮❮"
+ICON_RIGHT = "❯❯❯"
 
 
 class Pagination(object):
@@ -62,7 +62,7 @@ class PaginationButtonGroup(Pagination):
 
     def build_next_button(self, current_page_number: int) -> InlineKeyboardButton:
         next_page_number = (current_page_number + 1) % self.page_count
-        next_symbol = EMOJI_RIGHT if self.is_horizontal_buttons else EMOJI_DOWN
+        next_symbol = ICON_RIGHT if self.is_horizontal_buttons else EMOJI_DOWN
         if self.is_cyclic:
             return self.build_navigation_button(next_symbol, next_page_number)
         else:
@@ -71,14 +71,17 @@ class PaginationButtonGroup(Pagination):
 
     def build_previous_button(self, current_page_number: int) -> InlineKeyboardButton:
         prev_page_number = (current_page_number - 1) % self.page_count
-        prev_symbol = EMOJI_LEFT if self.is_horizontal_buttons else EMOJI_UP
+        prev_symbol = ICON_LEFT if self.is_horizontal_buttons else EMOJI_UP
         if self.is_cyclic:
             return self.build_navigation_button(prev_symbol, prev_page_number)
         else:
             return self.build_navigation_button(prev_symbol, prev_page_number) \
                 if prev_page_number != self.page_count - 1 else self.build_navigation_button(" ", current_page_number)
 
-    def build_buttons(self, current_page_number: int = 0) -> List[List[InlineKeyboardButton]]:
+    def build_buttons(self, current_page_number: int = 0, index: int = 0) -> List[List[InlineKeyboardButton]]:
+        if not index:
+            current_page_number = index % self.items_per_page
+
         lower_item_index = current_page_number * self.items_per_page
         upper_item_index = lower_item_index + self.items_per_page
 

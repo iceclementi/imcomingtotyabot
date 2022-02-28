@@ -3012,7 +3012,8 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
 
         status = _list.toggle(opt_id, choice_id)
         query.edit_message_text(
-            _list.render_text(), parse_mode=ParseMode.HTML, reply_markup=_list.build_choice_buttons(opt_id)
+            _list.render_text(), parse_mode=ParseMode.HTML,
+            reply_markup=_list.build_choice_buttons(opt_id, index=choice_id)
         )
         query.answer(text=status)
         refresh_lists(_list, context)
