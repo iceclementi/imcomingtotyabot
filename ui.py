@@ -79,7 +79,7 @@ class PaginationButtonGroup(Pagination):
                 if prev_page_number != self.page_count - 1 else self.build_navigation_button(" ", current_page_number)
 
     def build_buttons(self, current_page_number: int = 0, index: int = 0) -> List[List[InlineKeyboardButton]]:
-        if not index:
+        if index:
             current_page_number = index % self.items_per_page
 
         lower_item_index = current_page_number * self.items_per_page
