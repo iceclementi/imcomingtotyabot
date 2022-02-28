@@ -2973,7 +2973,7 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         return
     # Handle list option button
     elif action.startswith(f"{models.OPTION}_") and is_pm:
-        match = re.match(f"{models.OPTION}_(\\d+)", action)
+        match = re.match(f"^{models.OPTION}_(\\d+)$", action)
         if not match:
             logger.warning("Invalid callback query data.")
             query.answer(text="Invalid callback query data!")
@@ -2992,7 +2992,7 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         return
     # Handle list choice button
     elif action.startswith(f"{models.CHOICE}_") and is_pm:
-        match = re.match(f"{models.CHOICE}_(\\d+)_(\\d+)", action)
+        match = re.match(f"^{models.CHOICE}_(\\d+)_(\\d+)$", action)
         if not match:
             logger.warning("Invalid callback query data.")
             query.answer(text="Invalid callback query data!")
@@ -3016,6 +3016,37 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         )
         query.answer(text=status)
         refresh_lists(_list, context)
+        return
+    # Handle page navigation buttons
+    elif action.startswith(models.PAGE):
+        match = re.match(f"^{models.PAGE}(\\d+)_(.+)$", action)
+        if not match:
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            return
+
+        page_number, sub_action = int(match.group(1)), match.group(2)
+
+        choice_match = re.match(f"^{models.CHOICE}_(\\d+)$", sub_action)
+        if choice_match:
+            opt_id = int(choice_match.group(1))
+
+            if not _list.is_valid_option(opt_id):
+                logger.warning(f"Invalid option selected: {opt_id} in list {_list.get_list_id()}.")
+                query.answer(text="Invalid option selected!")
+                return
+
+            query.edit_message_text(
+                _list.render_text(), parse_mode=ParseMode.HTML,
+                reply_markup=_list.build_choice_buttons(opt_id, page_number=page_number)
+            )
+            query.answer(text=None)
+            return
+
+        logger.warning("Invalid callback query data.")
+        query.answer(text="Invalid callback query data!")
+        query.edit_message_reply_markup(None)
+        query.message.delete()
         return
     # Handle user refresh option button
     elif action == models.USER_REFRESH:

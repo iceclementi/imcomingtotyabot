@@ -12,6 +12,7 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 import database as db
 import util
+from ui import PaginationButtonGroup
 
 # region SETTINGS
 
@@ -93,6 +94,7 @@ VIEW = "view"
 DELETE = "del"
 DELETE_YES = "delYes"
 RETURN = "return"
+PAGE = "page"
 
 # endregion
 
@@ -1412,8 +1414,9 @@ class Option(object):
 
 
 class List(object):
-    def __init__(self, list_id: str, title: str, uid: int, description: str, options: list, choices: list,
-                 single_response: bool, message_details: set, expiry: int, created_date: datetime) -> None:
+    def __init__(self, list_id: str, title: str, uid: int, description: str, options: Lst[ListOption],
+                 choices: Lst[str], single_response: bool, message_details: set, expiry: int,
+                 created_date: datetime) -> None:
         self.list_id = list_id
         self.title = title
         self.creator_id = uid
@@ -1430,12 +1433,12 @@ class List(object):
         return list_storage.get(list_id, None)
 
     @staticmethod
-    def get_lists_by_ids(list_ids: set, filters="") -> Lst[List]:
+    def get_lists_by_ids(list_ids: Set[str], filters="") -> Lst[List]:
         list_lists = [List.get_list_by_id(list_id) for list_id in list_ids]
         return [_list for _list in list_lists if filters.lower() in _list.get_title().lower()]
 
     @classmethod
-    def create_new(cls, title: str, uid: int, description: str, option_titles: list, choices: list) -> List:
+    def create_new(cls, title: str, uid: int, description: str, option_titles: Lst[str], choices: Lst[str]) -> List:
         list_id = util.generate_random_id(LIST_ID_LENGTH, set(list_storage.keys()))
         _list = cls(list_id, title, uid, description, list(), choices, True, set(), EXPIRY, datetime.now(tz=tz))
 
@@ -1446,8 +1449,8 @@ class List(object):
         return _list
 
     @classmethod
-    def load(cls, list_id: str, title: str, uid: int, description: str, options: list, choices: list,
-             single_response: bool, message_details: list, expiry: int, created_date: str) -> None:
+    def load(cls, list_id: str, title: str, uid: int, description: str, options: Lst[str], choices: Lst[str],
+             single_response: bool, message_details: Lst[str], expiry: int, created_date: str) -> None:
         _list = cls(list_id, title, uid, description, list(), choices, single_response, set(message_details),
                     expiry, datetime.fromisoformat(created_date))
 
@@ -1616,11 +1619,12 @@ class List(object):
             buttons.insert(-1, [delete_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_choice_buttons(self, opt_id: int) -> InlineKeyboardMarkup:
-        buttons = []
-        for i, choice in enumerate(self.choices):
-            choice_button = self.build_button(choice, f"{CHOICE}_{opt_id}_{i}")
-            buttons.append([choice_button])
+    def build_choice_buttons(self, opt_id: int, page_number=0) -> InlineKeyboardMarkup:
+        choice_button_group = PaginationButtonGroup(
+            choices, (LIST_SUBJECT, f"{CHOICE}_{opt_id}", list_id),
+            items_per_page=5, is_horizontal_buttons=True, is_cyclic=True
+        )
+        buttons = choice_button_group.build_buttons(page_number)
         back_button = self.build_button("Back", OPTIONS)
         buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
