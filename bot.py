@@ -541,10 +541,9 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
         return
 
     user = User.get_user_by_id(update.effective_user.id)
+    poll_list, buttons = user.render_poll_list_with_buttons()
 
-    update.message.reply_html(
-        user.render_poll_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-    )
+    update.message.reply_html(poll_list, reply_markup=buttons)
     return
 
 
@@ -2229,9 +2228,9 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     """Handles a callback query."""
     query = update.callback_query
 
-    match = re.match(r"^(\w+)\s+(\w+)\s+(\w+)$", query.data)
+    match = re.match(r"^(\w+)\s+(\w+)\s+(\w+)$", query.data.strip())
     if not match:
-        handle_general_callback_query(query, context, query.data)
+        handle_general_callback_query(query, context, query.data.strip())
         return
 
     subject, action, identifier = match.group(1), match.group(2), match.group(3)
@@ -2409,6 +2408,27 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
             query.edit_message_reply_markup(None)
             query.message.delete()
             return
+    # Handle page navigation buttons
+    elif action.startswith(models.PAGE):
+        match = re.match(f"^{models.PAGE}(\\d+)_(.+)$", action)
+        if not match:
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            return
+
+        page_number, sub_action = int(match.group(1)), match.group(2)
+
+        if sub_action == models.POLL:
+            poll_list, buttons = user.render_poll_list_with_buttons(page_number=page_number)
+            query.edit_message_text(poll_list, parse_mode=ParseMode.HTML,reply_markup=buttons)
+            query.answer(text=None)
+            return
+
+        logger.warning("Invalid callback query data.")
+        query.answer(text="Invalid callback query data!")
+        query.edit_message_reply_markup(None)
+        query.message.delete()
+        return
     # Handle other cases
     else:
         query.answer(text="Invalid callback query data!")

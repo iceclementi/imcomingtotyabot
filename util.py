@@ -78,8 +78,8 @@ def simple_hash(text: str, salt="", length=16, variance=True) -> str:
     return encoded_digest[:length]
 
 
-def build_button(text: str, subject: str, action: str, identifier: str) -> InlineKeyboardButton:
-    data = f"{subject} {action} {identifier}"
+def build_button(text: str, subject: str = "", action: str = "", identifier: str = "") -> InlineKeyboardButton:
+    data = f"{subject} {action} {identifier}".strip()
     return InlineKeyboardButton(text, callback_data=data)
 
 

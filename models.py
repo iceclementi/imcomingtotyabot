@@ -12,7 +12,7 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 import database as db
 import util
-from ui import PaginationButtonGroup
+from ui import PaginationButtonGroup, PaginationTextGroup
 
 # region SETTINGS
 
@@ -398,21 +398,31 @@ class User(object):
         all_lists = List.get_lists_by_ids(self.get_all_list_ids(), filters)
         return sorted(all_polls + all_lists, key=lambda item: item.get_created_date(), reverse=True)
 
-    def render_poll_list(self) -> str:
+    def render_poll_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
         header = "<b>Your Polls</b>"
 
         user_polls = self.get_polls()
         if user_polls:
-            body = util.list_to_indexed_list_string(
-                [poll.generate_linked_summary() for poll in user_polls], line_spacing=2
+            poll_linked_summaries = [poll.generate_linked_summary() for poll in user_polls]
+            poll_text_group = PaginationTextGroup(
+                poll_linked_summaries, ("", POLL, ""),
+                items_per_page=3, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
+
+            page_contents, start_index = poll_text_group.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = poll_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
         else:
             body = util.make_html_italic("You have no polls! Use /poll to build a new poll.")
+            buttons = [[util.build_button("Close", action=CLOSE)]]
 
         poll_count = len(user_polls)
         footer = f"{EMOJI_POLL} {poll_count} poll{'' if poll_count == 1 else 's'} in total"
 
-        return "\n\n".join([header] + [body] + [footer])
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
     def render_list_list(self) -> str:
         header = "<b>Your Lists</b>"
@@ -1622,7 +1632,7 @@ class List(object):
     def build_choice_buttons(self, opt_id: int, page_number: int = 0, index: int = 0) -> InlineKeyboardMarkup:
         choice_button_group = PaginationButtonGroup(
             self.choices, (LIST_SUBJECT, f"{CHOICE}_{opt_id}", self.list_id),
-            items_per_page=5, is_horizontal_buttons=True, is_cyclic=True
+            items_per_page=5, is_horizontal_buttons=True, is_cyclic=True, hidden_enabled=True
         )
         buttons = choice_button_group.build_buttons(page_number, index)
         back_button = self.build_button("Back", OPTIONS)
