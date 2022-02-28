@@ -50,8 +50,8 @@ class Pagination(object):
     def hidden_enabled(self) -> bool:
         return self._hidden_enabled
 
-    @abstractmethod
     @property
+    @abstractmethod
     def page_count(self) -> int:
         pass
 
