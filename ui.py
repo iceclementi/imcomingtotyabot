@@ -7,8 +7,8 @@ import util
 
 EMOJI_UP = "︿"
 EMOJI_DOWN = "﹀"
-ICON_LEFT = "❮❮❮"
-ICON_RIGHT = "❯❯❯"
+ICON_LEFT = "<<"
+ICON_RIGHT = ">>"
 
 
 class Pagination(object):
