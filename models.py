@@ -1621,7 +1621,7 @@ class List(object):
 
     def build_choice_buttons(self, opt_id: int, page_number=0) -> InlineKeyboardMarkup:
         choice_button_group = PaginationButtonGroup(
-            self.choices, (LIST_SUBJECT, f"{CHOICE}_{opt_id}", list_id),
+            self.choices, (LIST_SUBJECT, f"{CHOICE}_{opt_id}", self.list_id),
             items_per_page=5, is_horizontal_buttons=True, is_cyclic=True
         )
         buttons = choice_button_group.build_buttons(page_number)
