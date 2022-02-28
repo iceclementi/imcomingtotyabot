@@ -1,6 +1,6 @@
 """UI Elements"""
 from abc import abstractmethod
-from typing import List, Tuple, Set, Union, Dict
+from typing import List, Tuple, Set, Union, Dict, Optional
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 import util
@@ -59,23 +59,23 @@ class Pagination(object):
     def build_buttons(self, current_page_number: int = 0) -> List[List[InlineKeyboardButton]]:
         pass
 
-    def build_next_button(self, current_page_number: int) -> InlineKeyboardButton:
+    def build_next_button(self, current_page_number: int) -> Optional[InlineKeyboardButton]:
         next_page_number = (current_page_number + 1) % self.page_count
         next_symbol = ICON_RIGHT if self.is_horizontal_buttons else EMOJI_DOWN
         if self.is_cyclic:
             return self.build_navigation_button(next_symbol, next_page_number)
         else:
             return self.build_navigation_button(next_symbol, next_page_number) if next_page_number != 0 \
-                else self.build_navigation_button(" ", current_page_number)
+                else None
 
-    def build_previous_button(self, current_page_number: int) -> InlineKeyboardButton:
+    def build_previous_button(self, current_page_number: int) -> Optional[InlineKeyboardButton]:
         prev_page_number = (current_page_number - 1) % self.page_count
         prev_symbol = ICON_LEFT if self.is_horizontal_buttons else EMOJI_UP
         if self.is_cyclic:
             return self.build_navigation_button(prev_symbol, prev_page_number)
         else:
             return self.build_navigation_button(prev_symbol, prev_page_number) \
-                if prev_page_number != self.page_count - 1 else self.build_navigation_button(" ", current_page_number)
+                if prev_page_number != self.page_count - 1 else None
 
     def build_navigation_button(self, text: str, page_number: int) -> InlineKeyboardButton:
         subject, action, identifier = self.button_data
@@ -109,13 +109,15 @@ class PaginationButtonGroup(Pagination):
         current_titles = self.button_titles[lower_item_index:upper_item_index]
         buttons = [[self.build_item_button(title, lower_item_index + i)] for i, title in enumerate(current_titles)]
 
+        previous_button, next_button = \
+            self.build_previous_button(current_page_number), self.build_next_button(current_page_number)
         if self.is_horizontal_buttons:
-            buttons.append(
-                [self.build_previous_button(current_page_number), self.build_next_button(current_page_number)]
-            )
+            buttons.append([button for button in (previous_button, next_button) if button])
         else:
-            buttons.insert(0, [self.build_previous_button(current_page_number)])
-            buttons.append([self.build_next_button(current_page_number)])
+            if previous_button:
+                buttons.insert(0, [previous_button])
+            if next_button:
+                buttons.append([next_button])
         return buttons
 
     def build_item_button(self, text: str, item_index: int) -> InlineKeyboardButton:
@@ -149,10 +151,12 @@ class PaginationTextGroup(Pagination):
         if self.hidden_enabled and self.page_count == 1:
             return []
 
+        previous_button, next_button = \
+            self.build_previous_button(current_page_number), self.build_next_button(current_page_number)
         if self.is_horizontal_buttons:
-            buttons = [[self.build_previous_button(current_page_number), self.build_next_button(current_page_number)]]
+            buttons = [[button for button in (previous_button, next_button) if button]]
         else:
-            buttons = [[self.build_previous_button(current_page_number)], [self.build_next_button(current_page_number)]]
+            buttons = [[button] for button in (previous_button, next_button) if button]
         return buttons
 
     def build_item_button(self, text: str, item_index: int) -> InlineKeyboardButton:

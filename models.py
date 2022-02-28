@@ -406,7 +406,7 @@ class User(object):
             poll_linked_summaries = [poll.generate_linked_summary() for poll in user_polls]
             poll_text_group = PaginationTextGroup(
                 poll_linked_summaries, ("", POLL, ""),
-                items_per_page=3, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
             page_contents, start_index = poll_text_group.get_page_contents(page_number)
@@ -519,28 +519,6 @@ class User(object):
         footer = f"{EMOJI_GROUP} {group_count} group{'' if group_count == 1 else 's'} in total"
 
         return "\n\n".join([header] + [body] + [footer])
-
-    def render_owned_groups_list(self) -> str:
-        owned_groups_title = util.make_html_bold("Owned Groups") + f" ({len(self.owned_group_ids)} {EMOJI_CROWN})"
-        owned_groups = self.get_owned_groups()
-        if owned_groups:
-            owned_groups_list = "\n\n".join(
-                f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(owned_groups, 1)
-            )
-        else:
-            owned_groups_list = util.make_html_italic("You do not own any group!")
-        return f"{owned_groups_title}\n{owned_groups_list}"
-
-    def render_joined_groups_list(self) -> str:
-        joined_groups_title = util.make_html_bold("Joined Groups") + f" ({len(self.joined_group_ids)} {EMOJI_GROUP})"
-        joined_groups = self.get_joined_groups()
-        if joined_groups:
-            joined_groups_list = "\n\n".join(
-                f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(joined_groups, 1)
-            )
-        else:
-            joined_groups_list = util.make_html_italic("You have not joined any group!")
-        return f"{joined_groups_title}\n{joined_groups_list}"
 
     def build_invite_text_and_buttons(self) -> tuple:
         close_button = InlineKeyboardButton("Close", callback_data=CLOSE)
