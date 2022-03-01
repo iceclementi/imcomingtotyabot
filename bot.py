@@ -536,13 +536,12 @@ def handle_polls(update: Update, context: CallbackContext) -> None:
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
-    if not is_registered(update.effective_user):
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    if not user:
         handle_help(update, context)
         return
 
-    user = User.get_user_by_id(update.effective_user.id)
     poll_list, buttons = user.render_poll_list_with_buttons()
-
     update.message.reply_html(poll_list, reply_markup=buttons)
     return
 
@@ -618,15 +617,13 @@ def handle_lists(update: Update, context: CallbackContext) -> None:
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
-    if not is_registered(update.effective_user):
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    if not user:
         handle_help(update, context)
         return
 
-    user = User.get_user_by_id(update.effective_user.id)
-
-    update.message.reply_html(
-        user.render_list_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-    )
+    list_list, buttons = user.render_list_list_with_buttons()
+    update.message.reply_html(list_list, reply_markup=buttons)
     return
 
 
@@ -734,14 +731,12 @@ def handle_templates(update: Update, context: CallbackContext) -> None:
     context.user_data.clear()
 
     user, _, _ = get_user_permissions(update.effective_user.id)
-
     if not user:
         handle_help(update, context)
         return
 
-    update.message.reply_html(
-        user.render_template_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-    )
+    template_list, buttons = user.render_template_list_with_buttons()
+    update.message.reply_html(template_list, reply_markup=buttons)
     return
 
 
@@ -818,15 +813,13 @@ def handle_groups(update: Update, context: CallbackContext) -> None:
     delete_old_chat_message(update, context)
     context.user_data.clear()
 
-    if not is_registered(update.effective_user):
+    user, _, _ = get_user_permissions(update.effective_user.id)
+    if not user:
         handle_help(update, context)
         return
 
-    user = User.get_user_by_id(update.effective_user.id)
-
-    update.message.reply_html(
-        user.render_group_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-    )
+    group_list, buttons = user.render_group_list_with_buttons()
+    update.message.reply_html(group_list, reply_markup=buttons)
     return
 
 
@@ -863,9 +856,8 @@ def handle_group_polls(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    update.message.reply_html(
-        user.render_group_poll_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-    )
+    group_poll_list, buttons = user.render_group_poll_list_with_buttons()
+    update.message.reply_html(group_poll_list, reply_markup=buttons)
     return
 
 
@@ -880,9 +872,8 @@ def handle_group_lists(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    update.message.reply_html(
-        user.render_group_list_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-    )
+    group_list_list, buttons = user.render_group_list_list_with_buttons()
+    update.message.reply_html(group_list_list, reply_markup=buttons)
     return
 
 
@@ -897,9 +888,8 @@ def handle_group_templates(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    update.message.reply_html(
-        user.render_group_template_list(), reply_markup=util.build_single_button_markup("Close", models.CLOSE)
-    )
+    group_template_list, buttons = user.render_group_template_list_with_buttons()
+    update.message.reply_html(group_template_list, reply_markup=buttons)
     return
 
 
@@ -2420,15 +2410,45 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
 
         if sub_action == models.POLL:
             poll_list, buttons = user.render_poll_list_with_buttons(page_number=page_number)
-            query.edit_message_text(poll_list, parse_mode=ParseMode.HTML,reply_markup=buttons)
+            query.edit_message_text(poll_list, parse_mode=ParseMode.HTML, reply_markup=buttons)
             query.answer(text=None)
             return
-
-        logger.warning("Invalid callback query data.")
-        query.answer(text="Invalid callback query data!")
-        query.edit_message_reply_markup(None)
-        query.message.delete()
-        return
+        elif sub_action == models.LIST:
+            list_list, buttons = user.render_list_list_with_buttons(page_number=page_number)
+            query.edit_message_text(list_list, parse_mode=ParseMode.HTML, reply_markup=buttons)
+            query.answer(text=None)
+            return
+        elif sub_action == models.TEMPLATE:
+            template_list, buttons = user.render_template_list_with_buttons(page_number=page_number)
+            query.edit_message_text(template_list, parse_mode=ParseMode.HTML, reply_markup=buttons)
+            query.answer(text=None)
+            return
+        elif sub_action == models.GROUP:
+            group_list, buttons = user.render_group_list_with_buttons(page_number=page_number)
+            query.edit_message_text(group_list, parse_mode=ParseMode.HTML, reply_markup=buttons)
+            query.answer(text=None)
+            return
+        elif sub_action == f"{models.GROUP}_{models.POLL}":
+            group_poll_list, buttons = user.render_group_poll_list_with_buttons(page_number=page_number)
+            query.edit_message_text(group_poll_list, parse_mode=ParseMode.HTML, reply_markup=buttons)
+            query.answer(text=None)
+            return
+        elif sub_action == f"{models.GROUP}_{models.LIST}":
+            group_list_list, buttons = user.render_group_list_list_with_buttons(page_number=page_number)
+            query.edit_message_text(group_list_list, parse_mode=ParseMode.HTML, reply_markup=buttons)
+            query.answer(text=None)
+            return
+        elif sub_action == f"{models.GROUP}_{models.TEMPLATE}":
+            group_template_list, buttons = user.render_group_template_list_with_buttons(page_number=page_number)
+            query.edit_message_text(group_template_list, parse_mode=ParseMode.HTML, reply_markup=buttons)
+            query.answer(text=None)
+            return
+        else:
+            logger.warning("Invalid callback query data.")
+            query.answer(text="Invalid callback query data!")
+            query.edit_message_reply_markup(None)
+            query.message.delete()
+            return
     # Handle other cases
     else:
         query.answer(text="Invalid callback query data!")

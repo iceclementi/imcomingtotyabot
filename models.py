@@ -56,17 +56,12 @@ CHOICES = "choices"
 NAME = "name"
 USER_REFRESH = "userRefresh"
 REFRESH_OPT = "refreshOpt"
-CUSTOMISE = "custom"
 RESPONSE = "response"
 COMMENT = "comment"
 EDIT_COMMENT = "editComment"
 VOTE = "vote"
 BACK = "back"
 MEMBER = "mem"
-REMOVE_MEMBER = "delMember"
-VIEW_GROUP_POLLS = "polls"
-ADD_POLL = "poll"
-REMOVE_POLL = "delPoll"
 SETTINGS = "set"
 SECRET = "pass"
 GROUP_INVITE = "invite"
@@ -424,101 +419,161 @@ class User(object):
 
         return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
-    def render_list_list(self) -> str:
+    def render_list_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
         header = "<b>Your Lists</b>"
 
         user_lists = self.get_lists()
         if user_lists:
-            body = util.list_to_indexed_list_string(
-                [_list.generate_linked_summary() for _list in user_lists], line_spacing=2
+            list_linked_summaries = [_list.generate_linked_summary() for _list in user_lists]
+            list_text_group = PaginationTextGroup(
+                list_linked_summaries, ("", LIST, ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
+
+            page_contents, start_index = list_text_group.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = list_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
         else:
             body = util.make_html_italic("You have no lists! Use /list to build a new list.")
+            buttons = [[util.build_button("Close", action=CLOSE)]]
 
         list_count = len(user_lists)
         footer = f"{EMOJI_LIST} {list_count} list{'' if list_count == 1 else 's'} in total"
 
-        return "\n\n".join([header] + [body] + [footer])
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
-    def render_template_list(self) -> str:
+    def render_template_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
         header = "<b>Your Templates</b>"
 
         user_templates = self.get_templates()
         if user_templates:
-            body = util.list_to_indexed_list_string(
-                [template.generate_linked_summary() for template in user_templates], line_spacing=2
+            template_linked_summaries = [template.generate_linked_summary() for template in user_templates]
+            template_text_group = PaginationTextGroup(
+                template_linked_summaries, ("", TEMPLATE, ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
+
+            page_contents, start_index = template_text_group.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = template_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
         else:
             body = "<i>You have no templates! Use /temp to create a new template.</i>"
+            buttons = [[util.build_button("Close", action=CLOSE)]]
 
         template_count = len(user_templates)
         footer = f"{EMOJI_TEMPLATE} {template_count} template{'' if template_count == 1 else 's'} in total"
 
-        return "\n\n".join([header] + [body] + [footer])
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
-    def render_group_poll_list(self) -> str:
-        header = "<b>Your Group Polls</b>"
-
-        group_polls = self.get_group_polls()
-        if group_polls:
-            body = util.list_to_indexed_list_string(
-                [poll.generate_linked_summary(True) for poll in group_polls], line_spacing=2
-            )
-        else:
-            body = "<i>You have no group polls!</i>"
-
-        poll_count = len(group_polls)
-        footer = f"{EMOJI_POLL} {poll_count} group poll{'' if poll_count == 1 else 's'} in total"
-
-        return "\n\n".join([header] + [body] + [footer])
-
-    def render_group_list_list(self) -> str:
-        header = "<b>Your Group Lists</b>"
-
-        group_lists = self.get_group_lists()
-        if group_lists:
-            body = util.list_to_indexed_list_string(
-                [_list.generate_linked_summary(True) for _list in group_lists], line_spacing=2
-            )
-        else:
-            body = "<i>You have no group lists!</i>"
-
-        list_count = len(group_lists)
-        footer = f"{EMOJI_LIST} {list_count} group list{'' if list_count == 1 else 's'} in total"
-
-        return "\n\n".join([header] + [body] + [footer])
-
-    def render_group_template_list(self) -> str:
-        header = "<b>Your Group Templates</b>"
-
-        group_templates = self.get_group_templates()
-        if group_templates:
-            body = util.list_to_indexed_list_string(
-                [template.generate_linked_summary(True) for template in group_templates], line_spacing=2
-            )
-        else:
-            body = "<i>You have no group templates!</i>"
-
-        template_count = len(group_templates)
-        footer = f"{EMOJI_TEMPLATE} {template_count} group template{'' if template_count == 1 else 's'} in total"
-
-        return "\n\n".join([header] + [body] + [footer])
-
-    def render_group_list(self) -> str:
+    def render_group_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
         header = util.make_html_bold("Your Groups")
 
         all_groups = self.get_all_groups()
         if all_groups:
-            body = util.list_to_indexed_list_string(
-                [group.generate_linked_summary(True) for group in all_groups], line_spacing=2
+            group_linked_summaries = [group.generate_linked_summary(True) for group in all_groups]
+            group_text_group = PaginationTextGroup(
+                group_linked_summaries, ("", GROUP, ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
+
+            page_contents, start_index = group_text_group.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = group_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
         else:
             body = f"<i><You are not in any group!/i>"
+            buttons = [[util.build_button("Close", action=CLOSE)]]
 
         group_count = len(self.get_all_group_ids())
         footer = f"{EMOJI_GROUP} {group_count} group{'' if group_count == 1 else 's'} in total"
 
-        return "\n\n".join([header] + [body] + [footer])
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
+
+    def render_group_poll_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
+        header = "<b>Your Group Polls</b>"
+
+        group_polls = self.get_group_polls()
+        if group_polls:
+            poll_linked_summaries = [poll.generate_linked_summary(True) for poll in group_polls]
+            poll_text_poll = PaginationTextGroup(
+                poll_linked_summaries, ("", f"{GROUP}_{POLL}", ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
+            )
+
+            page_contents, start_index = poll_text_poll.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = poll_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
+        else:
+            body = "<i>You have no group polls!</i>"
+            buttons = [[util.build_button("Close", action=CLOSE)]]
+
+        poll_count = len(group_polls)
+        footer = f"{EMOJI_POLL} {poll_count} group poll{'' if poll_count == 1 else 's'} in total"
+
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
+
+    def render_group_list_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
+        header = "<b>Your Group Lists</b>"
+
+        group_lists = self.get_group_lists()
+        if group_lists:
+            list_linked_summaries = [_list.generate_linked_summary(True) for _list in group_lists]
+            list_text_list = PaginationTextGroup(
+                list_linked_summaries, ("", f"{GROUP}_{LIST}", ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
+            )
+
+            page_contents, start_index = list_text_list.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = list_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
+        else:
+            body = "<i>You have no group lists!</i>"
+            buttons = [[util.build_button("Close", action=CLOSE)]]
+
+        list_count = len(group_lists)
+        footer = f"{EMOJI_LIST} {list_count} group list{'' if list_count == 1 else 's'} in total"
+
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
+
+    def render_group_template_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
+        header = "<b>Your Group Templates</b>"
+
+        group_templates = self.get_group_templates()
+        if group_templates:
+            template_linked_summaries = [template.generate_linked_summary(True) for template in group_templates]
+            template_text_template = PaginationTextGroup(
+                template_linked_summaries, ("", f"{GROUP}_{TEMPLATE}", ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
+            )
+
+            page_contents, start_index = template_text_template.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = template_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
+        else:
+            body = "<i>You have no group templates!</i>"
+            buttons = [[util.build_button("Close", action=CLOSE)]]
+
+        template_count = len(group_templates)
+        footer = f"{EMOJI_TEMPLATE} {template_count} group template{'' if template_count == 1 else 's'} in total"
+
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
     def build_invite_text_and_buttons(self) -> tuple:
         close_button = InlineKeyboardButton("Close", callback_data=CLOSE)
