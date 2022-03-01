@@ -2,9 +2,9 @@
 import string
 import random
 import re
-import typing
 from datetime import datetime
 from hashlib import blake2b as blake
+import requests
 from typing import List, Tuple, Set, Union, Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
@@ -78,8 +78,8 @@ def simple_hash(text: str, salt="", length=16, variance=True) -> str:
     return encoded_digest[:length]
 
 
-def build_button(text: str, subject: str, action: str, identifier: str) -> InlineKeyboardButton:
-    data = f"{subject} {action} {identifier}"
+def build_button(text: str, subject: str = "", action: str = "", identifier: str = "") -> InlineKeyboardButton:
+    data = f"{subject} {action} {identifier}".strip()
     return InlineKeyboardButton(text, callback_data=data)
 
 
@@ -166,75 +166,41 @@ def list_to_indexed_list_string(_list: List[str], start=1, line_spacing=1) -> st
     return spacing.join(indexed_list)
 
 
-def parse_format_string(format_string: str) -> Tuple[str, Union[Dict[str, Tuple[str, str]], None], bool]:
-    format_results = dict()
+def list_to_sentence(text_list: List[str], bolded=False, italicised=False, underlined=False) -> str:
+    if len(text_list) == 0:
+        return ""
+    if len(text_list) == 1:
+        return style_text(text_list[0], bolded=bolded, italicised=italicised, underlined=underlined)
+    else:
+        sentence = ", ".join(style_text(text, bolded, italicised, underlined) for text in text_list[:-1])
+        sentence = f"{sentence} and {style_text(text_list[-1], bolded, italicised, underlined)}"
+        return sentence
 
-    all_matches = re.findall(r"%([A-Za-z]+)(#\w+)?(\$\((?:.|\n)+?(?=\)\$)\)\$)?", format_string)
-    for i, match in enumerate(all_matches, 1):
-        format_type, label, default = match[0], match[1][1:], match[2][2:-2].strip()
 
-        if not label:
-            label = str(i)
-        else:
-            label_match = re.match(r"^[A-Za-z]\w{0,11}$", label)
-            if not label_match:
-                return f"<b>Format String Parse Error</b>\n" \
-                       f"Invalid label <u>{label}</u> found.\n" \
-                       f"<i>Labels must have up to 12 alphanumeric characters, including underscores, " \
-                       f"and must start with a letter.</i>", \
-                       None, False
-            if label in format_results:
-                return f"<b>Format String Parse Error</b>\n" \
-                       f"Duplicated <u>{label}</u> found.\n" \
-                       f"<i>Labels must be unique.</i>", \
-                       None, False
+def style_text(text: str, bolded=False, italicised=False, underlined=False) -> str:
+    styled_text = text
+    if bolded:
+        styled_text = f"<b>{styled_text}</b>"
+    if italicised:
+        styled_text = f"<i>{styled_text}</i>"
+    if underlined:
+        styled_text = f"<u>{styled_text}</u>"
+    return styled_text
 
-        # Digit type
-        if format_type == "d":
-            default = default if default else "0"
-            if not default.isdigit():
-                return f"<b>Format String Parse Error</b>\nDefault value for <u>{label}</u> is not a digit.", \
-                       None, False
-            else:
-                format_results[label] = (format_type, default)
-        # String type
-        elif format_type == "s":
-            format_results[label] = (format_type, default)
-        # Date type
-        elif format_type == "dt":
-            default = default if default else "1 %d/%m/%y"
-            date_match = re.match(r"^([+|-]{0,3}[1-7])(\s+.+)?$", default)
-            if not date_match:
-                return f"<b>Format String Parse Error</b>\n" \
-                       f"Default value for <u>{label}</u> is not in the correct date format.\n" \
-                       f"<i>E.g. 1 %d/%m/%y</i>", \
-                       None, False
-            day, date_format = date_match.group(1), date_match.group(2)
-            # Checks if all '+' or all '-'
-            if len(day) > 1 and day[0] * (len(day) - 1) != day[:-1]:
-                return f"<b>Format String Parse Error</b>\n" \
-                       f"Default value for <u>{label}</u> is not in the correct date format.\n" \
-                       f"<i>E.g. 1 %d/%m/%y</i>", \
-                       None, False
 
-            if not date_format:
-                format_results[label] = (format_type, f"{day} %d/%m/%y")
-            else:
-                # Verify if date time format is valid
-                try:
-                    datetime.now().strftime(date_format.strip())
-                except ValueError:
-                    return f"<b>Format String Parse Error</b>\n" \
-                           f"Default value for <u>{label}</u> is not in the correct date format.\n" \
-                           f"<i>E.g. 1 %d/%m/%y</i>", \
-                           None, False
-                format_results[label] = (format_type, default)
-        # Other types
-        else:
-            return f"<b>Format String Parse Error</b>\nInvalid format type found: %{format_type}", None, False
+def get_unique_and_duplicate_items(items: List[str], existing_items: List[str]) -> Tuple[List[str], List[str]]:
+    unique_items, duplicate_items = [], []
+    for item in items:
+        if item in existing_items:
+            duplicate_items.append(item)
+            continue
+        duplicate_items.append(item) if item in unique_items else unique_items.append(item)
+    return unique_items, duplicate_items
 
-    # Create replaced text
-    for label in format_results:
-        format_string = re.sub(r"%([A-Za-z]+)(#\w+)?(\$\(.+\))?", f"<u>{label}</u>", format_string, count=1)
 
-    return format_string, format_results, True
+def ping(url: str) -> str:
+    try:
+        requests.get(url)
+        return "Ping successful"
+    except requests.RequestException as err:
+        return f"Ping failed - {err}"

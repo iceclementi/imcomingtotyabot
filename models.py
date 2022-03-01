@@ -12,6 +12,7 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 import database as db
 import util
+from ui import PaginationButtonGroup, PaginationTextGroup
 
 # region SETTINGS
 
@@ -43,7 +44,7 @@ TEMP_POLL_SUBJECT = "tp"
 TEMP_LIST_SUBJECT = "tl"
 POLL = "poll"
 LIST = "list"
-GROUP = " group"
+GROUP = "group"
 PUBLISH = "publish"
 REFRESH = "refresh"
 TITLE = "title"
@@ -55,17 +56,12 @@ CHOICES = "choices"
 NAME = "name"
 USER_REFRESH = "userRefresh"
 REFRESH_OPT = "refreshOpt"
-CUSTOMISE = "custom"
 RESPONSE = "response"
 COMMENT = "comment"
 EDIT_COMMENT = "editComment"
 VOTE = "vote"
 BACK = "back"
 MEMBER = "mem"
-REMOVE_MEMBER = "delMember"
-VIEW_GROUP_POLLS = "polls"
-ADD_POLL = "poll"
-REMOVE_POLL = "delPoll"
 SETTINGS = "set"
 SECRET = "pass"
 GROUP_INVITE = "invite"
@@ -76,7 +72,6 @@ CLOSE = "close"
 RESET = "reset"
 DONE = "done"
 SKIP = "skip"
-UPDATE_DONE = "updateDone"
 SHOW = "show"
 HIDE = "hide"
 TEMPLATE = "temp"
@@ -93,6 +88,8 @@ ADD = "add"
 VIEW = "view"
 DELETE = "del"
 DELETE_YES = "delYes"
+RETURN = "return"
+PAGE = "page"
 
 # endregion
 
@@ -396,139 +393,187 @@ class User(object):
         all_lists = List.get_lists_by_ids(self.get_all_list_ids(), filters)
         return sorted(all_polls + all_lists, key=lambda item: item.get_created_date(), reverse=True)
 
-    def render_poll_list(self) -> str:
+    def render_poll_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
         header = "<b>Your Polls</b>"
 
         user_polls = self.get_polls()
         if user_polls:
-            body = util.list_to_indexed_list_string(
-                [poll.generate_linked_summary() for poll in user_polls], line_spacing=2
+            poll_linked_summaries = [poll.generate_linked_summary() for poll in user_polls]
+            poll_text_group = PaginationTextGroup(
+                poll_linked_summaries, ("", POLL, ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
+
+            page_contents, start_index = poll_text_group.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = poll_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
         else:
             body = util.make_html_italic("You have no polls! Use /poll to build a new poll.")
+            buttons = [[util.build_button("Close", action=CLOSE)]]
 
         poll_count = len(user_polls)
         footer = f"{EMOJI_POLL} {poll_count} poll{'' if poll_count == 1 else 's'} in total"
 
-        return "\n\n".join([header] + [body] + [footer])
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
-    def render_list_list(self) -> str:
+    def render_list_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
         header = "<b>Your Lists</b>"
 
         user_lists = self.get_lists()
         if user_lists:
-            body = util.list_to_indexed_list_string(
-                [_list.generate_linked_summary() for _list in user_lists], line_spacing=2
+            list_linked_summaries = [_list.generate_linked_summary() for _list in user_lists]
+            list_text_group = PaginationTextGroup(
+                list_linked_summaries, ("", LIST, ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
+
+            page_contents, start_index = list_text_group.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = list_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
         else:
             body = util.make_html_italic("You have no lists! Use /list to build a new list.")
+            buttons = [[util.build_button("Close", action=CLOSE)]]
 
         list_count = len(user_lists)
         footer = f"{EMOJI_LIST} {list_count} list{'' if list_count == 1 else 's'} in total"
 
-        return "\n\n".join([header] + [body] + [footer])
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
-    def render_template_list(self) -> str:
+    def render_template_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
         header = "<b>Your Templates</b>"
 
         user_templates = self.get_templates()
         if user_templates:
-            body = util.list_to_indexed_list_string(
-                [template.generate_linked_summary() for template in user_templates], line_spacing=2
+            template_linked_summaries = [template.generate_linked_summary() for template in user_templates]
+            template_text_group = PaginationTextGroup(
+                template_linked_summaries, ("", TEMPLATE, ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
+
+            page_contents, start_index = template_text_group.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = template_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
         else:
             body = "<i>You have no templates! Use /temp to create a new template.</i>"
+            buttons = [[util.build_button("Close", action=CLOSE)]]
 
         template_count = len(user_templates)
         footer = f"{EMOJI_TEMPLATE} {template_count} template{'' if template_count == 1 else 's'} in total"
 
-        return "\n\n".join([header] + [body] + [footer])
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
-    def render_group_poll_list(self) -> str:
-        header = "<b>Your Group Polls</b>"
-
-        group_polls = self.get_group_polls()
-        if group_polls:
-            body = util.list_to_indexed_list_string(
-                [poll.generate_linked_summary(True) for poll in group_polls], line_spacing=2
-            )
-        else:
-            body = "<i>You have no group polls!</i>"
-
-        poll_count = len(group_polls)
-        footer = f"{EMOJI_POLL} {poll_count} group poll{'' if poll_count == 1 else 's'} in total"
-
-        return "\n\n".join([header] + [body] + [footer])
-
-    def render_group_list_list(self) -> str:
-        header = "<b>Your Group Lists</b>"
-
-        group_lists = self.get_group_lists()
-        if group_lists:
-            body = util.list_to_indexed_list_string(
-                [_list.generate_linked_summary(True) for _list in group_lists], line_spacing=2
-            )
-        else:
-            body = "<i>You have no group lists!</i>"
-
-        list_count = len(group_lists)
-        footer = f"{EMOJI_LIST} {list_count} group list{'' if list_count == 1 else 's'} in total"
-
-        return "\n\n".join([header] + [body] + [footer])
-
-    def render_group_template_list(self) -> str:
-        header = "<b>Your Group Templates</b>"
-
-        group_templates = self.get_group_templates()
-        if group_templates:
-            body = util.list_to_indexed_list_string(
-                [template.generate_linked_summary(True) for template in group_templates], line_spacing=2
-            )
-        else:
-            body = "<i>You have no group templates!</i>"
-
-        template_count = len(group_templates)
-        footer = f"{EMOJI_TEMPLATE} {template_count} group template{'' if template_count == 1 else 's'} in total"
-
-        return "\n\n".join([header] + [body] + [footer])
-
-    def render_group_list(self) -> str:
+    def render_group_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
         header = util.make_html_bold("Your Groups")
 
         all_groups = self.get_all_groups()
         if all_groups:
-            body = util.list_to_indexed_list_string(
-                [group.generate_linked_summary(True) for group in all_groups], line_spacing=2
+            group_linked_summaries = [group.generate_linked_summary(True) for group in all_groups]
+            group_text_group = PaginationTextGroup(
+                group_linked_summaries, ("", GROUP, ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
+
+            page_contents, start_index = group_text_group.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = group_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
         else:
             body = f"<i><You are not in any group!/i>"
+            buttons = [[util.build_button("Close", action=CLOSE)]]
 
         group_count = len(self.get_all_group_ids())
         footer = f"{EMOJI_GROUP} {group_count} group{'' if group_count == 1 else 's'} in total"
 
-        return "\n\n".join([header] + [body] + [footer])
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
-    def render_owned_groups_list(self) -> str:
-        owned_groups_title = util.make_html_bold("Owned Groups") + f" ({len(self.owned_group_ids)} {EMOJI_CROWN})"
-        owned_groups = self.get_owned_groups()
-        if owned_groups:
-            owned_groups_list = "\n\n".join(
-                f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(owned_groups, 1)
-            )
-        else:
-            owned_groups_list = util.make_html_italic("You do not own any group!")
-        return f"{owned_groups_title}\n{owned_groups_list}"
+    def render_group_poll_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
+        header = "<b>Your Group Polls</b>"
 
-    def render_joined_groups_list(self) -> str:
-        joined_groups_title = util.make_html_bold("Joined Groups") + f" ({len(self.joined_group_ids)} {EMOJI_GROUP})"
-        joined_groups = self.get_joined_groups()
-        if joined_groups:
-            joined_groups_list = "\n\n".join(
-                f"{i}. {group.generate_linked_summary()}" for i, group in enumerate(joined_groups, 1)
+        group_polls = self.get_group_polls()
+        if group_polls:
+            poll_linked_summaries = [poll.generate_linked_summary(True) for poll in group_polls]
+            poll_text_poll = PaginationTextGroup(
+                poll_linked_summaries, ("", f"{GROUP}_{POLL}", ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
+
+            page_contents, start_index = poll_text_poll.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = poll_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
         else:
-            joined_groups_list = util.make_html_italic("You have not joined any group!")
-        return f"{joined_groups_title}\n{joined_groups_list}"
+            body = "<i>You have no group polls!</i>"
+            buttons = [[util.build_button("Close", action=CLOSE)]]
+
+        poll_count = len(group_polls)
+        footer = f"{EMOJI_POLL} {poll_count} group poll{'' if poll_count == 1 else 's'} in total"
+
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
+
+    def render_group_list_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
+        header = "<b>Your Group Lists</b>"
+
+        group_lists = self.get_group_lists()
+        if group_lists:
+            list_linked_summaries = [_list.generate_linked_summary(True) for _list in group_lists]
+            list_text_list = PaginationTextGroup(
+                list_linked_summaries, ("", f"{GROUP}_{LIST}", ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
+            )
+
+            page_contents, start_index = list_text_list.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = list_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
+        else:
+            body = "<i>You have no group lists!</i>"
+            buttons = [[util.build_button("Close", action=CLOSE)]]
+
+        list_count = len(group_lists)
+        footer = f"{EMOJI_LIST} {list_count} group list{'' if list_count == 1 else 's'} in total"
+
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
+
+    def render_group_template_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
+        header = "<b>Your Group Templates</b>"
+
+        group_templates = self.get_group_templates()
+        if group_templates:
+            template_linked_summaries = [template.generate_linked_summary(True) for template in group_templates]
+            template_text_template = PaginationTextGroup(
+                template_linked_summaries, ("", f"{GROUP}_{TEMPLATE}", ""),
+                items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
+            )
+
+            page_contents, start_index = template_text_template.get_page_contents(page_number)
+            body = util.list_to_indexed_list_string(
+                page_contents, start=start_index, line_spacing=2
+            )
+            buttons = template_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=CLOSE)])
+        else:
+            body = "<i>You have no group templates!</i>"
+            buttons = [[util.build_button("Close", action=CLOSE)]]
+
+        template_count = len(group_templates)
+        footer = f"{EMOJI_TEMPLATE} {template_count} group template{'' if template_count == 1 else 's'} in total"
+
+        return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
     def build_invite_text_and_buttons(self) -> tuple:
         close_button = InlineKeyboardButton("Close", callback_data=CLOSE)
@@ -1225,7 +1270,7 @@ class Poll(object):
     def render_text(self) -> str:
         title = util.make_html_bold(self.title)
         description = util.make_html_italic(self.description)
-        header = [f"{title}\n{description}" if description else title]
+        header = [f"{EMOJI_POLL} {title}\n{description}" if description else title]
         body = [option.render_text() for option in self.options]
         footer = [f"{EMOJI_PEOPLE} {self.generate_respondents_summary()}"]
         return "\n\n".join(header + body + footer)
@@ -1238,70 +1283,73 @@ class Poll(object):
                     option.get_title(), f"/vote {self.get_poll_hash()}_{i}", to_self=True
                 )
             else:
-                option_button = util.build_button(option.get_title(), POLL_SUBJECT, str(i), self.poll_id)
+                option_button = self.build_button(option.get_title(), str(i))
             buttons.append([option_button])
         edit_comments_button = util.build_switch_button(
             "Comment", f"/comment {self.get_poll_hash()}", to_self=True
         )
-        refresh_button = util.build_button("Refresh", POLL_SUBJECT, REFRESH_OPT, self.poll_id)
+        refresh_button = self.build_button("Refresh", REFRESH_OPT)
         buttons.append([edit_comments_button, refresh_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_admin_buttons(self, uid: int) -> InlineKeyboardMarkup:
+    def build_admin_buttons(self) -> InlineKeyboardMarkup:
         publish_button = util.build_switch_button("Publish", self.title)
-        customise_button = util.build_button("Customise", POLL_SUBJECT, CUSTOMISE, self.poll_id)
-        refresh_button = util.build_button("Refresh", POLL_SUBJECT, REFRESH, self.poll_id)
-        close_button = util.build_button("Close", POLL_SUBJECT, CLOSE, self.poll_id)
-
-        if uid == self.creator_id:
-            delete_button = util.build_button("Delete", POLL_SUBJECT, DELETE, self.poll_id)
-            buttons = [[publish_button], [customise_button], [delete_button, refresh_button], [close_button]]
-        else:
-            buttons = [[publish_button], [customise_button], [refresh_button], [close_button]]
+        settings_button = self.build_button("Settings", SETTINGS)
+        refresh_button = self.build_button("Refresh", REFRESH)
+        close_button = self.build_button("Close", CLOSE)
+        buttons = [[publish_button], [settings_button], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_customise_buttons(self) -> InlineKeyboardMarkup:
+    def build_settings_buttons(self, is_creator=False) -> InlineKeyboardMarkup:
         response_text = "Multi-Response" if self.single_response else "Single Response"
-        toggle_response_button = util.build_button(f"Change to {response_text}", POLL_SUBJECT, RESPONSE, self.poll_id)
-        enforce_comments_button = util.build_button("Change Comment Requirements", POLL_SUBJECT, COMMENT, self.poll_id)
-        back_button = util.build_button("Back", POLL_SUBJECT, BACK, self.poll_id)
+        toggle_response_button = self.build_button(f"Change to {response_text}", RESPONSE)
+        enforce_comments_button = self.build_button("Change Comment Requirements", COMMENT)
+        back_button = self.build_button("Back", BACK)
         buttons = [[toggle_response_button], [enforce_comments_button], [back_button]]
+        if is_creator:
+            delete_button = self.build_button("Delete Poll", DELETE)
+            buttons.insert(-1, [delete_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_option_comment_required_buttons(self) -> InlineKeyboardMarkup:
         buttons = []
         for i, option in enumerate(self.options):
             button_text = option.get_title() + (" (required)" if option.is_comment_required() else "")
-            option_button = util.build_button(button_text, POLL_SUBJECT, f"{COMMENT}_{i}", self.poll_id)
+            option_button = self.build_button(button_text, f"{COMMENT}_{i}")
             buttons.append([option_button])
-        back_button = util.build_button("Back", POLL_SUBJECT, BACK, self.poll_id)
+        back_button = self.build_button("Back", BACK)
         buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_delete_confirmation_buttons(self) -> InlineKeyboardMarkup:
-        yes_button = util.build_button("Delete", POLL_SUBJECT, DELETE_YES, self.poll_id)
-        no_button = util.build_button("No", POLL_SUBJECT, BACK, self.poll_id)
-        buttons = [[yes_button, no_button]]
-        return InlineKeyboardMarkup(buttons)
-
-    def build_option_comment_text_and_buttons(self, uid: int) -> tuple:
+    def build_option_comment_text_and_buttons(self, uid: int) -> Tuple[str, InlineKeyboardMarkup]:
         buttons = []
         for i, option in enumerate(self.options):
             if option.is_voted_by_user(uid):
-                option_button = util.build_button(
-                    option.get_title(), POLL_SUBJECT, f"{EDIT_COMMENT}_{i}", self.poll_id
-                )
+                option_button = self.build_button(option.get_title(), f"{EDIT_COMMENT}_{i}")
                 buttons.append([option_button])
 
         if buttons:
-            response = util.make_html_bold("Select the option to add or change your comment.")
+            response = "Select the option to add or change your comment."
         else:
             response = util.make_html_italic("You have to vote first before you can enter a comment.")
 
-        close_button = util.build_button("Close", POLL_SUBJECT, CLOSE, self.poll_id)
-        buttons.append([close_button])
+        return_button = self.build_button("Cancel", RETURN)
+        buttons.append([return_button])
 
         return response, InlineKeyboardMarkup(buttons)
+
+    def build_comment_complete_buttons(self) -> InlineKeyboardMarkup:
+        back_button = self.build_button("Back", EDIT_COMMENT)
+        return_button = self.build_button("Return to Chat", RETURN)
+        buttons = [[back_button, return_button]]
+        return InlineKeyboardMarkup(buttons)
+
+    def build_delete_confirm_buttons(self, delete_action: str, back_action: str, delete_text="Delete", back_text="No") \
+            -> InlineKeyboardMarkup:
+        delete_button = self.build_button(delete_text, f"{DELETE_YES}_{delete_action}")
+        back_button = self.build_button(back_text, back_action)
+        buttons = [[delete_button, back_button]]
+        return InlineKeyboardMarkup(buttons)
 
     def build_button(self, text: str, action: str) -> InlineKeyboardButton:
         return util.build_button(text, POLL_SUBJECT, action, self.poll_id)
@@ -1409,8 +1457,9 @@ class Option(object):
 
 
 class List(object):
-    def __init__(self, list_id: str, title: str, uid: int, description: str, options: list, choices: list,
-                 single_response: bool, message_details: set, expiry: int, created_date: datetime) -> None:
+    def __init__(self, list_id: str, title: str, uid: int, description: str, options: Lst[ListOption],
+                 choices: Lst[str], single_response: bool, message_details: set, expiry: int,
+                 created_date: datetime) -> None:
         self.list_id = list_id
         self.title = title
         self.creator_id = uid
@@ -1427,12 +1476,12 @@ class List(object):
         return list_storage.get(list_id, None)
 
     @staticmethod
-    def get_lists_by_ids(list_ids: set, filters="") -> Lst[List]:
+    def get_lists_by_ids(list_ids: Set[str], filters="") -> Lst[List]:
         list_lists = [List.get_list_by_id(list_id) for list_id in list_ids]
         return [_list for _list in list_lists if filters.lower() in _list.get_title().lower()]
 
     @classmethod
-    def create_new(cls, title: str, uid: int, description: str, option_titles: list, choices: list) -> List:
+    def create_new(cls, title: str, uid: int, description: str, option_titles: Lst[str], choices: Lst[str]) -> List:
         list_id = util.generate_random_id(LIST_ID_LENGTH, set(list_storage.keys()))
         _list = cls(list_id, title, uid, description, list(), choices, True, set(), EXPIRY, datetime.now(tz=tz))
 
@@ -1443,8 +1492,8 @@ class List(object):
         return _list
 
     @classmethod
-    def load(cls, list_id: str, title: str, uid: int, description: str, options: list, choices: list,
-             single_response: bool, message_details: list, expiry: int, created_date: str) -> None:
+    def load(cls, list_id: str, title: str, uid: int, description: str, options: Lst[str], choices: Lst[str],
+             single_response: bool, message_details: Lst[str], expiry: int, created_date: str) -> None:
         _list = cls(list_id, title, uid, description, list(), choices, single_response, set(message_details),
                     expiry, datetime.fromisoformat(created_date))
 
@@ -1574,65 +1623,64 @@ class List(object):
     def render_text(self) -> str:
         title = util.make_html_bold(self.title)
         description = util.make_html_italic(self.description)
-        header = [f"{title}\n{description}" if description else title]
+        header = [f"{EMOJI_LIST} {title}\n{description}" if description else title]
         body = [option.render_text() for option in self.options]
         footer = [f"{EMOJI_PEOPLE} {self.generate_allocations_summary()}"]
         return "\n\n".join(header + body + footer)
 
     def build_update_buttons(self) -> InlineKeyboardMarkup:
         update_button = util.build_switch_button("Update", f"/update {self.get_list_hash()}", to_self=True)
-        refresh_button = util.build_button("Refresh", LIST_SUBJECT, USER_REFRESH, self.list_id)
+        refresh_button = self.build_button("Refresh", USER_REFRESH)
         buttons = [[update_button, refresh_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_option_buttons(self) -> InlineKeyboardMarkup:
         buttons = []
         for i, option in enumerate(self.options):
-            option_button = util.build_button(option.get_title(), LIST_SUBJECT, f"{OPTION}_{i}", self.list_id)
+            option_button = self.build_button(option.get_title(), f"{OPTION}_{i}")
             buttons.append([option_button])
-        refresh_button = util.build_button("Refresh", LIST_SUBJECT, REFRESH_OPT, self.list_id)
-        done_button = util.build_button("Done", LIST_SUBJECT, UPDATE_DONE, self.list_id)
+        refresh_button = self.build_button("Refresh", REFRESH_OPT)
+        done_button = self.build_button("Done", RETURN)
         buttons.append([refresh_button, done_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_admin_buttons(self, uid: int) -> InlineKeyboardMarkup:
+    def build_admin_buttons(self) -> InlineKeyboardMarkup:
         publish_button = util.build_switch_button("Publish", self.title)
-        customise_button = util.build_button("Customise", LIST_SUBJECT, CUSTOMISE, self.list_id)
-        refresh_button = util.build_button("Refresh", LIST_SUBJECT, REFRESH, self.list_id)
-        close_button = util.build_button("Close", LIST_SUBJECT, CLOSE, self.list_id)
-
-        if uid == self.creator_id:
-            delete_button = util.build_button("Delete", LIST_SUBJECT, DELETE, self.list_id)
-            buttons = [[publish_button], [customise_button], [delete_button, refresh_button], [close_button]]
-        else:
-            buttons = [[publish_button], [customise_button], [refresh_button], [close_button]]
+        settings_button = self.build_button("Settings", SETTINGS)
+        refresh_button = self.build_button("Refresh", REFRESH)
+        close_button = self.build_button("Close", CLOSE)
+        buttons = [[publish_button], [settings_button], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_customise_buttons(self) -> InlineKeyboardMarkup:
+    def build_settings_buttons(self, is_creator=False) -> InlineKeyboardMarkup:
         response_text = "Multi-Response" if self.single_response else "Single Response"
-        toggle_response_button = util.build_button(f"Change to {response_text}", LIST_SUBJECT, RESPONSE, self.list_id)
-        back_button = util.build_button("Back", LIST_SUBJECT, BACK, self.list_id)
+        toggle_response_button = self.build_button(f"Change to {response_text}", RESPONSE)
+        back_button = self.build_button("Back", BACK)
         buttons = [[toggle_response_button], [back_button]]
+        if is_creator:
+            delete_button = self.build_button("Delete List", DELETE)
+            buttons.insert(-1, [delete_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_choice_buttons(self, opt_id: int) -> InlineKeyboardMarkup:
-        buttons = []
-        for i, choice in enumerate(self.choices):
-            choice_button = util.build_button(choice, LIST_SUBJECT, f"{CHOICE}_{opt_id}_{i}", self.list_id)
-            buttons.append([choice_button])
-        back_button = util.build_button("Back", LIST_SUBJECT, OPTIONS, self.list_id)
+    def build_choice_buttons(self, opt_id: int, page_number: int = 0, index: int = 0) -> InlineKeyboardMarkup:
+        choice_button_group = PaginationButtonGroup(
+            self.choices, (LIST_SUBJECT, f"{CHOICE}_{opt_id}", self.list_id),
+            items_per_page=5, is_horizontal_buttons=True, is_cyclic=True, hidden_enabled=True
+        )
+        buttons = choice_button_group.build_buttons(page_number, index)
+        back_button = self.build_button("Back", OPTIONS)
         buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
-    def build_delete_confirmation_buttons(self) -> InlineKeyboardMarkup:
-        yes_button = util.build_button("Delete", LIST_SUBJECT, DELETE_YES, self.list_id)
-        no_button = util.build_button("No", LIST_SUBJECT, BACK, self.list_id)
-        buttons = [[yes_button, no_button]]
+    def build_delete_confirm_buttons(self, delete_action: str, back_action: str, delete_text="Delete", back_text="No") \
+            -> InlineKeyboardMarkup:
+        delete_button = self.build_button(delete_text, f"{DELETE_YES}_{delete_action}")
+        back_button = self.build_button(back_text, back_action)
+        buttons = [[delete_button, back_button]]
         return InlineKeyboardMarkup(buttons)
 
-    def build_single_button(self, text: str, action: str):
-        button = util.build_button(text, LIST_SUBJECT, action, self.list_id)
-        return InlineKeyboardMarkup([[button]])
+    def build_button(self, text: str, action: str) -> InlineKeyboardButton:
+        return util.build_button(text, LIST_SUBJECT, action, self.list_id)
 
     def to_json(self) -> dict:
         return {
