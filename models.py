@@ -90,6 +90,7 @@ DELETE = "del"
 DELETE_YES = "delYes"
 RETURN = "return"
 PAGE = "page"
+SCHEDULE = "sched"
 
 # endregion
 
@@ -2016,12 +2017,14 @@ class Template(object):
     TEMPLATE_ICONS = {"poll": EMOJI_POLL, "list": EMOJI_LIST}
 
     def __init__(self, temp_id: str, name: str, description: str,
-                 title_format: FormatTextCode, description_format: FormatTextCode, creator_id: int) -> None:
+                 title_format: FormatTextCode, description_format: FormatTextCode,
+                 creator_id: int) -> None:
         self._temp_id = temp_id
         self._name = name
         self._description = description
         self._title_format = title_format
         self._description_format = description_format
+        self._schedules = dict()
         self._creator_id = creator_id
 
     @staticmethod
@@ -2087,6 +2090,25 @@ class Template(object):
     def description_format(self, new_description: str) -> None:
         self._description_format = FormatTextCode.create_new(new_description)
         return
+
+    @property
+    def schedules(self) -> Lst[Schedule]:
+        return sorted(self._schedules.values(), key=lambda s: s.name.lower())
+
+    def has_schedule_with_name(self, name: str) -> bool:
+        return name in self._schedules
+
+    def add_schedule(self, schedule: Schedule) -> str:
+        if self.has_schedule_with_name(schedule.name):
+            return "Sorry, a schedule with the same name already exists."
+        self._schedules[schedule.name] = schedule
+        return "Schedule has been added."
+
+    def remove_schedule(self, name: str) -> str:
+        if name not in self._schedules:
+            return "Sorry, this schedule does not exist"
+        self._schedules.pop(name)
+        return "Schedule has been removed."
 
     @property
     def creator_id(self) -> int:
@@ -2226,10 +2248,11 @@ class PollTemplate(Template):
 
     def build_main_buttons(self) -> InlineKeyboardMarkup:
         generate_poll_button = self.build_button("Generate Poll", POLL)
-        settings_buttons = self.build_button("Settings", SETTINGS)
+        schedule_button = self.build_button("Schedule", SCHEDULE)
+        settings_button = self.build_button("Settings", SETTINGS)
         refresh_button = self.build_button("Refresh", REFRESH)
         close_button = self.build_button("Close", CLOSE)
-        buttons = [[generate_poll_button], [settings_buttons], [refresh_button, close_button]]
+        buttons = [[generate_poll_button], [schedule_button], [settings_button], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_format_title_buttons(self) -> InlineKeyboardMarkup:
@@ -2246,6 +2269,9 @@ class PollTemplate(Template):
         skip_button = self.build_button("Skip", SKIP)
         buttons = [[description_code_button], [skip_button], [cancel_button, build_button]]
         return InlineKeyboardMarkup(buttons)
+
+    def build_schedule_buttons(self) -> InlineKeyboardMarkup:
+        pass
 
     def build_settings_buttons(self, is_creator=False) -> InlineKeyboardMarkup:
         edit_template_details_button = self.build_button("Edit Template Details", f"{EDIT}_{TEMPLATE}")
@@ -2573,6 +2599,10 @@ class ListTemplate(Template):
             db.TEMP_LIST_SINGLE_RESPONSE: self.is_single_response,
             db.TEMP_LIST_CREATOR_ID: self.creator_id,
         }
+
+
+class Schedule(object):
+    pass
 
 
 class BotManager(object):

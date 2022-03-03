@@ -101,7 +101,7 @@ class PaginationButtonGroup(Pagination):
             return []
 
         if index:
-            current_page_number = index % self.items_per_page
+            current_page_number = index // self.items_per_page
 
         lower_item_index = current_page_number * self.items_per_page
         upper_item_index = lower_item_index + self.items_per_page
