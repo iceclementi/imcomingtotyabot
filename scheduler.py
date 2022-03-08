@@ -7,13 +7,15 @@ import util
 
 
 class Scheduler(object):
+    SCHEDULE = "sched"
     TYPE_DAILY = "D"
     TYPE_WEEKLY = "W"
     TYPE_YEARLY = "M"
     TYPE_MONTHLY = "Y"
 
-    def __init__(self, name: str, repeated: bool = True):
+    def __init__(self, name: str, button_data: Tuple[str, str], repeated: bool = True):
         self._name = name
+        self._button_data = button_data
         self._recipients = []
         self._repeated = repeated
 
@@ -30,6 +32,10 @@ class Scheduler(object):
     def name(self, new_name: str) -> None:
         self._name = new_name
         return
+
+    @property
+    def button_data(self) -> Tuple[str, str]:
+        return self._button_data
 
     @property
     def recipients(self) -> List[str]:
@@ -66,8 +72,11 @@ class Scheduler(object):
 
 
 class DailyScheduler(Scheduler):
-    def __init__(self, name: str, repeated: bool = True):
-        super().__init__(name, repeated)
+    MODE_INTERVAL = "itv"
+    MODE_CUSTOM = "ctm"
+
+    def __init__(self, name: str, button_data: Tuple[str, str], repeated: bool = True):
+        super().__init__(name, button_data, repeated)
 
     @property
     def scheduler_type(self) -> str:
@@ -78,3 +87,10 @@ class DailyScheduler(Scheduler):
 
     def get_next_schedule_time_in_seconds(self) -> int:
         pass
+
+    def build_schedule_mode_buttons(self):
+        interval_schedule_button = self.build_button("Interval Schedule", )
+
+    def build_button(self, text: str, action: str) -> InlineKeyboardButton:
+        subject, identifier = self.button_data
+        return util.build_button(text, subject, action, identifier)

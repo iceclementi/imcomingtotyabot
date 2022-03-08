@@ -3655,6 +3655,15 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
             return
         elif step == 12 and title:
             poll = user.create_poll_from_template(temp_id, title, description)
+            if not poll:
+                query.edit_message_text(
+                    "Error creating poll from template!", parse_mode=ParseMode.HTML,
+                    reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                )
+                query.answer(text="Error creating poll!")
+                context.user_data.clear()
+                return
+
             query.edit_message_text(
                 POLL_DONE, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Close", models.CLOSE)
@@ -4036,6 +4045,15 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
             return
         elif step == 12 and title:
             _list = user.create_list_from_template(temp_id, title, description)
+            if not _list:
+                query.edit_message_text(
+                    "Error creating list from template!", parse_mode=ParseMode.HTML,
+                    reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                )
+                query.answer(text="Error creating list!")
+                context.user_data.clear()
+                return
+
             query.edit_message_text(
                 LIST_DONE, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Close", models.CLOSE)
