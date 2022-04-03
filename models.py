@@ -1,7 +1,7 @@
 """Backend models"""
 from __future__ import annotations
 
-from abc import abstractstaticmethod, abstractclassmethod, abstractmethod
+from abc import abstractmethod
 import json
 from datetime import datetime, timedelta
 import pytz
@@ -163,7 +163,7 @@ class User(object):
         self.leader = True
 
     def get_owned_group_ids(self) -> Set[str]:
-        return self.groups
+        return self.owned_group_ids
 
     def get_owned_groups(self, filters="") -> Lst[Group]:
         owned_groups = Group.get_groups_by_ids(self.owned_group_ids, filters)

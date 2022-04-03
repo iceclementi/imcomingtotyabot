@@ -2630,14 +2630,11 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             poll_template, _ = user.create_temp_poll(
                 name, temp_description.strip(), title, description.strip(), options, single_response
             )
-            edit_conversation_message(
-                update, context, f"Poll template created! You may now use this template to generate a new poll!",
-                reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+            response = f"\U0001f44d Poll template created! You may now use this template to generate a new poll!"
+            query.edit_message_text(
+                response, parse_mode=ParseMode.HTML, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
             )
-            query.message.reply_html(
-                poll_template.render_text(),
-                reply_markup=poll_template.build_main_buttons()
-            )
+            query.message.reply_html(poll_template.render_text(), reply_markup=poll_template.build_main_buttons())
             query.answer(text="Poll template created successfully!")
             context.user_data.clear()
             return
@@ -2717,8 +2714,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             )
             response = f"\U0001f44d List template created! You may now use this template to generate a new list!"
             query.edit_message_text(
-                response, parse_mode=ParseMode.HTML,
-                reply_markup=util.build_single_button_markup("Close", models.CLOSE)
+                response, parse_mode=ParseMode.HTML, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
             )
             query.message.reply_html(list_template.render_text(), reply_markup=list_template.build_main_buttons())
             query.answer(text="List template created successfully!")
