@@ -8,11 +8,12 @@ import pytz
 from collections import OrderedDict
 import re
 from typing import Tuple, Dict, Set, List as Lst, Union
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Message
 
 import database as db
 import util
 from ui import PaginationButtonGroup, PaginationTextGroup
+from schedule import Schedule
 
 # region SETTINGS
 
@@ -1103,12 +1104,25 @@ class Group(object):
         }
 
 
-class Poll(object):
+class Module(object):
+    @property
+    @abstractmethod
+    def title(self):
+        pass
+
+
+class Scheduler(object):
+    @abstractmethod
+    def show_schedule_type_options(self, message: Message):
+        pass
+
+
+class Poll(Module):
     def __init__(self, poll_id: str, title: str, uid: int, description: str, options: list, single_response: bool,
                  message_details: set, expiry: int, created_date: datetime) -> None:
         self.poll_id = poll_id
         self.creator_id = uid
-        self.title = title
+        self._title = title
         self.description = description
         self.options = options
         self.single_response = single_response
@@ -1161,11 +1175,14 @@ class Poll(object):
     def get_poll_id(self) -> str:
         return self.poll_id
 
+    def title(self):
+        return self._title
+
     def get_title(self) -> str:
-        return self.title
+        return self._title
 
     def set_title(self, title: str) -> None:
-        self.title = title
+        self._title = title
 
     def get_description(self) -> str:
         return self.description
@@ -1211,7 +1228,7 @@ class Poll(object):
         self.expiry = expiry
 
     def get_poll_hash(self) -> str:
-        return f"{self.poll_id}_{util.simple_hash(self.title, self.poll_id, variance=False)}"
+        return f"{self.poll_id}_{util.simple_hash(self._title, self.poll_id, variance=False)}"
 
     def toggle(self, opt_id: int, uid: int, user_profile: dict, comment="") -> str:
         if opt_id >= len(self.options):
@@ -1262,7 +1279,7 @@ class Poll(object):
         return summary
 
     def generate_linked_summary(self, include_creator=False) -> str:
-        short_bold_title = util.make_html_bold(self.title)[:60]
+        short_bold_title = util.make_html_bold(self._title)[:60]
         header = f"{short_bold_title} ({self.get_respondent_count()} {EMOJI_PEOPLE})"
         link = f"/poll_{self.poll_id}"
         creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
@@ -1272,7 +1289,7 @@ class Poll(object):
         return " / ".join(option.get_title() for option in self.options)
 
     def render_text(self) -> str:
-        title = util.make_html_bold(self.title)
+        title = util.make_html_bold(self._title)
         description = util.make_html_italic(self.description)
         header = [f"{EMOJI_POLL} {title}\n{description}" if description else title]
         body = [option.render_text() for option in self.options]
@@ -1297,7 +1314,7 @@ class Poll(object):
         return InlineKeyboardMarkup(buttons)
 
     def build_admin_buttons(self) -> InlineKeyboardMarkup:
-        publish_button = util.build_switch_button("Publish", self.title)
+        publish_button = util.build_switch_button("Publish", self._title)
         settings_button = self.build_button("Settings", SETTINGS)
         refresh_button = self.build_button("Refresh", REFRESH)
         close_button = self.build_button("Close", CLOSE)
@@ -1361,7 +1378,7 @@ class Poll(object):
     def to_json(self) -> dict:
         return {
             db.POLL_ID: self.poll_id,
-            db.POLL_TITLE: self.title,
+            db.POLL_TITLE: self._title,
             db.POLL_CREATOR_ID: self.creator_id,
             db.POLL_DESCRIPTION: self.description,
             db.POLL_OPTIONS: [option.to_json() for option in self.options],
@@ -1460,12 +1477,12 @@ class Option(object):
         }
 
 
-class List(object):
+class List(Module):
     def __init__(self, list_id: str, title: str, uid: int, description: str, options: Lst[ListOption],
                  choices: Lst[str], single_response: bool, message_details: set, expiry: int,
                  created_date: datetime) -> None:
         self.list_id = list_id
-        self.title = title
+        self._title = title
         self.creator_id = uid
         self.description = description
         self.options = options
@@ -1496,7 +1513,7 @@ class List(object):
         return _list
 
     @classmethod
-    def load(cls, list_id: str, title: str, uid: int, description: str, options: Lst[str], choices: Lst[str],
+    def load(cls, list_id: str, title: str, uid: int, description: str, options: Lst[dict], choices: Lst[str],
              single_response: bool, message_details: Lst[str], expiry: int, created_date: str) -> None:
         _list = cls(list_id, title, uid, description, list(), choices, single_response, set(message_details),
                     expiry, datetime.fromisoformat(created_date))
@@ -1520,11 +1537,14 @@ class List(object):
     def get_list_id(self) -> str:
         return self.list_id
 
+    def title(self):
+        return self._title
+
     def get_title(self) -> str:
-        return self.title
+        return self._title
 
     def set_title(self, title: str) -> None:
-        self.title = title
+        self._title = title
 
     def get_description(self) -> str:
         return self.description
@@ -1585,7 +1605,7 @@ class List(object):
         self.expiry = expiry
 
     def get_list_hash(self) -> str:
-        return f"{self.list_id}_{util.simple_hash(self.title, self.list_id, variance=False)}"
+        return f"{self.list_id}_{util.simple_hash(self._title, self.list_id, variance=False)}"
 
     def toggle(self, opt_id: int, choice_id: int) -> str:
         if not self.is_valid_option(opt_id) or not self.is_valid_choice(choice_id):
@@ -1615,7 +1635,7 @@ class List(object):
         return summary
 
     def generate_linked_summary(self, include_creator=False) -> str:
-        short_bold_title = util.make_html_bold(self.title)[:60]
+        short_bold_title = util.make_html_bold(self._title)[:60]
         header = f"{short_bold_title} ({self.get_allocation_count()} {EMOJI_PEOPLE})"
         link = f"/list_{self.list_id}"
         creator = f"{EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
@@ -1625,7 +1645,7 @@ class List(object):
         return " / ".join(option.get_title() for option in self.options)
 
     def render_text(self) -> str:
-        title = util.make_html_bold(self.title)
+        title = util.make_html_bold(self._title)
         description = util.make_html_italic(self.description)
         header = [f"{EMOJI_LIST} {title}\n{description}" if description else title]
         body = [option.render_text() for option in self.options]
@@ -1649,7 +1669,7 @@ class List(object):
         return InlineKeyboardMarkup(buttons)
 
     def build_admin_buttons(self) -> InlineKeyboardMarkup:
-        publish_button = util.build_switch_button("Publish", self.title)
+        publish_button = util.build_switch_button("Publish", self._title)
         settings_button = self.build_button("Settings", SETTINGS)
         refresh_button = self.build_button("Refresh", REFRESH)
         close_button = self.build_button("Close", CLOSE)
@@ -1689,7 +1709,7 @@ class List(object):
     def to_json(self) -> dict:
         return {
             db.LIST_ID: self.list_id,
-            db.LIST_TITLE: self.title,
+            db.LIST_TITLE: self._title,
             db.LIST_CREATOR_ID: self.creator_id,
             db.LIST_DESCRIPTION: self.description,
             db.LIST_OPTIONS: [option.to_json() for option in self.options],
@@ -2015,7 +2035,7 @@ class FormatTextCode(object):
         }
 
 
-class Template(object):
+class Template(Module, Scheduler):
     TEMPLATE_TYPES = {"P": "poll", "L": "list"}
     TEMPLATE_ICONS = {"poll": EMOJI_POLL, "list": EMOJI_LIST}
 
@@ -2067,6 +2087,9 @@ class Template(object):
         self._name = new_name
         return
 
+    def title(self):
+        return self.name
+
     @property
     def description(self) -> str:
         return self._description
@@ -2098,6 +2121,9 @@ class Template(object):
     def schedules(self) -> Lst[Schedule]:
         return sorted(self._schedules.values(), key=lambda s: s.name.lower())
 
+    def get_schedule(self, name: str) -> Schedule:
+        return self._schedules.get(name, None)
+
     def has_schedule_with_name(self, name: str) -> bool:
         return name in self._schedules
 
@@ -2108,10 +2134,29 @@ class Template(object):
         return "Schedule has been added."
 
     def remove_schedule(self, name: str) -> str:
-        if name not in self._schedules:
-            return "Sorry, this schedule does not exist"
+        if not self.has_schedule_with_name(name):
+            return "Sorry, this schedule does not exist."
         self._schedules.pop(name)
         return "Schedule has been removed."
+
+    def change_schedule_name(self, name: str, new_name: str) -> str:
+        if not self.has_schedule_with_name(name):
+            return "Sorry, this schedule does not exist."
+        if name == new_name:
+            return "The new schedule name is the same as the current name. Schedule name is unchanged."
+        if self.has_schedule_with_name(new_name):
+            return "Sorry, a schedule with the new name already exists."
+        schedule = self._schedules.pop(name)
+        # schedule.change_name(new_name)
+        self._schedules[new_name] = schedule
+        return f"Schedule name is changed to {new_name}!"
+
+    def run_schedule_action(self, name: str, action: str):
+        schedule = self.get_schedule(name)
+        if not schedule:
+            raise ValueError
+        else:
+            return schedule.run_action(action)
 
     @property
     def creator_id(self) -> int:
@@ -2350,6 +2395,10 @@ class PollTemplate(Template):
 
     def build_button(self, text: str, action: str) -> InlineKeyboardButton:
         return util.build_button(text, TEMP_POLL_SUBJECT, action, self.temp_id)
+
+    def show_schedule_type_options(self, message: Message):
+        header = f"<b>{EMOJI_POLL} {self.name} (Template)</b>"
+        return Schedule.show_schedule_type_options(header, TEMP_POLL_SUBJECT, self.temp_id, message)
 
     def to_json(self) -> dict:
         return {
@@ -2590,6 +2639,10 @@ class ListTemplate(Template):
     def build_button(self, text: str, action: str) -> InlineKeyboardButton:
         return util.build_button(text, TEMP_LIST_SUBJECT, action, self.temp_id)
 
+    def show_schedule_type_options(self, message: Message):
+        header = f"<b>{EMOJI_LIST} {self.name} (Template)</b>"
+        return Schedule.show_schedule_type_options(header, TEMP_LIST_SUBJECT, self.temp_id, message)
+
     def to_json(self) -> dict:
         return {
             db.TEMP_LIST_ID: self.temp_id,
@@ -2602,10 +2655,6 @@ class ListTemplate(Template):
             db.TEMP_LIST_SINGLE_RESPONSE: self.is_single_response,
             db.TEMP_LIST_CREATOR_ID: self.creator_id,
         }
-
-
-class Schedule(object):
-    pass
 
 
 class BotManager(object):

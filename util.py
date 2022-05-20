@@ -8,6 +8,8 @@ import requests
 from typing import List, Tuple, Set, Union, Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
+from callbackcontext import CallbackContext
+
 ENCODE_KEY = string.digits + string.ascii_letters
 NEGATIVE_SYMBOL = "Z"
 
@@ -81,6 +83,21 @@ def simple_hash(text: str, salt="", length=16, variance=True) -> str:
 def build_button(text: str, subject: str = "", action: str = "", identifier: str = "") -> InlineKeyboardButton:
     data = f"{subject} {action} {identifier}".strip()
     return InlineKeyboardButton(text, callback_data=data)
+
+
+def build_context_button(
+        text: str,
+        context: CallbackContext,
+        action: str = "",
+        target: str = "",
+        sub_target: str = "",
+        sub_target_2: str = "",
+        sub_target_3: str = "",
+):
+    new_context = context.create_new(
+        action=action, target=target, sub_target=sub_target, sub_target_2=sub_target_2, sub_target_3=sub_target_3
+    )
+    return InlineKeyboardButton(text, callback_data=new_context)
 
 
 def build_switch_button(text: str, placeholder: str, to_self=False) -> InlineKeyboardButton:
