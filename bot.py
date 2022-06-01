@@ -5043,7 +5043,7 @@ def main() -> None:
 
     # Start database operations
     updater.job_queue.run_once(load_data_job, 0, name="Load data job")
-    updater.job_queue.run_repeating(save_data_job, 600, first=60, name="Save data job")
+    updater.job_queue.run_repeating(save_data_job, 3600, first=60, name="Save data job")
     updater.job_queue.run_repeating(ping_server_job, 900, first=900, name="Ping server job")
 
     # Start the bot
