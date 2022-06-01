@@ -172,7 +172,8 @@ def save_to_sheet(data: dict, sheet: Worksheet, headers: list) -> None:
         row_data = data_values.to_json()
         row_values = [json.dumps(row_data.get(field, "")) for field in headers]
         all_values.append(row_values)
-    sheet.clear()
+    # Clear rows
+    sheet.resize(rows=0)
     sheet.insert_rows(all_values, row=1, value_input_option="RAW")
     return
 
