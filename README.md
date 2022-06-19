@@ -1,6 +1,6 @@
 # I'm Coming To TYA Bot
-![Current version](https://img.shields.io/badge/version-v1.3-blue)
-<a href="https://github.com/python-telegram-bot/python-telegram-bot">![Python Telegram Bot version](https://img.shields.io/badge/python--telegram--bot-v13.7-teal)</a>
+![Current version](https://img.shields.io/badge/version-v1.4-blue)
+<a href="https://github.com/python-telegram-bot/python-telegram-bot">![Python Telegram Bot version](https://img.shields.io/badge/python--telegram--bot-v13.11-teal)</a>
 ![Supported Python version](https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8%20%7C%203.9-teal?logo=python&logoColor=yellow)
 ![MIT License](https://img.shields.io/badge/license-MIT-orange)
 <a href="https://t.me/imcomingtotyabot">![Bot Username](https://img.shields.io/badge/username-@imcomingtotyabot-blue?logo=telegram)</a>
