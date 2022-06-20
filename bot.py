@@ -2,19 +2,19 @@
 import os
 import logging
 import re
-from typing import Tuple, List as Lst, Dict
+from typing import Tuple
 import models
 from models import (
-    User, Group, Poll, Option, List, ListOption, Template, PollTemplate, ListTemplate, FormatTextCode, BotManager
+    User, Group, Poll, List, Template, PollTemplate, ListTemplate, FormatTextCode, BotManager
 )
-import util
+from utils import util
 from telegram import (
-    Update, ParseMode, User as TeleUser, Message, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup,
-    ReplyKeyboardRemove, InlineQueryResultArticle, InputTextMessageContent, ForceReply, CallbackQuery, InlineQuery
+    Update, ParseMode, User as TeleUser, Message, InlineKeyboardMarkup, ReplyKeyboardRemove, InlineQueryResultArticle, InputTextMessageContent,
+    CallbackQuery, InlineQuery
 )
 from telegram.ext import (
     CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, InlineQueryHandler,
-    ChosenInlineResultHandler, RegexHandler, Filters, Updater, JobQueue
+    ChosenInlineResultHandler, Filters, Updater
 )
 import telegram.error
 
@@ -313,9 +313,9 @@ def handle_comment_pm(update: Update, context: CallbackContext, details: str) ->
 
     poll_hash = match.group(1)
     poll_id = poll_hash.split("_")[0]
-    poll = Poll.get_poll_by_id(poll_id)
+    poll = Poll.get_ballot_by_id(poll_id)
 
-    if not poll or poll.get_poll_hash() != poll_hash:
+    if not poll or poll.get_ballot_hash() != poll_hash:
         update.message.reply_html(
             ERROR_INVALID_POLL_COMMENT_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
@@ -341,9 +341,9 @@ def handle_vote_pm(update: Update, context: CallbackContext, details: str) -> No
 
     poll_hash, opt_id = match.group(1), int(match.group(2))
     poll_id = poll_hash.split("_")[0]
-    poll = Poll.get_poll_by_id(poll_id)
+    poll = Poll.get_ballot_by_id(poll_id)
 
-    if not poll or poll.get_poll_hash() != poll_hash:
+    if not poll or poll.get_ballot_hash() != poll_hash:
         update.message.reply_html(
             ERROR_INVALID_POLL_VOTE_REQUEST, reply_markup=util.build_single_button_markup("Close", models.RETURN)
         )
@@ -390,9 +390,9 @@ def handle_update_pm(update: Update, context: CallbackContext, details: str) -> 
 
     list_hash = match.group(1)
     list_id = list_hash.split("_")[0]
-    _list = List.get_list_by_id(list_id)
+    _list = List.get_ballot_by_id(list_id)
 
-    if not _list or _list.get_list_hash() != list_hash:
+    if not _list or _list.get_ballot_hash() != list_hash:
         update.message.reply_html(
             ERROR_INVALID_LIST_UPDATE_REQUEST, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
@@ -560,7 +560,7 @@ def handle_poll_view(update: Update, context: CallbackContext) -> None:
     text = update.message.text
 
     poll_id = re.match(r"^/poll_(\w+)$", text).group(1)
-    poll = Poll.get_poll_by_id(poll_id)
+    poll = Poll.get_ballot_by_id(poll_id)
     if not poll:
         handle_help(update, context)
         return
@@ -622,7 +622,7 @@ def handle_lists(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    list_list, buttons = user.render_list_list_with_buttons()
+    list_list, buttons = user.render_ballot_list_with_buttons()
     update.message.reply_html(list_list, reply_markup=buttons)
     return
 
@@ -641,9 +641,9 @@ def handle_list_view(update: Update, context: CallbackContext) -> None:
     text = update.message.text.strip()
 
     list_id = re.match(r"^/list_(\w+)$", text).group(1)
-    _list = List.get_list_by_id(list_id)
+    _list = List.get_ballot_by_id(list_id)
 
-    if not _list or (_list.get_creator_id() != user.get_uid() and not user.has_group_list(list_id)):
+    if not _list or (_list.get_creator_id() != user.get_uid() and not user.has_group_ballot(list_id)):
         handle_help(update, context)
         return
 
@@ -706,7 +706,7 @@ def handle_template(update: Update, context: CallbackContext) -> None:
                 )
                 context.user_data.update({"del": reply_message.message_id})
                 return
-            _list: List = user.create_list_from_template(temp_list.temp_id, title, description)
+            _list: List = user.create_ballot_from_template(temp_list.temp_id, title, description)
             update.message.reply_html(LIST_DONE, reply_markup=util.build_single_button_markup("Close", models.CLOSE))
             update.message.reply_html(_list.render_text(), reply_markup=_list.build_admin_buttons())
             return
@@ -752,7 +752,7 @@ def handle_template_view(update: Update, context: CallbackContext) -> None:
     temp_id = re.match(r"^/temp_(\w+)$", text).group(1)
     template: Template = Template.get_template_by_id(temp_id)
 
-    if not template or (template.creator_id != user.get_uid() and not user.has_group_template(temp_id)):
+    if not template or (template._creator_id != user.get_uid() and not user.has_group_template(temp_id)):
         handle_help(update, context)
         return
 
@@ -872,7 +872,7 @@ def handle_group_lists(update: Update, context: CallbackContext) -> None:
         handle_help(update, context)
         return
 
-    group_list_list, buttons = user.render_group_list_list_with_buttons()
+    group_list_list, buttons = user.render_group_ballot_list_with_buttons()
     update.message.reply_html(group_list_list, reply_markup=buttons)
     return
 
@@ -1257,7 +1257,7 @@ def handle_vote_conversation(update: Update, context: CallbackContext) -> None:
     uid, user_profile = extract_user_data(update.effective_user)
     text = update.message.text.strip()
 
-    poll = Poll.get_poll_by_id(poll_id)
+    poll = Poll.get_ballot_by_id(poll_id)
     if not poll:
         edit_conversation_message(
             update, context, DELETED_POLL,
@@ -1299,7 +1299,7 @@ def handle_comment_conversation(update: Update, context: CallbackContext) -> Non
     uid, user_profile = extract_user_data(update.effective_user)
     text = update.message.text.strip()
 
-    poll = Poll.get_poll_by_id(poll_id)
+    poll = Poll.get_ballot_by_id(poll_id)
     if not poll:
         edit_conversation_message(
             update, context, DELETED_POLL,
@@ -1751,9 +1751,9 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
             return
 
         # Change template name
-        template.name = text
+        template._name = text
         edit_conversation_message(
-            update, context, f"Poll template name successfully changed to <b>{template.name}</b>",
+            update, context, f"Poll template name successfully changed to <b>{template._name}</b>",
             reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
         )
 
@@ -1773,9 +1773,9 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
             return
 
         # Change template description
-        template.description = text
+        template._description = text
         edit_conversation_message(
-            update, context, f"Poll template description successfully changed to <b>{template.description}</b>",
+            update, context, f"Poll template description successfully changed to <b>{template._description}</b>",
             reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
         )
 
@@ -1795,9 +1795,9 @@ def handle_temp_poll_conversation(update: Update, context: CallbackContext) -> N
             return
 
         # Change template description
-        template.description = text
+        template._description = text
         edit_conversation_message(
-            update, context, f"Poll template description successfully set to <b>{template.description}</b>",
+            update, context, f"Poll template description successfully set to <b>{template._description}</b>",
             reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
         )
 
@@ -2146,9 +2146,9 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
             return
 
         # Change template name
-        template.name = text
+        template._name = text
         edit_conversation_message(
-            update, context, f"List template name successfully changed to <b>{template.name}</b>",
+            update, context, f"List template name successfully changed to <b>{template._name}</b>",
             reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
         )
 
@@ -2169,9 +2169,9 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
             return
 
         # Change template description
-        template.description = text
+        template._description = text
         edit_conversation_message(
-            update, context, f"List template description successfully changed to <b>{template.description}</b>",
+            update, context, f"List template description successfully changed to <b>{template._description}</b>",
             reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
         )
 
@@ -2192,9 +2192,9 @@ def handle_temp_list_conversation(update: Update, context: CallbackContext) -> N
             return
 
         # Change template description
-        template.description = text
+        template._description = text
         edit_conversation_message(
-            update, context, f"List template description successfully set to <b>{template.description}</b>",
+            update, context, f"List template description successfully set to <b>{template._description}</b>",
             reply_markup=template.build_single_back_button(f"{models.EDIT}_{models.TEMPLATE}", "Continue")
         )
 
@@ -2414,7 +2414,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
             query.answer(text=None)
             return
         elif sub_action == models.LIST:
-            list_list, buttons = user.render_list_list_with_buttons(page_number=page_number)
+            list_list, buttons = user.render_ballot_list_with_buttons(page_number=page_number)
             query.edit_message_text(list_list, parse_mode=ParseMode.HTML, reply_markup=buttons)
             query.answer(text=None)
             return
@@ -2434,7 +2434,7 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
             query.answer(text=None)
             return
         elif sub_action == f"{models.GROUP}_{models.LIST}":
-            group_list_list, buttons = user.render_group_list_list_with_buttons(page_number=page_number)
+            group_list_list, buttons = user.render_group_ballot_list_with_buttons(page_number=page_number)
             query.edit_message_text(group_list_list, parse_mode=ParseMode.HTML, reply_markup=buttons)
             query.answer(text=None)
             return
@@ -2557,7 +2557,7 @@ def handle_done_callback_query(query: CallbackQuery, context: CallbackContext, a
             return
         elif step == 4 and title and description and options and choices:
             # Create list
-            _list, _ = user.create_list(title, description.strip(), options, choices)
+            _list, _ = user.create_ballot(title, description.strip(), options, choices)
 
             query.edit_message_text(
                 LIST_DONE, parse_mode=ParseMode.HTML,
@@ -2842,7 +2842,7 @@ def handle_user_callback_query(query: CallbackQuery, context: CallbackContext, a
 
 def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, action: str, poll_id: str) -> None:
     """Handles a poll callback query."""
-    poll = Poll.get_poll_by_id(poll_id)
+    poll = Poll.get_ballot_by_id(poll_id)
 
     # Poll is deleted or has error
     if not poll:
@@ -2989,7 +2989,7 @@ def handle_poll_callback_query(query: CallbackQuery, context: CallbackContext, a
 
 def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, action: str, list_id: str) -> None:
     """Handles a poll callback query."""
-    _list = List.get_list_by_id(list_id)
+    _list = List.get_ballot_by_id(list_id)
 
     # List is deleted or has error
     if not _list:
@@ -3128,7 +3128,7 @@ def handle_list_callback_query(query: CallbackQuery, context: CallbackContext, a
         return
     # Handle delete confirmation button
     elif action == f"{models.DELETE_YES}_{models.LIST}" and is_pm and is_creator:
-        user.delete_list(list_id)
+        user.delete_ballot(list_id)
         for mid in _list.get_message_details():
             try:
                 context.bot.edit_message_text(
@@ -3261,7 +3261,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     # Handle add poll choice button
     elif action.startswith(f"{models.ADD}_{models.POLL}_"):
         _, poll_id = action.rsplit("_", 1)
-        poll = Poll.get_poll_by_id(poll_id)
+        poll = Poll.get_ballot_by_id(poll_id)
         if not poll:
             query.answer(text="Poll does not exist.")
             return
@@ -3282,7 +3282,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     # Handle remove poll choice button
     elif action.startswith(f"{models.DELETE}_{models.POLL}_"):
         _, poll_id = action.rsplit("_", 1)
-        poll = Poll.get_poll_by_id(poll_id)
+        poll = Poll.get_ballot_by_id(poll_id)
         if not poll:
             query.answer(text="Poll does not exist.")
             return
@@ -3297,7 +3297,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     # Handle remove poll confirm button
     elif action.startswith(f"{models.DELETE_YES}_{models.POLL}_"):
         _, poll_id = action.rsplit("_", 1)
-        poll = Poll.get_poll_by_id(poll_id)
+        poll = Poll.get_ballot_by_id(poll_id)
         if not poll:
             query.answer(text="Poll does not exist.")
             return
@@ -3312,46 +3312,46 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     # Handle view group lists button
     elif action == models.LIST:
         query.edit_message_text(
-            group.render_group_lists_text(), parse_mode=ParseMode.HTML,
-            reply_markup=group.build_view_lists_buttons(user.get_lists(), is_owner=is_owner)
+            group.render_group_ballots_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_view_ballots_buttons(user.get_ballots(), is_owner=is_owner)
         )
         query.answer(text=None)
         return
     # Handle add list button
     elif action == f"{models.ADD}_{models.LIST}":
-        user_lists = user.get_lists()
+        user_lists = user.get_ballots()
         if user_lists:
             response = "Select a list to add to the group."
         else:
             response = "You do not have any lists! Use /list to create new list."
-        query.edit_message_reply_markup(group.build_add_lists_buttons(user_lists))
+        query.edit_message_reply_markup(group.build_add_ballots_buttons(user_lists))
         query.answer(text=response)
         return
     # Handle add list choice button
     elif action.startswith(f"{models.ADD}_{models.LIST}_"):
         _, list_id = action.rsplit("_", 1)
-        _list = List.get_list_by_id(list_id)
+        _list = List.get_ballot_by_id(list_id)
         if not _list:
             query.answer(text="List does not exist.")
             return
 
-        response = group.add_list(list_id)
+        response = group.add_ballot(list_id)
         query.answer(text=response)
         query.edit_message_text(
-            group.render_group_lists_text(), parse_mode=ParseMode.HTML,
-            reply_markup=group.build_add_lists_buttons(user.get_lists())
+            group.render_group_ballots_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_add_ballots_buttons(user.get_ballots())
         )
         return
     # Handle remove list button
     elif action == f"{models.DELETE}_{models.LIST}":
-        user_lists = user.get_lists()
+        user_lists = user.get_ballots()
         query.edit_message_reply_markup(group.build_remove_lists_buttons(user_lists, is_owner=is_owner))
         query.answer(text="Select a list to remove from the group.")
         return
     # Handle remove list choice button
     elif action.startswith(f"{models.DELETE}_{models.LIST}_"):
         _, list_id = action.rsplit("_", 1)
-        _list = List.get_list_by_id(list_id)
+        _list = List.get_ballot_by_id(list_id)
         if not _list:
             query.answer(text="List does not exist.")
             return
@@ -3366,16 +3366,16 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     # Handle remove list confirm button
     elif action.startswith(f"{models.DELETE_YES}_{models.LIST}_"):
         _, list_id = action.rsplit("_", 1)
-        _list = List.get_list_by_id(list_id)
+        _list = List.get_ballot_by_id(list_id)
         if not _list:
             query.answer(text="List does not exist.")
             return
 
-        response = group.remove_list(list_id)
+        response = group.remove_ballot(list_id)
         query.answer(text=response)
         query.edit_message_text(
-            group.render_group_lists_text(), parse_mode=ParseMode.HTML,
-            reply_markup=group.build_remove_lists_buttons(user.get_lists(), is_owner=is_owner)
+            group.render_group_ballots_text(), parse_mode=ParseMode.HTML,
+            reply_markup=group.build_remove_lists_buttons(user.get_ballots(), is_owner=is_owner)
         )
         return
     # Handle view group templates button
@@ -3430,7 +3430,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
                 f"{models.TEMPLATE}_{temp_id}", f"{models.DELETE}_{models.TEMPLATE}", delete_text="Remove"
             )
         )
-        query.answer(text=f"Confirm remove \"{template.name}\" from the group?")
+        query.answer(text=f"Confirm remove \"{template._name}\" from the group?")
         return
     # Handle remove template confirm button
     elif action.startswith(f"{models.DELETE_YES}_{models.TEMPLATE}_"):
@@ -3541,7 +3541,7 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
 
     user, _, _ = get_user_permissions(query.from_user.id)
     message = query.message
-    is_creator = template.creator_id == user.get_uid()
+    is_creator = template._creator_id == user.get_uid()
 
     user_action, step, title, title_code, description, description_code, context_id = \
         context.user_data.get("action", ""), context.user_data.get("step", 0), context.user_data.get("title", ""), \
@@ -3721,8 +3721,8 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle edit template details button
     elif action == f"{models.EDIT}_{models.TEMPLATE}":
-        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
-        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        template_name = f"<b>Template Name</b>\n<b>{template._name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template._description or 'None'}</i>"
         query.edit_message_text(
             f"{template_name}\n\n{template_description}", parse_mode=ParseMode.HTML,
             reply_markup=template.build_edit_template_details_buttons()
@@ -3732,8 +3732,8 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle rename template button
     elif action == f"{models.RENAME}_{models.TEMPLATE}_{models.NAME}":
-        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
-        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        template_name = f"<b>Template Name</b>\n<b>{template._name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template._description or 'None'}</i>"
         response = f"{template_name}\n\n{template_description}\n\nEnter a new <b>template name</b>."
         reply_message = query.edit_message_text(
             response, parse_mode=ParseMode.HTML,
@@ -3746,8 +3746,8 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle rename template description button
     elif action == f"{models.RENAME}_{models.TEMPLATE}_{models.DESCRIPTION}":
-        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
-        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        template_name = f"<b>Template Name</b>\n<b>{template._name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template._description or 'None'}</i>"
         response = f"{template_name}\n\n{template_description}\n\nEnter a new <b>template description</b>."
         reply_message = query.edit_message_text(
             response, parse_mode=ParseMode.HTML,
@@ -3767,8 +3767,8 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle add template description button
     elif action == f"{models.ADD}_{models.TEMPLATE}_{models.DESCRIPTION}":
-        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
-        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        template_name = f"<b>Template Name</b>\n<b>{template._name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template._description or 'None'}</i>"
         response = f"{template_name}\n\n{template_description}\n\nEnter a new <b>template description</b>."
         reply_message = query.edit_message_text(
             response, parse_mode=ParseMode.HTML,
@@ -3873,9 +3873,9 @@ def handle_temp_poll_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle confirm remove template description button
     elif action == f"{models.DELETE_YES}_{models.TEMPLATE}_{models.DESCRIPTION}":
-        template.description = ""
-        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
-        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        template._description = ""
+        template_name = f"<b>Template Name</b>\n<b>{template._name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template._description or 'None'}</i>"
         query.edit_message_text(
             f"{template_name}\n\n{template_description}", parse_mode=ParseMode.HTML,
             reply_markup=template.build_edit_template_details_buttons()
@@ -3922,7 +3922,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
 
     user, _, _ = get_user_permissions(query.from_user.id)
     message = query.message
-    is_creator = template.creator_id == user.get_uid()
+    is_creator = template._creator_id == user.get_uid()
 
     user_action, step, title, title_code, description, description_code, context_id = \
         context.user_data.get("action", ""), context.user_data.get("step", 0), context.user_data.get("title", ""), \
@@ -4005,7 +4005,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle skip button
     elif action == models.SKIP and title:
-        _list: List = user.create_list_from_template(temp_id, title, "")
+        _list: List = user.create_ballot_from_template(temp_id, title, "")
         message.edit_text(
             LIST_DONE, parse_mode=ParseMode.HTML, reply_markup=util.build_single_button_markup("Close", models.CLOSE)
         )
@@ -4035,7 +4035,7 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
             context.user_data.update({"step": 12, "descr": descr_text})
             return
         elif step == 12 and title:
-            _list = user.create_list_from_template(temp_id, title, description)
+            _list = user.create_ballot_from_template(temp_id, title, description)
             query.edit_message_text(
                 LIST_DONE, parse_mode=ParseMode.HTML,
                 reply_markup=util.build_single_button_markup("Close", models.CLOSE)
@@ -4102,8 +4102,8 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle edit template details button
     elif action == f"{models.EDIT}_{models.TEMPLATE}":
-        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
-        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        template_name = f"<b>Template Name</b>\n<b>{template._name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template._description or 'None'}</i>"
         query.edit_message_text(
             f"{template_name}\n\n{template_description}", parse_mode=ParseMode.HTML,
             reply_markup=template.build_edit_template_details_buttons()
@@ -4113,8 +4113,8 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle rename template button
     elif action == f"{models.RENAME}_{models.TEMPLATE}_{models.NAME}":
-        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
-        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        template_name = f"<b>Template Name</b>\n<b>{template._name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template._description or 'None'}</i>"
         response = f"{template_name}\n\n{template_description}\n\nEnter a new <b>template name</b>."
         reply_message = query.edit_message_text(
             response, parse_mode=ParseMode.HTML,
@@ -4127,8 +4127,8 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle rename template description button
     elif action == f"{models.RENAME}_{models.TEMPLATE}_{models.DESCRIPTION}":
-        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
-        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        template_name = f"<b>Template Name</b>\n<b>{template._name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template._description or 'None'}</i>"
         response = f"{template_name}\n\n{template_description}\n\nEnter a new <b>template description</b>."
         reply_message = query.edit_message_text(
             response, parse_mode=ParseMode.HTML,
@@ -4148,8 +4148,8 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle add template description button
     elif action == f"{models.ADD}_{models.TEMPLATE}_{models.DESCRIPTION}":
-        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
-        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        template_name = f"<b>Template Name</b>\n<b>{template._name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template._description or 'None'}</i>"
         response = f"{template_name}\n\n{template_description}\n\nEnter a new <b>template description</b>."
         reply_message = query.edit_message_text(
             response, parse_mode=ParseMode.HTML,
@@ -4258,9 +4258,9 @@ def handle_temp_list_callback_query(query: CallbackQuery, context: CallbackConte
         return
     # Handle confirm remove template description button
     elif action == f"{models.DELETE_YES}_{models.TEMPLATE}_{models.DESCRIPTION}":
-        template.description = ""
-        template_name = f"<b>Template Name</b>\n<b>{template.name}</b>"
-        template_description = f"<b>Template Description</b>\n<i>{template.description or 'None'}</i>"
+        template._description = ""
+        template_name = f"<b>Template Name</b>\n<b>{template._name}</b>"
+        template_description = f"<b>Template Description</b>\n<i>{template._description or 'None'}</i>"
         query.edit_message_text(
             f"{template_name}\n\n{template_description}", parse_mode=ParseMode.HTML,
             reply_markup=template.build_edit_template_details_buttons()
@@ -4491,7 +4491,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             return
         # Handle lists query
         elif command == LISTS_COMMAND and user and is_sender:
-            for _list in user.get_lists(details)[:QUERY_RESULTS_LIMIT]:
+            for _list in user.get_ballots(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
                     id=f"list_{_list.get_list_id()}", title=_list.get_title(),
                     description=_list.generate_options_summary(),
@@ -4537,8 +4537,8 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         elif command == TEMPLATES_COMMAND and user and is_sender:
             for template in user.get_templates(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
-                    id=f"temp_{template.temp_id}", title=template.name,
-                    description=(template.description or f"{template.icon} {template.temp_type.capitalize()} template"),
+                    id=f"temp_{template.temp_id}", title=template._name,
+                    description=(template._description or f"{template.icon} {template.temp_type.capitalize()} template"),
                     input_message_content=InputTextMessageContent(f"/temp_{template.temp_id}")
                 )
                 results.append(query_result)
@@ -4591,8 +4591,8 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
         elif command == GROUP_TEMPLATES_COMMAND and user and is_sender:
             for template in user.get_group_templates(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
-                    id=f"gtemp_{template.temp_id}", title=template.name,
-                    description=(template.description or f"{template.icon} {template.temp_type.capitalize()} template"),
+                    id=f"gtemp_{template.temp_id}", title=template._name,
+                    description=(template._description or f"{template.icon} {template.temp_type.capitalize()} template"),
                     input_message_content=InputTextMessageContent(f"/temp_{template.temp_id}")
                 )
                 results.append(query_result)
@@ -4704,7 +4704,7 @@ def handle_chosen_poll_result(update: Update, context: CallbackContext) -> None:
         return
 
     poll_id = match.group(1)
-    poll = Poll.get_poll_by_id(poll_id)
+    poll = Poll.get_ballot_by_id(poll_id)
     if poll:
         poll.add_message_details(chosen_poll.inline_message_id)
     else:
@@ -4721,7 +4721,7 @@ def handle_chosen_list_result(update: Update, context: CallbackContext) -> None:
         return
 
     list_id = match.group(1)
-    _list = List.get_list_by_id(list_id)
+    _list = List.get_ballot_by_id(list_id)
     if _list:
         _list.add_message_details(chosen_list.inline_message_id)
     else:
