@@ -503,12 +503,12 @@ class User(object):
         group_polls = self.get_group_polls()
         if group_polls:
             poll_linked_summaries = [poll.generate_linked_summary(True) for poll in group_polls]
-            poll_text_poll = PaginationTextGroup(
+            poll_text_group = PaginationTextGroup(
                 poll_linked_summaries, ("", f"{GROUP}_{POLL}", ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
-            page_contents, start_index = poll_text_poll.get_page_contents(page_number)
+            page_contents, start_index = poll_text_group.get_page_contents(page_number)
             body = util.list_to_indexed_list_string(
                 page_contents, start=start_index, line_spacing=2
             )
@@ -529,12 +529,12 @@ class User(object):
         group_lists = self.get_group_lists()
         if group_lists:
             list_linked_summaries = [_list.generate_linked_summary(True) for _list in group_lists]
-            list_text_list = PaginationTextGroup(
+            list_text_group = PaginationTextGroup(
                 list_linked_summaries, ("", f"{GROUP}_{LIST}", ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
-            page_contents, start_index = list_text_list.get_page_contents(page_number)
+            page_contents, start_index = list_text_group.get_page_contents(page_number)
             body = util.list_to_indexed_list_string(
                 page_contents, start=start_index, line_spacing=2
             )
@@ -555,12 +555,12 @@ class User(object):
         group_templates = self.get_group_templates()
         if group_templates:
             template_linked_summaries = [template.generate_linked_summary(True) for template in group_templates]
-            template_text_template = PaginationTextGroup(
+            template_text_group = PaginationTextGroup(
                 template_linked_summaries, ("", f"{GROUP}_{TEMPLATE}", ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
-            page_contents, start_index = template_text_template.get_page_contents(page_number)
+            page_contents, start_index = template_text_group.get_page_contents(page_number)
             body = util.list_to_indexed_list_string(
                 page_contents, start=start_index, line_spacing=2
             )
