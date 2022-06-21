@@ -34,8 +34,8 @@ logger = logging.getLogger(__name__)
 
 START_RESPONSE = "Welcome to the bot! \U0001f60a\n\nUse <b>/keyboard</b> to show and hide the command keyboard.\n\n" \
                  "Use <b>/help</b> to check the description for each bot command."
-MAINTENANCE_RESPONSE = "<b>MAINTENANCE BREAK</b>\nSorry, the developer is currently making some upgrades to the bot. " \
-                       "He apologises for any inconvenience caused 😓\n\nDo look forward to the next update!! 😎"
+MAINTENANCE_RESPONSE = "⚠ <b>MAINTENANCE BREAK</b>\n\nSorry, the developer is currently making some upgrades to the " \
+                       "bot. He apologises for any inconvenience caused 😓\n\nDo look forward to the next update!! 😎"
 
 # endregion
 
@@ -257,7 +257,7 @@ def main() -> None:
 
     # Command handlers
     dispatcher.add_handler(CommandHandler(START_COMMAND, handle_start, filters=private_filter))
-    dispatcher.add_handler(CommandHandler(KEYBOARD_COMMAND, handle_start, filters=private_filter))
+    dispatcher.add_handler(CommandHandler(KEYBOARD_COMMAND, handle_keyboard, filters=private_filter))
     dispatcher.add_handler(CommandHandler(HELP_COMMAND, handle_help, filters=private_filter))
 
     # Error handlers
