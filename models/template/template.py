@@ -6,9 +6,9 @@ from typing import List
 from telegram import InlineKeyboardMarkup
 
 from models import constant as const
+from models.template.ballot_template import BallotTemplate
 from models.template.format_text_code import FormatTextCode
 from models.template.poll_template import PollTemplate
-from models.template.ballot_template import BallotTemplate
 
 
 class Template(object):

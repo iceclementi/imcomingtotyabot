@@ -1,11 +1,12 @@
 """Util methods"""
-import string
 import random
 import re
+import string
 from datetime import datetime
 from hashlib import blake2b as blake
+from typing import Dict, List, Set, Tuple, Union
+
 import requests
-from typing import List, Tuple, Set, Union, Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 ENCODE_KEY = string.digits + string.ascii_letters

@@ -4,7 +4,6 @@ from typing import Dict, List, Tuple, Union
 
 from database import database as db
 from models import constant as const
-
 from utils import util
 
 

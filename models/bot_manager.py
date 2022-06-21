@@ -2,6 +2,7 @@ import json
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+from database import database as db
 from models import constant as const
 from models.ballot.ballot import Ballot, ballot_storage
 from models.poll.poll import Poll, poll_storage
@@ -10,8 +11,6 @@ from models.template.poll_template import PollTemplate, temp_poll_storage
 from models.user.group import Group, group_storage
 from models.user.user import User, user_storage
 from utils import util
-
-from database import database as db
 
 
 class BotManager(object):

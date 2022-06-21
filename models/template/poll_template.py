@@ -7,8 +7,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from database import database as db
 from models import constant as const
-from format_text_code import FormatTextCode
-from template import Template
+from models.template.format_text_code import FormatTextCode
+from models.template.template import Template
 from models.user.user import User
 from utils import util
 

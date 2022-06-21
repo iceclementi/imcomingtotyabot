@@ -1,6 +1,7 @@
 """UI Elements"""
 from abc import abstractmethod
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
+
 from telegram import InlineKeyboardButton
 
 from utils import util

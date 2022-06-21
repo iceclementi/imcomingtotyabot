@@ -7,11 +7,11 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from database import database as db
 from models import constant as const
 from models.ballot.ballot import Ballot
-from models.template.ballot_template import BallotTemplate
-from models.user.group import Group
 from models.poll.poll import Poll
+from models.template.ballot_template import BallotTemplate
 from models.template.poll_template import PollTemplate
 from models.template.template import Template
+from models.user.group import Group
 from utils import util
 from utils.ui import PaginationTextGroup
 
