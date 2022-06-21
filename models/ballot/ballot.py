@@ -6,8 +6,8 @@ from typing import List, Set
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from database import database as db
-from models import models
-from models.user import User
+from models import constant as const
+from models.user.user import User
 from utils import util
 from utils.ui import PaginationButtonGroup
 
@@ -43,9 +43,9 @@ class Ballot(object):
     def create_new(
         cls, title: str, uid: int, description: str, option_titles: List[str], choices: List[str]
     ) -> Ballot:
-        ballot_id = util.generate_random_id(models.BALLOT_ID_LENGTH, set(ballot_storage.keys()))
+        ballot_id = util.generate_random_id(const.BALLOT_ID_LENGTH, set(ballot_storage.keys()))
         ballot = cls(
-            ballot_id, title, uid, description, list(), choices, True, set(), models.EXPIRY, datetime.now(tz=models.tz)
+            ballot_id, title, uid, description, list(), choices, True, set(), const.EXPIRY, datetime.now(tz=const.tz)
         )
 
         for option_title in option_titles:
@@ -179,9 +179,9 @@ class Ballot(object):
 
     def generate_linked_summary(self, include_creator=False) -> str:
         short_bold_title = util.make_html_bold(self.title)[:60]
-        header = f"{short_bold_title} ({self.get_allocation_count()} {models.EMOJI_PEOPLE})"
-        link = f"/list_{self.ballot_id}"
-        creator = f"{models.EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
+        header = f"{short_bold_title} ({self.get_allocation_count()} {const.EMOJI_PEOPLE})"
+        link = f"/ballot_{self.ballot_id}"
+        creator = f"{const.EMOJI_CROWN} {User.get_user_by_id(self.creator_id).get_name()}"
         return "\n".join([header] + [f"{link} {creator}"]) if include_creator else "\n".join([header] + [link])
 
     def generate_options_summary(self) -> str:
@@ -190,65 +190,65 @@ class Ballot(object):
     def render_text(self) -> str:
         title = util.make_html_bold(self.title)
         description = util.make_html_italic(self.description)
-        header = [f"{models.EMOJI_BALLOT} {title}\n{description}" if description else title]
+        header = [f"{const.EMOJI_BALLOT} {title}\n{description}" if description else title]
         body = [option.render_text() for option in self.options]
-        footer = [f"{models.EMOJI_PEOPLE} {self.generate_allocations_summary()}"]
+        footer = [f"{const.EMOJI_PEOPLE} {self.generate_allocations_summary()}"]
         return "\n\n".join(header + body + footer)
 
     def build_update_buttons(self) -> InlineKeyboardMarkup:
         update_button = util.build_switch_button("Update", f"/update {self.get_ballot_hash()}", to_self=True)
-        refresh_button = self.build_button("Refresh", models.USER_REFRESH)
+        refresh_button = self.build_button("Refresh", const.USER_REFRESH)
         buttons = [[update_button, refresh_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_option_buttons(self) -> InlineKeyboardMarkup:
         buttons = []
         for i, option in enumerate(self.options):
-            option_button = self.build_button(option.get_title(), f"{models.OPTION}_{i}")
+            option_button = self.build_button(option.get_title(), f"{const.OPTION}_{i}")
             buttons.append([option_button])
-        refresh_button = self.build_button("Refresh", models.REFRESH_OPT)
-        done_button = self.build_button("Done", models.RETURN)
+        refresh_button = self.build_button("Refresh", const.REFRESH_OPT)
+        done_button = self.build_button("Done", const.RETURN)
         buttons.append([refresh_button, done_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_admin_buttons(self) -> InlineKeyboardMarkup:
         publish_button = util.build_switch_button("Publish", self.title)
-        settings_button = self.build_button("Settings", models.SETTINGS)
-        refresh_button = self.build_button("Refresh", models.REFRESH)
-        close_button = self.build_button("Close", models.CLOSE)
+        settings_button = self.build_button("Settings", const.SETTINGS)
+        refresh_button = self.build_button("Refresh", const.REFRESH)
+        close_button = self.build_button("Close", const.CLOSE)
         buttons = [[publish_button], [settings_button], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_settings_buttons(self, is_creator=False) -> InlineKeyboardMarkup:
         response_text = "Multi-Response" if self.single_response else "Single Response"
-        toggle_response_button = self.build_button(f"Change to {response_text}", models.RESPONSE)
-        back_button = self.build_button("Back", models.BACK)
+        toggle_response_button = self.build_button(f"Change to {response_text}", const.RESPONSE)
+        back_button = self.build_button("Back", const.BACK)
         buttons = [[toggle_response_button], [back_button]]
         if is_creator:
-            delete_button = self.build_button("Delete ReversePoll", models.DELETE)
+            delete_button = self.build_button("Delete ReversePoll", const.DELETE)
             buttons.insert(-1, [delete_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_choice_buttons(self, opt_id: int, page_number: int = 0, index: int = 0) -> InlineKeyboardMarkup:
         choice_button_group = PaginationButtonGroup(
-            self.choices, (models.BALLOT_SUBJECT, f"{models.CHOICE}_{opt_id}", self.ballot_id), items_per_page=5,
+            self.choices, (const.BALLOT_SUBJECT, f"{const.CHOICE}_{opt_id}", self.ballot_id), items_per_page=5,
             is_horizontal_buttons=True, is_cyclic=True, hidden_enabled=True
         )
         buttons = choice_button_group.build_buttons(page_number, index)
-        back_button = self.build_button("Back", models.OPTIONS)
+        back_button = self.build_button("Back", const.OPTIONS)
         buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_delete_confirm_buttons(
         self, delete_action: str, back_action: str, delete_text="Delete", back_text="No"
     ) -> InlineKeyboardMarkup:
-        delete_button = self.build_button(delete_text, f"{models.DELETE_YES}_{delete_action}")
+        delete_button = self.build_button(delete_text, f"{const.DELETE_YES}_{delete_action}")
         back_button = self.build_button(back_text, back_action)
         buttons = [[delete_button, back_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_button(self, text: str, action: str) -> InlineKeyboardButton:
-        return util.build_button(text, models.BALLOT_SUBJECT, action, self.ballot_id)
+        return util.build_button(text, const.BALLOT_SUBJECT, action, self.ballot_id)
 
     def to_json(self) -> dict:
         return {
@@ -312,7 +312,7 @@ class BallotOption(object):
     def render_text(self) -> str:
         title = util.make_html_bold(self.title)
         if self.allocations:
-            title += f" ({len(self.allocations)} {models.EMOJI_PEOPLE})"
+            title += f" ({len(self.allocations)} {const.EMOJI_PEOPLE})"
         namelist = util.strip_html_symbols(self.generate_namelist())
         return f"{title}\n{namelist}"
 

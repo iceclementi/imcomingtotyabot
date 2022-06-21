@@ -3345,7 +3345,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
     # Handle remove list button
     elif action == f"{models.DELETE}_{models.LIST}":
         user_lists = user.get_ballots()
-        query.edit_message_reply_markup(group.build_remove_lists_buttons(user_lists, is_owner=is_owner))
+        query.edit_message_reply_markup(group.build_remove_ballots_buttons(user_lists, is_owner=is_owner))
         query.answer(text="Select a list to remove from the group.")
         return
     # Handle remove list choice button
@@ -3375,7 +3375,7 @@ def handle_group_callback_query(query: CallbackQuery, context: CallbackContext, 
         query.answer(text=response)
         query.edit_message_text(
             group.render_group_ballots_text(), parse_mode=ParseMode.HTML,
-            reply_markup=group.build_remove_lists_buttons(user.get_ballots(), is_owner=is_owner)
+            reply_markup=group.build_remove_ballots_buttons(user.get_ballots(), is_owner=is_owner)
         )
         return
     # Handle view group templates button
@@ -4578,7 +4578,7 @@ def handle_inline_query(update: Update, context: CallbackContext) -> None:
             return
         # Handle group lists query
         elif command == GROUP_LISTS_COMMAND and user and is_sender:
-            for _list in user.get_group_lists(details)[:QUERY_RESULTS_LIMIT]:
+            for _list in user.get_group_ballots(details)[:QUERY_RESULTS_LIMIT]:
                 query_result = InlineQueryResultArticle(
                     id=f"glist_{_list.get_list_id()}", title=_list.get_title(),
                     description=_list.generate_options_summary(),

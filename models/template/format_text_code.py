@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Tuple, Union
 
 from database import database as db
-from models import models
+from models import constant as const
 
 from utils import util
 
@@ -143,9 +143,9 @@ class FormatTextCode(object):
             # Get the date offset
             week_offset = len(week_offset_symbols) * (1 if week_offset_symbols[0] == "+" else -1) \
                 if week_offset_symbols else 0
-            day = datetime.now(tz=models.tz).isoweekday() if day == 0 else day
-            days_offset = (day - datetime.now(tz=models.tz).isoweekday()) + week_offset * 7
-            new_date = datetime.now(tz=models.tz) + timedelta(days_offset)
+            day = datetime.now(tz=const.tz).isoweekday() if day == 0 else day
+            days_offset = (day - datetime.now(tz=const.tz).isoweekday()) + week_offset * 7
+            new_date = datetime.now(tz=const.tz) + timedelta(days_offset)
             return new_date.strftime(date_format.strip()), True
         # Handle other format types as string for now
         else:

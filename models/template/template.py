@@ -5,15 +5,15 @@ from typing import List
 
 from telegram import InlineKeyboardMarkup
 
-from models import models
-from models.format_text_code import FormatTextCode
-from models.poll_template import PollTemplate
-from models.ballot_template import BallotTemplate
+from models import constant as const
+from models.template.format_text_code import FormatTextCode
+from models.template.poll_template import PollTemplate
+from models.template.ballot_template import BallotTemplate
 
 
 class Template(object):
-    TEMPLATE_TYPES = {"P": "poll", "L": "list"}
-    TEMPLATE_ICONS = {"poll": models.EMOJI_POLL, "list": models.EMOJI_BALLOT}
+    TEMPLATE_TYPES = {"P": "poll", "B": "ballot"}
+    TEMPLATE_ICONS = {"poll": const.EMOJI_POLL, "ballot": const.EMOJI_BALLOT}
 
     def __init__(self, temp_id: str, name: str, description: str,
                  title_format: FormatTextCode, description_format: FormatTextCode, creator_id: int) -> None:
@@ -29,7 +29,7 @@ class Template(object):
     def get_template_by_id(temp_id: str) -> Template | None:
         if temp_id.startswith("P"):
             return PollTemplate.get_template_by_id(temp_id)
-        elif temp_id.startswith("L"):
+        elif temp_id.startswith("B"):
             return BallotTemplate.get_template_by_id(temp_id)
         else:
             return None

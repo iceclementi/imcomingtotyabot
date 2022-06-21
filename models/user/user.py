@@ -5,13 +5,13 @@ from typing import List, Set, Tuple
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from database import database as db
-from models import models
-from models.ballot import Ballot
-from models.ballot_template import BallotTemplate
-from models.group import Group
-from models.poll import Poll
-from models.poll_template import PollTemplate
-from models.template import Template
+from models import constant as const
+from models.ballot.ballot import Ballot
+from models.template.ballot_template import BallotTemplate
+from models.user.group import Group
+from models.poll.poll import Poll
+from models.template.poll_template import PollTemplate
+from models.template.template import Template
 from utils import util
 from utils.ui import PaginationTextGroup
 
@@ -95,8 +95,8 @@ class User(object):
     def create_group(self, name: str, password="") -> Tuple[Group | None, str]:
         if self.has_group_with_name(name):
             return None, "You already have a group with the same name."
-        if len(self._owned_group_ids) >= models.MAX_GROUPS_PER_USER:
-            return None, f"The maximum number of groups you can own ({models.MAX_GROUPS_PER_USER}) has been reached."
+        if len(self._owned_group_ids) >= const.MAX_GROUPS_PER_USER:
+            return None, f"The maximum number of groups you can own ({const.MAX_GROUPS_PER_USER}) has been reached."
         group = Group.create_new(name, self._uid, password)
         self._owned_group_ids.add(group.get_gid())
         return group, f"Group {util.make_html_bold(name)} created!"
@@ -117,8 +117,8 @@ class User(object):
         return sorted(joined_groups, key=lambda group: group.get_name().lower())
 
     def join_group(self, gid: str) -> str:
-        if len(self._joined_group_ids) >= models.MAX_JOINED_GROUPS_PER_USER:
-            return f"The maximum number of groups you can join ({models.MAX_JOINED_GROUPS_PER_USER}) has been reached."
+        if len(self._joined_group_ids) >= const.MAX_JOINED_GROUPS_PER_USER:
+            return f"The maximum number of groups you can join ({const.MAX_JOINED_GROUPS_PER_USER}) has been reached."
         self._joined_group_ids.add(gid)
         group = Group.get_group_by_id(gid)
         return f"Group {util.make_html_bold(group.get_name())} joined!"
@@ -181,14 +181,14 @@ class User(object):
         user_ballots = Ballot.get_ballots_by_ids(self._ballot_ids, filters)
         return sorted(user_ballots, key=lambda ballot: ballot.get_created_date(), reverse=True)
 
-    def get_group_list_ids(self) -> Set[str]:
+    def get_group_ballot_ids(self) -> Set[str]:
         group_ballot_ids = set()
         for group in self.get_all_groups():
             group_ballot_ids.update(group.get_ballot_ids())
         return group_ballot_ids
 
-    def get_group_lists(self, filters="") -> List[Ballot]:
-        group_ballots = Ballot.get_ballots_by_ids(self.get_group_list_ids(), filters)
+    def get_group_ballots(self, filters="") -> List[Ballot]:
+        group_ballots = Ballot.get_ballots_by_ids(self.get_group_ballot_ids(), filters)
         return sorted(group_ballots, key=lambda ballot: ballot.get_created_date(), reverse=True)
 
     def create_ballot(self, title: str, description: str, options: list, choices: list) -> Tuple[Ballot, str]:
@@ -315,7 +315,7 @@ class User(object):
         return self._poll_ids.union(self.get_group_poll_ids())
 
     def get_all_ballot_ids(self) -> Set[str]:
-        return self._ballot_ids.union(self.get_group_list_ids())
+        return self._ballot_ids.union(self.get_group_ballot_ids())
 
     def get_everything(self, filters=""):
         all_polls = Poll.get_polls_by_ids(self.get_all_poll_ids(), filters)
@@ -329,7 +329,7 @@ class User(object):
         if user_polls:
             poll_linked_summaries = [poll.generate_linked_summary() for poll in user_polls]
             poll_text_group = PaginationTextGroup(
-                poll_linked_summaries, ("", models.POLL, ""),
+                poll_linked_summaries, ("", const.POLL, ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
@@ -338,39 +338,39 @@ class User(object):
                 page_contents, start=start_index, line_spacing=2
             )
             buttons = poll_text_group.build_buttons(page_number)
-            buttons.append([util.build_button("Close", action=models.CLOSE)])
+            buttons.append([util.build_button("Close", action=const.CLOSE)])
         else:
             body = util.make_html_italic("You have no polls! Use /poll to build a new poll.")
-            buttons = [[util.build_button("Close", action=models.CLOSE)]]
+            buttons = [[util.build_button("Close", action=const.CLOSE)]]
 
         poll_count = len(user_polls)
-        footer = f"{models.EMOJI_POLL} {poll_count} poll{'' if poll_count == 1 else 's'} in total"
+        footer = f"{const.EMOJI_POLL} {poll_count} poll{'' if poll_count == 1 else 's'} in total"
 
         return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
     def render_ballot_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
-        header = "<b>Your Lists</b>"
+        header = "<b>Your Ballots</b>"
 
-        user_lists = self.get_ballots()
-        if user_lists:
-            list_linked_summaries = [_list.generate_linked_summary() for _list in user_lists]
-            list_text_group = PaginationTextGroup(
-                list_linked_summaries, ("", models.BALLOT, ""),
+        user_ballots = self.get_ballots()
+        if user_ballots:
+            ballot_linked_summaries = [ballot.generate_linked_summary() for ballot in user_ballots]
+            ballot_text_group = PaginationTextGroup(
+                ballot_linked_summaries, ("", const.BALLOT, ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
-            page_contents, start_index = list_text_group.get_page_contents(page_number)
+            page_contents, start_index = ballot_text_group.get_page_contents(page_number)
             body = util.list_to_indexed_list_string(
                 page_contents, start=start_index, line_spacing=2
             )
-            buttons = list_text_group.build_buttons(page_number)
-            buttons.append([util.build_button("Close", action=models.CLOSE)])
+            buttons = ballot_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=const.CLOSE)])
         else:
             body = util.make_html_italic("You have no ballots! Use /ballot to build a new ballot.")
-            buttons = [[util.build_button("Close", action=models.CLOSE)]]
+            buttons = [[util.build_button("Close", action=const.CLOSE)]]
 
-        list_count = len(user_lists)
-        footer = f"{models.EMOJI_BALLOT} {list_count} ballot{'' if list_count == 1 else 's'} in total"
+        ballot_count = len(user_ballots)
+        footer = f"{const.EMOJI_BALLOT} {ballot_count} ballot{'' if ballot_count == 1 else 's'} in total"
 
         return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
@@ -381,7 +381,7 @@ class User(object):
         if user_templates:
             template_linked_summaries = [template.generate_linked_summary() for template in user_templates]
             template_text_group = PaginationTextGroup(
-                template_linked_summaries, ("", models.TEMPLATE, ""),
+                template_linked_summaries, ("", const.TEMPLATE, ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
@@ -390,13 +390,13 @@ class User(object):
                 page_contents, start=start_index, line_spacing=2
             )
             buttons = template_text_group.build_buttons(page_number)
-            buttons.append([util.build_button("Close", action=models.CLOSE)])
+            buttons.append([util.build_button("Close", action=const.CLOSE)])
         else:
             body = "<i>You have no templates! Use /temp to create a new template.</i>"
-            buttons = [[util.build_button("Close", action=models.CLOSE)]]
+            buttons = [[util.build_button("Close", action=const.CLOSE)]]
 
         template_count = len(user_templates)
-        footer = f"{models.EMOJI_TEMPLATE} {template_count} template{'' if template_count == 1 else 's'} in total"
+        footer = f"{const.EMOJI_TEMPLATE} {template_count} template{'' if template_count == 1 else 's'} in total"
 
         return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
@@ -407,7 +407,7 @@ class User(object):
         if all_groups:
             group_linked_summaries = [group.generate_linked_summary(True) for group in all_groups]
             group_text_group = PaginationTextGroup(
-                group_linked_summaries, ("", models.GROUP, ""),
+                group_linked_summaries, ("", const.GROUP, ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
@@ -416,13 +416,13 @@ class User(object):
                 page_contents, start=start_index, line_spacing=2
             )
             buttons = group_text_group.build_buttons(page_number)
-            buttons.append([util.build_button("Close", action=models.CLOSE)])
+            buttons.append([util.build_button("Close", action=const.CLOSE)])
         else:
             body = f"<i><You are not in any group!/i>"
-            buttons = [[util.build_button("Close", action=models.CLOSE)]]
+            buttons = [[util.build_button("Close", action=const.CLOSE)]]
 
         group_count = len(self.get_all_group_ids())
-        footer = f"{models.EMOJI_GROUP} {group_count} group{'' if group_count == 1 else 's'} in total"
+        footer = f"{const.EMOJI_GROUP} {group_count} group{'' if group_count == 1 else 's'} in total"
 
         return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
@@ -433,7 +433,7 @@ class User(object):
         if group_polls:
             poll_linked_summaries = [poll.generate_linked_summary(True) for poll in group_polls]
             poll_text_group = PaginationTextGroup(
-                poll_linked_summaries, ("", f"{models.GROUP}_{models.POLL}", ""),
+                poll_linked_summaries, ("", f"{const.GROUP}_{const.POLL}", ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
@@ -442,39 +442,39 @@ class User(object):
                 page_contents, start=start_index, line_spacing=2
             )
             buttons = poll_text_group.build_buttons(page_number)
-            buttons.append([util.build_button("Close", action=models.CLOSE)])
+            buttons.append([util.build_button("Close", action=const.CLOSE)])
         else:
             body = "<i>You have no group polls!</i>"
-            buttons = [[util.build_button("Close", action=models.CLOSE)]]
+            buttons = [[util.build_button("Close", action=const.CLOSE)]]
 
         poll_count = len(group_polls)
-        footer = f"{models.EMOJI_POLL} {poll_count} group poll{'' if poll_count == 1 else 's'} in total"
+        footer = f"{const.EMOJI_POLL} {poll_count} group poll{'' if poll_count == 1 else 's'} in total"
 
         return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
     def render_group_ballot_list_with_buttons(self, page_number: int = 0) -> Tuple[str, InlineKeyboardMarkup]:
-        header = "<b>Your Group Lists</b>"
+        header = "<b>Your Group Ballots</b>"
 
-        group_lists = self.get_group_lists()
-        if group_lists:
-            list_linked_summaries = [_list.generate_linked_summary(True) for _list in group_lists]
-            list_text_group = PaginationTextGroup(
-                list_linked_summaries, ("", f"{models.GROUP}_{models.BALLOT}", ""),
+        group_ballots = self.get_group_ballots()
+        if group_ballots:
+            ballot_linked_summaries = [ballot.generate_linked_summary(True) for ballot in group_ballots]
+            ballot_text_group = PaginationTextGroup(
+                ballot_linked_summaries, ("", f"{const.GROUP}_{const.BALLOT}", ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
-            page_contents, start_index = list_text_group.get_page_contents(page_number)
+            page_contents, start_index = ballot_text_group.get_page_contents(page_number)
             body = util.list_to_indexed_list_string(
                 page_contents, start=start_index, line_spacing=2
             )
-            buttons = list_text_group.build_buttons(page_number)
-            buttons.append([util.build_button("Close", action=models.CLOSE)])
+            buttons = ballot_text_group.build_buttons(page_number)
+            buttons.append([util.build_button("Close", action=const.CLOSE)])
         else:
-            body = "<i>You have no group lists!</i>"
-            buttons = [[util.build_button("Close", action=models.CLOSE)]]
+            body = "<i>You have no group ballots!</i>"
+            buttons = [[util.build_button("Close", action=const.CLOSE)]]
 
-        ballot_count = len(group_lists)
-        footer = f"{models.EMOJI_BALLOT} {ballot_count} group ballot{'' if ballot_count == 1 else 's'} in total"
+        ballot_count = len(group_ballots)
+        footer = f"{const.EMOJI_BALLOT} {ballot_count} group ballot{'' if ballot_count == 1 else 's'} in total"
 
         return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
@@ -485,7 +485,7 @@ class User(object):
         if group_templates:
             template_linked_summaries = [template.generate_linked_summary(True) for template in group_templates]
             template_text_group = PaginationTextGroup(
-                template_linked_summaries, ("", f"{models.GROUP}_{models.TEMPLATE}", ""),
+                template_linked_summaries, ("", f"{const.GROUP}_{const.TEMPLATE}", ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
@@ -494,18 +494,18 @@ class User(object):
                 page_contents, start=start_index, line_spacing=2
             )
             buttons = template_text_group.build_buttons(page_number)
-            buttons.append([util.build_button("Close", action=models.CLOSE)])
+            buttons.append([util.build_button("Close", action=const.CLOSE)])
         else:
             body = "<i>You have no group templates!</i>"
-            buttons = [[util.build_button("Close", action=models.CLOSE)]]
+            buttons = [[util.build_button("Close", action=const.CLOSE)]]
 
         template_count = len(group_templates)
-        footer = f"{models.EMOJI_TEMPLATE} {template_count} group template{'' if template_count == 1 else 's'} in total"
+        footer = f"{const.EMOJI_TEMPLATE} {template_count} group template{'' if template_count == 1 else 's'} in total"
 
         return "\n\n".join([header] + [body] + [footer]), InlineKeyboardMarkup(buttons)
 
     def build_invite_text_and_buttons(self) -> tuple:
-        close_button = InlineKeyboardButton("Close", callback_data=models.CLOSE)
+        close_button = InlineKeyboardButton("Close", callback_data=const.CLOSE)
         if not self._owned_group_ids:
             return "", InlineKeyboardMarkup.from_button(close_button)
         buttons = []

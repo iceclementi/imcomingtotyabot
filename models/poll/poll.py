@@ -7,8 +7,8 @@ from typing import List, Tuple
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from database import database as db
-from models import models
-from models.user import User
+from models import constant as const
+from models.user.user import User
 from utils import util
 
 poll_storage = dict()
@@ -40,8 +40,8 @@ class Poll(object):
 
     @classmethod
     def create_new(cls, title: str, uid: int, description: str, option_titles: list) -> Poll:
-        poll_id = util.generate_random_id(models.POLL_ID_LENGTH, set(poll_storage.keys()))
-        poll = cls(poll_id, title, uid, description, list(), True, set(), models.EXPIRY, datetime.now(tz=models.tz))
+        poll_id = util.generate_random_id(const.POLL_ID_LENGTH, set(poll_storage.keys()))
+        poll = cls(poll_id, title, uid, description, list(), True, set(), const.EXPIRY, datetime.now(tz=const.tz))
 
         for option_title in option_titles:
             poll.add_option(Option.create_new(option_title))
@@ -182,9 +182,9 @@ class Poll(object):
 
     def generate_linked_summary(self, include_creator=False) -> str:
         short_bold_title = util.make_html_bold(self._title)[:60]
-        header = f"{short_bold_title} ({self.get_respondent_count()} {models.EMOJI_PEOPLE})"
+        header = f"{short_bold_title} ({self.get_respondent_count()} {const.EMOJI_PEOPLE})"
         link = f"/poll_{self._poll_id}"
-        creator = f"{models.EMOJI_CROWN} {User.get_user_by_id(self._creator_id).get_name()}"
+        creator = f"{const.EMOJI_CROWN} {User.get_user_by_id(self._creator_id).get_name()}"
         return "\n".join([header] + [f"{link} {creator}"]) if include_creator else "\n".join([header] + [link])
 
     def generate_options_summary(self) -> str:
@@ -193,9 +193,9 @@ class Poll(object):
     def render_text(self) -> str:
         title = util.make_html_bold(self._title)
         description = util.make_html_italic(self._description)
-        header = [f"{models.EMOJI_POLL} {title}\n{description}" if description else title]
+        header = [f"{const.EMOJI_POLL} {title}\n{description}" if description else title]
         body = [option.render_text() for option in self._options]
-        footer = [f"{models.EMOJI_PEOPLE} {self.generate_respondents_summary()}"]
+        footer = [f"{const.EMOJI_PEOPLE} {self.generate_respondents_summary()}"]
         return "\n\n".join(header + body + footer)
 
     def build_option_buttons(self) -> InlineKeyboardMarkup:
@@ -211,26 +211,26 @@ class Poll(object):
         edit_comments_button = util.build_switch_button(
             "Comment", f"/comment {self.get_poll_hash()}", to_self=True
         )
-        refresh_button = self.build_button("Refresh", models.REFRESH_OPT)
+        refresh_button = self.build_button("Refresh", const.REFRESH_OPT)
         buttons.append([edit_comments_button, refresh_button])
         return InlineKeyboardMarkup(buttons)
 
     def build_admin_buttons(self) -> InlineKeyboardMarkup:
         publish_button = util.build_switch_button("Publish", self._title)
-        settings_button = self.build_button("Settings", models.SETTINGS)
-        refresh_button = self.build_button("Refresh", models.REFRESH)
-        close_button = self.build_button("Close", models.CLOSE)
+        settings_button = self.build_button("Settings", const.SETTINGS)
+        refresh_button = self.build_button("Refresh", const.REFRESH)
+        close_button = self.build_button("Close", const.CLOSE)
         buttons = [[publish_button], [settings_button], [refresh_button, close_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_settings_buttons(self, is_creator=False) -> InlineKeyboardMarkup:
         response_text = "Multi-Response" if self._single_response else "Single Response"
-        toggle_response_button = self.build_button(f"Change to {response_text}", models.RESPONSE)
-        enforce_comments_button = self.build_button("Change Comment Requirements", models.COMMENT)
-        back_button = self.build_button("Back", models.BACK)
+        toggle_response_button = self.build_button(f"Change to {response_text}", const.RESPONSE)
+        enforce_comments_button = self.build_button("Change Comment Requirements", const.COMMENT)
+        back_button = self.build_button("Back", const.BACK)
         buttons = [[toggle_response_button], [enforce_comments_button], [back_button]]
         if is_creator:
-            delete_button = self.build_button("Delete Poll", models.DELETE)
+            delete_button = self.build_button("Delete Poll", const.DELETE)
             buttons.insert(-1, [delete_button])
         return InlineKeyboardMarkup(buttons)
 
@@ -238,9 +238,9 @@ class Poll(object):
         buttons = []
         for i, option in enumerate(self._options):
             button_text = option.get_title() + (" (required)" if option.is_comment_required() else "")
-            option_button = self.build_button(button_text, f"{models.COMMENT}_{i}")
+            option_button = self.build_button(button_text, f"{const.COMMENT}_{i}")
             buttons.append([option_button])
-        back_button = self.build_button("Back", models.BACK)
+        back_button = self.build_button("Back", const.BACK)
         buttons.append([back_button])
         return InlineKeyboardMarkup(buttons)
 
@@ -248,7 +248,7 @@ class Poll(object):
         buttons = []
         for i, option in enumerate(self._options):
             if option.is_voted_by_user(uid):
-                option_button = self.build_button(option.get_title(), f"{models.EDIT_COMMENT}_{i}")
+                option_button = self.build_button(option.get_title(), f"{const.EDIT_COMMENT}_{i}")
                 buttons.append([option_button])
 
         if buttons:
@@ -256,27 +256,27 @@ class Poll(object):
         else:
             response = util.make_html_italic("You have to vote first before you can enter a comment.")
 
-        return_button = self.build_button("Cancel", models.RETURN)
+        return_button = self.build_button("Cancel", const.RETURN)
         buttons.append([return_button])
 
         return response, InlineKeyboardMarkup(buttons)
 
     def build_comment_complete_buttons(self) -> InlineKeyboardMarkup:
-        back_button = self.build_button("Back", models.EDIT_COMMENT)
-        return_button = self.build_button("Return to Chat", models.RETURN)
+        back_button = self.build_button("Back", const.EDIT_COMMENT)
+        return_button = self.build_button("Return to Chat", const.RETURN)
         buttons = [[back_button, return_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_delete_confirm_buttons(
         self, delete_action: str, back_action: str, delete_text="Delete", back_text="No"
     ) -> InlineKeyboardMarkup:
-        delete_button = self.build_button(delete_text, f"{models.DELETE_YES}_{delete_action}")
+        delete_button = self.build_button(delete_text, f"{const.DELETE_YES}_{delete_action}")
         back_button = self.build_button(back_text, back_action)
         buttons = [[delete_button, back_button]]
         return InlineKeyboardMarkup(buttons)
 
     def build_button(self, text: str, action: str) -> InlineKeyboardButton:
-        return util.build_button(text, models.POLL_SUBJECT, action, self._poll_id)
+        return util.build_button(text, const.POLL_SUBJECT, action, self._poll_id)
 
     def to_json(self) -> dict:
         return {
@@ -368,7 +368,7 @@ class Option(object):
     def render_text(self) -> str:
         title = util.make_html_bold(self.title)
         if self.respondents:
-            title += f" ({len(self.respondents)} {models.EMOJI_PEOPLE})"
+            title += f" ({len(self.respondents)} {const.EMOJI_PEOPLE})"
         namelist = util.strip_html_symbols(self.generate_namelist())
         return f"{title}\n{namelist}"
 

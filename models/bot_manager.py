@@ -1,6 +1,14 @@
 import json
 
-from models.models import group_storage, list_storage, poll_storage, temp_list_storage, temp_poll_storage, user_storage
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+from models import constant as const
+from models.ballot.ballot import Ballot, ballot_storage
+from models.poll.poll import Poll, poll_storage
+from models.template.ballot_template import BallotTemplate, temp_ballot_storage
+from models.template.poll_template import PollTemplate, temp_poll_storage
+from models.user.group import Group, group_storage
+from models.user.user import User, user_storage
 from utils import util
 
 from database import database as db
@@ -25,9 +33,9 @@ class BotManager(object):
             db.save(user_storage, db.USER_SHEET)
             db.save(group_storage, db.GROUP_SHEET)
             db.save(poll_storage, db.POLL_SHEET)
-            db.save(list_storage, db.BALLOT_SHEET)
+            db.save(ballot_storage, db.BALLOT_SHEET)
             db.save(temp_poll_storage, db.TEMP_POLL_SHEET)
-            db.save(temp_list_storage, db.TEMP_BALLOT_SHEET)
+            db.save(temp_ballot_storage, db.TEMP_BALLOT_SHEET)
             return "Data saved successfully."
         except (TypeError, json.JSONDecodeError) as error:
             return f"Error saving data: {error}"
@@ -81,17 +89,17 @@ class BotManager(object):
 
             lists_data = db.load(db.BALLOT_SHEET)
             for list_data in lists_data:
-                List.load(
-                    list_data[db.REVERSE_POLL_ID],
-                    list_data[db.REVERSE_POLL_TITLE],
-                    list_data[db.REVERSE_POLL_CREATOR_ID],
-                    list_data[db.REVERSE_POLL_DESCRIPTION],
-                    list_data[db.REVERSE_POLL_OPTIONS],
-                    list_data[db.REVERSE_POLL_CHOICES],
-                    list_data[db.REVERSE_POLL_SINGLE_RESPONSE],
-                    list_data[db.REVERSE_POLL_MESSAGE_DETAILS],
-                    list_data[db.REVERSE_POLL_EXPIRY],
-                    list_data[db.REVERSE_POLL_CREATED_DATE],
+                Ballot.load(
+                    list_data[db.BALLOT_ID],
+                    list_data[db.BALLOT_TITLE],
+                    list_data[db.BALLOT_CREATOR_ID],
+                    list_data[db.BALLOT_DESCRIPTION],
+                    list_data[db.BALLOT_OPTIONS],
+                    list_data[db.BALLOT_CHOICES],
+                    list_data[db.BALLOT_SINGLE_RESPONSE],
+                    list_data[db.BALLOT_MESSAGE_DETAILS],
+                    list_data[db.BALLOT_EXPIRY],
+                    list_data[db.BALLOT_CREATED_DATE],
                 )
 
             temp_polls_data = db.load(db.TEMP_POLL_SHEET)
@@ -109,16 +117,16 @@ class BotManager(object):
 
             temp_lists_data = db.load(db.TEMP_BALLOT_SHEET)
             for temp_list_data in temp_lists_data:
-                ListTemplate.load(
-                    temp_list_data[db.TEMP_REVERSE_POLL_ID],
-                    temp_list_data[db.TEMP_REVERSE_POLL_NAME],
-                    temp_list_data[db.TEMP_REVERSE_POLL_DESCRIPTION],
-                    temp_list_data[db.TEMP_REVERSE_POLL_TITLE_FORMAT],
-                    temp_list_data[db.TEMP_REVERSE_POLL_DESCRIPTION_FORMAT],
-                    temp_list_data[db.TEMP_REVERSE_POLL_OPTIONS],
-                    temp_list_data[db.TEMP_REVERSE_POLL_CHOICES],
-                    temp_list_data[db.TEMP_REVERSE_POLL_SINGLE_RESPONSE],
-                    temp_list_data[db.TEMP_REVERSE_POLL_CREATOR_ID]
+                BallotTemplate.load(
+                    temp_list_data[db.TEMP_BALLOT_ID],
+                    temp_list_data[db.TEMP_BALLOT_NAME],
+                    temp_list_data[db.TEMP_BALLOT_DESCRIPTION],
+                    temp_list_data[db.TEMP_BALLOT_TITLE_FORMAT],
+                    temp_list_data[db.TEMP_BALLOT_DESCRIPTION_FORMAT],
+                    temp_list_data[db.TEMP_BALLOT_OPTIONS],
+                    temp_list_data[db.TEMP_BALLOT_CHOICES],
+                    temp_list_data[db.TEMP_BALLOT_SINGLE_RESPONSE],
+                    temp_list_data[db.TEMP_BALLOT_CREATOR_ID]
                 )
 
             return "Data loaded successfully."
@@ -129,9 +137,9 @@ class BotManager(object):
     def build_access_request_text_and_buttons() -> tuple:
         response = f"Which access to you want to grant?"
         buttons = util.build_multiple_buttons_markup(
-            util.generate_button_details("Bot Access", BOT_ACCESS),
-            util.generate_button_details("Bot Leader Access", PROMOTE),
-            util.generate_button_details("Close", CLOSE)
+            util.generate_button_details("Bot Access", const.BOT_ACCESS),
+            util.generate_button_details("Bot Leader Access", const.PROMOTE),
+            util.generate_button_details("Close", const.CLOSE)
         )
         return response, buttons
 
@@ -140,18 +148,18 @@ class BotManager(object):
         response = f"Click the button below to send a unique invitation to your friend to access the bot."
         buttons = util.build_multiple_buttons_markup(
             util.generate_button_details("Send Bot Invite", f"/enrol {uid}", True),
-            util.generate_button_details("Close", CLOSE)
+            util.generate_button_details("Close", const.CLOSE)
         )
         return response, buttons
 
     @staticmethod
     def build_invite_text_and_button(token: str, uid: int) -> tuple:
-        invitation = f"You are invited to have access to <b>@{BOT_NAME}</b>!"
+        invitation = f"You are invited to have access to <b>@{const.BOT_NAME}</b>!"
         buttons = util.build_multiple_buttons_markup(
             util.generate_button_details(
-                "Get Access",  f"/access {BotManager.get_bot_token_hash(token, uid)}", is_switch=True, to_self=True
+                "Get Access", f"/access {BotManager.get_bot_token_hash(token, uid)}", is_switch=True, to_self=True
             ),
-            util.generate_button_details("Close", CLOSE)
+            util.generate_button_details("Close", const.CLOSE)
         )
         return invitation, buttons
 
@@ -162,8 +170,10 @@ class BotManager(object):
         buttons = []
         for user in sorted(user_storage.values(), key=lambda u: u.get_name().lower()):
             if not user.is_leader():
-                invite_button = util.build_button(user.get_name(), USER_SUBJECT, PROMOTE, util.encode(user.get_uid()))
+                invite_button = util.build_button(
+                    user.get_name(), const.USER_SUBJECT, const.PROMOTE, util.encode(user.get_uid())
+                )
                 buttons.append([invite_button])
-        close_button = InlineKeyboardButton("Close", callback_data=CLOSE)
+        close_button = InlineKeyboardButton("Close", callback_data=const.CLOSE)
         buttons.append([close_button])
         return response, InlineKeyboardMarkup(buttons)
