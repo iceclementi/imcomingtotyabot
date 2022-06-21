@@ -260,6 +260,9 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler(KEYBOARD_COMMAND, handle_keyboard, filters=private_filter))
     dispatcher.add_handler(CommandHandler(HELP_COMMAND, handle_help, filters=private_filter))
 
+    # Callback query handlers
+    dispatcher.add_handler(CallbackQueryHandler(handle_callback_query))
+
     # Error handlers
     dispatcher.add_error_handler(handle_error)
 
