@@ -2,9 +2,9 @@ import re
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple, Union
 
-from database import database as db
-from models import constant as const
-from utils import util
+from telebot.database import database as db
+from telebot.models import constant as const
+from telebot.utils import util
 
 
 class FormatTextCode(object):

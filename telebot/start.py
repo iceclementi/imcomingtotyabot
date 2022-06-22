@@ -5,13 +5,12 @@ import re
 
 import telegram.error
 from telegram import (
-    CallbackQuery, InlineKeyboardMarkup, InlineQuery, InlineQueryResultArticle, InputTextMessageContent, Message,
-    ParseMode, ReplyKeyboardRemove, Update
+    CallbackQuery, Message,
+    ReplyKeyboardRemove, Update
 )
 from telegram import User as TeleUser
 from telegram.ext import (
-    CallbackContext, CallbackQueryHandler, ChosenInlineResultHandler, CommandHandler, Filters, InlineQueryHandler,
-    MessageHandler, Updater
+    CallbackContext, CallbackQueryHandler, CommandHandler, Filters, Updater
 )
 
 from models import constant as const

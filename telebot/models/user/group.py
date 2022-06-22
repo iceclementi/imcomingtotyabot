@@ -5,13 +5,13 @@ from typing import List, Set, Tuple
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from database import database as db
-from models import constant as const
-from models.ballot.ballot import Ballot
-from models.poll.poll import Poll
-from models.template.template import Template
-from models.user.user import User
-from utils import util
+from telebot.database import database as db
+from telebot.models import constant as const
+from telebot.models.ballot.ballot import Ballot
+from telebot.models.poll.poll import Poll
+from telebot.models.template.template import Template
+from telebot.models.user.user import User
+from telebot.utils import util
 
 group_storage = dict()
 

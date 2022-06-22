@@ -4,16 +4,16 @@ from typing import List, Set, Tuple
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from database import database as db
-from models import constant as const
-from models.ballot.ballot import Ballot
-from models.poll.poll import Poll
-from models.template.ballot_template import BallotTemplate
-from models.template.poll_template import PollTemplate
-from models.template.template import Template
-from models.user.group import Group
-from utils import util
-from utils.ui import PaginationTextGroup
+from telebot.database import database as db
+from telebot.models import constant as const
+from telebot.models.ballot.ballot import Ballot
+from telebot.models.poll.poll import Poll
+from telebot.models.template.ballot_template import BallotTemplate
+from telebot.models.template.poll_template import PollTemplate
+from telebot.models.template.template import Template
+from telebot.models.user.group import Group
+from telebot.utils import util
+from telebot.utils.ui import PaginationTextGroup
 
 user_storage = dict()
 

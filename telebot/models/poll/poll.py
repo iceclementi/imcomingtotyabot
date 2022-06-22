@@ -6,10 +6,10 @@ from typing import List, Tuple
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from database import database as db
-from models import constant as const
-from models.user.user import User
-from utils import util
+from telebot.database import database as db
+from telebot.models import constant as const
+from telebot.models.user.user import User
+from telebot.utils import util
 
 poll_storage = dict()
 

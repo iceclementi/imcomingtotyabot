@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 
 from telegram import InlineKeyboardButton
 
-from utils import util
+from telebot.utils import util
 
 EMOJI_UP = "︿"
 EMOJI_DOWN = "﹀"

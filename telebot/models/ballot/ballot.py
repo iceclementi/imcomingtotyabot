@@ -5,11 +5,11 @@ from typing import List, Set
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from database import database as db
-from models import constant as const
-from models.user.user import User
-from utils import util
-from utils.ui import PaginationButtonGroup
+from telebot.database import database as db
+from telebot.models import constant as const
+from telebot.models.user.user import User
+from telebot.utils import util
+from telebot.utils.ui import PaginationButtonGroup
 
 ballot_storage = dict()
 

@@ -5,12 +5,12 @@ from typing import Dict, List, Tuple
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from database import database as db
-from models import constant as const
-from models.template.format_text_code import FormatTextCode
-from models.template.template import Template
-from models.user.user import User
-from utils import util
+from telebot.database import database as db
+from telebot.models import constant as const
+from telebot.models.template.format_text_code import FormatTextCode
+from telebot.models.template.template import Template
+from telebot.models.user.user import User
+from telebot.utils import util
 
 temp_poll_storage = dict()
 

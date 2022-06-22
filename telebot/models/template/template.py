@@ -5,10 +5,10 @@ from typing import List
 
 from telegram import InlineKeyboardMarkup
 
-from models import constant as const
-from models.template.ballot_template import BallotTemplate
-from models.template.format_text_code import FormatTextCode
-from models.template.poll_template import PollTemplate
+from telebot.models import constant as const
+from telebot.models.template.ballot_template import BallotTemplate
+from telebot.models.template.format_text_code import FormatTextCode
+from telebot.models.template.poll_template import PollTemplate
 
 
 class Template(object):

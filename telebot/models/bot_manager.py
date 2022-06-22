@@ -2,15 +2,15 @@ import json
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from database import database as db
-from models import constant as const
-from models.ballot.ballot import Ballot, ballot_storage
-from models.poll.poll import Poll, poll_storage
-from models.template.ballot_template import BallotTemplate, temp_ballot_storage
-from models.template.poll_template import PollTemplate, temp_poll_storage
-from models.user.group import Group, group_storage
-from models.user.user import User, user_storage
-from utils import util
+from telebot.database import database as db
+from telebot.models import constant as const
+from telebot.models.ballot.ballot import Ballot, ballot_storage
+from telebot.models.poll.poll import Poll, poll_storage
+from telebot.models.template.ballot_template import BallotTemplate, temp_ballot_storage
+from telebot.models.template.poll_template import PollTemplate, temp_poll_storage
+from telebot.models.user.group import Group, group_storage
+from telebot.models.user.user import User, user_storage
+from telebot.utils import util
 
 
 class BotManager(object):
