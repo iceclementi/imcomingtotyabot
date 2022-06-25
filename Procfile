@@ -1,1 +1,1 @@
-web: cd ./webapp/server && npm run start
+web: python start.py
