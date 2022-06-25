@@ -130,6 +130,8 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if not text:
         return
 
+    delete_chat_message(update.message)
+
     update.message.reply_html(MAINTENANCE_RESPONSE, reply_markup=util.build_single_button_markup("Close", const.CLOSE))
     return
 
@@ -265,7 +267,7 @@ def main() -> None:
     # Error handlers
     dispatcher.add_error_handler(handle_error)
 
-    # Ing server every 15 minutes to prevent server from sleeping
+    # Ping server every 15 minutes to prevent server from sleeping
     updater.job_queue.run_repeating(ping_server_job, 900, first=900, name="Ping server job")
 
     # Start the bot
