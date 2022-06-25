@@ -1,1 +1,1 @@
-web: python3 telebot/start.py
+web: cd webapp/server
