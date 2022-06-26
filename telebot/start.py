@@ -5,12 +5,21 @@ import re
 
 import telegram.error
 from telegram import (
-    CallbackQuery, Message,
-    ReplyKeyboardRemove, Update
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    ReplyKeyboardRemove,
+    Update,
+    WebAppInfo,
 )
 from telegram import User as TeleUser
 from telegram.ext import (
-    CallbackContext, CallbackQueryHandler, CommandHandler, Filters, Updater
+    CallbackContext,
+    CallbackQueryHandler,
+    CommandHandler,
+    Filters,
+    Updater,
 )
 
 from models import constant as const
@@ -24,17 +33,23 @@ TOKEN = os.environ["TOKEN"]
 PORT = int(os.environ.get("PORT", 8443))
 updater = Updater(TOKEN, use_context=True)
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
 # endregion
 
 # region RESPONSES
 
-START_RESPONSE = "Welcome to the bot! \U0001f60a\n\nUse <b>/keyboard</b> to show and hide the command keyboard.\n\n" \
-                 "Use <b>/help</b> to check the description for each bot command."
-MAINTENANCE_RESPONSE = "⚠ <b>MAINTENANCE BREAK</b>\n\nSorry, the developer is currently making some upgrades to the " \
-                       "bot. He apologises for any inconvenience caused 😓\n\nDo look forward to the next update!! 😎"
+START_RESPONSE = (
+    "Welcome to the bot! \U0001f60a\n\nUse <b>/keyboard</b> to show and hide the command keyboard.\n\n"
+    "Use <b>/help</b> to check the description for each bot command."
+)
+MAINTENANCE_RESPONSE = (
+    "⚠ <b>MAINTENANCE BREAK</b>\n\nSorry, the developer is currently making some upgrades to the "
+    "bot. He apologises for any inconvenience caused 😓\n\nDo look forward to the next update!! 😎"
+)
 
 # endregion
 
@@ -43,13 +58,16 @@ MAINTENANCE_RESPONSE = "⚠ <b>MAINTENANCE BREAK</b>\n\nSorry, the developer is 
 START_COMMAND = "start"
 KEYBOARD_COMMAND = "keyboard"
 HELP_COMMAND = "help"
+TEST_COMMAND = "test"
 
 # endregion
 
 # region COMMAND HELP
 
 START_HELP = "<b>/start</b>\nView the bot's welcome message"
-KEYBOARD_HELP = "<b>/keyboard</b>\nChoose between showing or hiding the command keyboard"
+KEYBOARD_HELP = (
+    "<b>/keyboard</b>\nChoose between showing or hiding the command keyboard"
+)
 HELP_HELP = "<b>/help</b>\nView this help message"
 
 
@@ -64,9 +82,13 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
     arguments = context.args
     if not arguments:
-        update.message.reply_html(START_RESPONSE, reply_markup=util.build_single_button_markup("Close", const.CLOSE))
         update.message.reply_html(
-            MAINTENANCE_RESPONSE, reply_markup=util.build_single_button_markup("Close", const.CLOSE)
+            START_RESPONSE,
+            reply_markup=util.build_single_button_markup("Close", const.CLOSE),
+        )
+        update.message.reply_html(
+            MAINTENANCE_RESPONSE,
+            reply_markup=util.build_single_button_markup("Close", const.CLOSE),
         )
         return
 
@@ -85,7 +107,10 @@ def handle_start(update: Update, context: CallbackContext) -> None:
 
 def handle_pm_command(command: str, update: Update, context: CallbackContext) -> None:
     """Manages standard commands in pm mode with the bot."""
-    update.message.reply_html(MAINTENANCE_RESPONSE, reply_markup=util.build_single_button_markup("Back", const.RETURN))
+    update.message.reply_html(
+        MAINTENANCE_RESPONSE,
+        reply_markup=util.build_single_button_markup("Back", const.RETURN),
+    )
     return
 
 
@@ -95,11 +120,16 @@ def handle_keyboard(update: Update, context: CallbackContext) -> None:
     context.user_data.clear()
 
     show_hide_buttons = util.build_multiple_stacked_buttons_markup(
-        [util.generate_button_details("Show", const.SHOW), util.generate_button_details("Hide", const.HIDE)],
-        [util.generate_button_details("Close", const.CLOSE)]
+        [
+            util.generate_button_details("Show", const.SHOW),
+            util.generate_button_details("Hide", const.HIDE),
+        ],
+        [util.generate_button_details("Close", const.CLOSE)],
     )
 
-    update.message.reply_html("Show or hide command keyboard?", reply_markup=show_hide_buttons)
+    update.message.reply_html(
+        "Show or hide command keyboard?", reply_markup=show_hide_buttons
+    )
     return
 
 
@@ -112,8 +142,32 @@ def handle_help(update: Update, context: CallbackContext) -> None:
     body = [START_HELP, KEYBOARD_HELP, HELP_HELP]
 
     response = "\n\n".join(header + body)
-    update.message.reply_html(response, reply_markup=util.build_single_button_markup("Close", const.CLOSE))
+    update.message.reply_html(
+        response, reply_markup=util.build_single_button_markup("Close", const.CLOSE)
+    )
     return
+
+
+def handle_test(update: Update, context: CallbackContext) -> None:
+    """Tests the webapp."""
+    delete_chat_message(update.message)
+    context.user_data.clear()
+
+    header = [util.make_html_bold("Testing Webapp")]
+    body = ["Web app testing..."]
+
+    response = "\n".join(header + body)
+    buttons = [
+        [
+            InlineKeyboardButton(
+                "Test",
+                web_app=WebAppInfo(url=f"https://tya-srg-bot-webapp.herokuapp.com/"),
+                callback_data="test",
+            )
+        ],
+        [InlineKeyboardButton("Close", callback_data=const.CLOSE)],
+    ]
+    update.message.reply_html(response, reply_markup=InlineKeyboardMarkup(buttons))
 
 
 # endregion
@@ -132,7 +186,10 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
     delete_chat_message(update.message)
 
-    update.message.reply_html(MAINTENANCE_RESPONSE, reply_markup=util.build_single_button_markup("Close", const.CLOSE))
+    update.message.reply_html(
+        MAINTENANCE_RESPONSE,
+        reply_markup=util.build_single_button_markup("Close", const.CLOSE),
+    )
     return
 
 
@@ -149,7 +206,9 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
     return
 
 
-def handle_general_callback_query(query: CallbackQuery, context: CallbackContext, action: str) -> None:
+def handle_general_callback_query(
+    query: CallbackQuery, context: CallbackContext, action: str
+) -> None:
     """Handles a general callback query."""
     # Handle show command button
     if action == const.SHOW:
@@ -159,7 +218,9 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
     # Handle hide command button
     elif action == const.HIDE:
         query.message.delete()
-        reply_message = query.message.reply_html("Hiding command keyboard...", reply_markup=ReplyKeyboardRemove())
+        reply_message = query.message.reply_html(
+            "Hiding command keyboard...", reply_markup=ReplyKeyboardRemove()
+        )
         reply_message.delete()
         query.answer(text="Command keyboard hidden!")
         return
@@ -173,7 +234,8 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         query.answer(text="Returning to chat...")
         response = "Returning to chat..."
         reply_message = query.message.reply_html(
-            response, reply_markup=util.build_single_switch_button_markup("Return To Chat", "")
+            response,
+            reply_markup=util.build_single_switch_button_markup("Return To Chat", ""),
         )
         context.user_data.clear()
         reply_message.delete()
@@ -186,7 +248,9 @@ def handle_general_callback_query(query: CallbackQuery, context: CallbackContext
         return
 
 
-def handle_show_command_callback_query(query: CallbackQuery, context: CallbackContext) -> None:
+def handle_show_command_callback_query(
+    query: CallbackQuery, context: CallbackContext
+) -> None:
     """Shows the command keyboard to the user."""
     query.message.delete()
 
@@ -194,7 +258,9 @@ def handle_show_command_callback_query(query: CallbackQuery, context: CallbackCo
         [f"/{START_COMMAND}", f"/{KEYBOARD_COMMAND}", f"/{HELP_COMMAND}"]
     )
 
-    reply_message = query.message.reply_html("Showing command keyboard...", reply_markup=ReplyKeyboardRemove())
+    reply_message = query.message.reply_html(
+        "Showing command keyboard...", reply_markup=ReplyKeyboardRemove()
+    )
     reply_message.delete()
     query.message.reply_html("Select a bot command 🔽", reply_markup=buttons)
     return
@@ -215,6 +281,7 @@ def handle_error(update: Update, context: CallbackContext) -> None:
 
 # region HELPERS
 
+
 def is_private_chat(message: Message) -> bool:
     """Verifies if a user is in a private chat."""
     return message and message.chat.type == "private"
@@ -222,7 +289,11 @@ def is_private_chat(message: Message) -> bool:
 
 def extract_user_data(user: TeleUser) -> tuple:
     """Extracts user data from User object."""
-    return user.id, {"first_name": user.first_name, "last_name": user.last_name or "", "username": user.username or ""}
+    return user.id, {
+        "first_name": user.first_name,
+        "last_name": user.last_name or "",
+        "username": user.username or "",
+    }
 
 
 def delete_chat_message(message: Message) -> None:
@@ -257,9 +328,18 @@ def main() -> None:
     private_filter = Filters.chat_type.private
 
     # Command handlers
-    dispatcher.add_handler(CommandHandler(START_COMMAND, handle_start, filters=private_filter))
-    dispatcher.add_handler(CommandHandler(KEYBOARD_COMMAND, handle_keyboard, filters=private_filter))
-    dispatcher.add_handler(CommandHandler(HELP_COMMAND, handle_help, filters=private_filter))
+    dispatcher.add_handler(
+        CommandHandler(START_COMMAND, handle_start, filters=private_filter)
+    )
+    dispatcher.add_handler(
+        CommandHandler(KEYBOARD_COMMAND, handle_keyboard, filters=private_filter)
+    )
+    dispatcher.add_handler(
+        CommandHandler(HELP_COMMAND, handle_help, filters=private_filter)
+    )
+    dispatcher.add_handler(
+        CommandHandler(TEST_COMMAND, handle_test, filters=private_filter)
+    )
 
     # Callback query handlers
     dispatcher.add_handler(CallbackQueryHandler(handle_callback_query))
@@ -268,10 +348,14 @@ def main() -> None:
     dispatcher.add_error_handler(handle_error)
 
     # Ping server every 15 minutes to prevent server from sleeping
-    updater.job_queue.run_repeating(ping_server_job, 900, first=900, name="Ping server job")
+    updater.job_queue.run_repeating(
+        ping_server_job, 900, first=900, name="Ping server job"
+    )
 
     # Start the bot
-    updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=WEB_URL + TOKEN)
+    updater.start_webhook(
+        listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=WEB_URL + TOKEN
+    )
     updater.idle()
 
 
