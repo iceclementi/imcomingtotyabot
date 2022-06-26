@@ -162,7 +162,6 @@ def handle_test(update: Update, context: CallbackContext) -> None:
             InlineKeyboardButton(
                 "Test",
                 web_app=WebAppInfo(url=f"https://tya-srg-bot-webapp.herokuapp.com/"),
-                callback_data="test",
             )
         ],
         [InlineKeyboardButton("Close", callback_data=const.CLOSE)],
@@ -347,9 +346,9 @@ def main() -> None:
     # Error handlers
     dispatcher.add_error_handler(handle_error)
 
-    # Ping server every 15 minutes to prevent server from sleeping
+    # Ping server every 30 minutes to prevent server from sleeping
     updater.job_queue.run_repeating(
-        ping_server_job, 900, first=900, name="Ping server job"
+        ping_server_job, 30 * 60, first=30 * 60, name="Ping server job"
     )
 
     # Start the bot
