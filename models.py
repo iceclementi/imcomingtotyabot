@@ -321,7 +321,7 @@ class User(object):
         return any(temp_poll.name.lower() == name.lower() for temp_poll in self.get_temp_polls())
 
     def create_poll_from_template(self, temp_id: str, title: str, description: str) -> Poll | None:
-        if temp_id not in self._temp_poll_ids:
+        if temp_id not in self.get_all_temp_poll_ids():
             return None
         temp_poll = PollTemplate.get_template_by_id(temp_id)
         poll, _ = self.create_poll(title, description, temp_poll.options)
@@ -357,7 +357,7 @@ class User(object):
         return any(temp_list.name.lower() == name.lower() for temp_list in self.get_temp_lists())
 
     def create_list_from_template(self, temp_id: str, title: str, description: str) -> List | None:
-        if temp_id not in self._temp_list_ids:
+        if temp_id not in self.get_all_temp_list_ids():
             return None
         temp_list = ListTemplate.get_template_by_id(temp_id)
         _list, _ = self.create_list(title, description, temp_list.options, temp_list.choices)
@@ -375,6 +375,12 @@ class User(object):
             group_temp_ids.update(group.get_template_ids())
         return group_temp_ids
 
+    def get_group_temp_poll_ids(self) -> Set[str]:
+        return set(temp_id for temp_id in self.get_group_temp_ids() if temp_id.startswith("P"))
+
+    def get_group_temp_list_ids(self) -> Set[str]:
+        return set(temp_id for temp_id in self.get_group_temp_ids() if temp_id.startswith("L"))
+
     def get_group_templates(self, filters="") -> Lst[Template]:
         group_templates = Template.get_templates_by_ids(self.get_group_temp_ids(), filters)
         return sorted(group_templates, key=lambda template: template.name.lower())
@@ -387,6 +393,12 @@ class User(object):
 
     def get_all_list_ids(self) -> Set[str]:
         return self.list_ids.union(self.get_group_list_ids())
+
+    def get_all_temp_poll_ids(self) -> Set[str]:
+        return self._temp_poll_ids.union(self.get_group_temp_poll_ids())
+
+    def get_all_temp_list_ids(self) -> Set[str]:
+        return self._temp_list_ids.union(self.get_group_temp_list_ids())
 
     def get_everything(self, filters=""):
         all_polls = Poll.get_polls_by_ids(self.get_all_poll_ids(), filters)
@@ -503,12 +515,12 @@ class User(object):
         group_polls = self.get_group_polls()
         if group_polls:
             poll_linked_summaries = [poll.generate_linked_summary(True) for poll in group_polls]
-            poll_text_poll = PaginationTextGroup(
+            poll_text_group = PaginationTextGroup(
                 poll_linked_summaries, ("", f"{GROUP}_{POLL}", ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
-            page_contents, start_index = poll_text_poll.get_page_contents(page_number)
+            page_contents, start_index = poll_text_group.get_page_contents(page_number)
             body = util.list_to_indexed_list_string(
                 page_contents, start=start_index, line_spacing=2
             )
@@ -529,12 +541,12 @@ class User(object):
         group_lists = self.get_group_lists()
         if group_lists:
             list_linked_summaries = [_list.generate_linked_summary(True) for _list in group_lists]
-            list_text_list = PaginationTextGroup(
+            list_text_group = PaginationTextGroup(
                 list_linked_summaries, ("", f"{GROUP}_{LIST}", ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
-            page_contents, start_index = list_text_list.get_page_contents(page_number)
+            page_contents, start_index = list_text_group.get_page_contents(page_number)
             body = util.list_to_indexed_list_string(
                 page_contents, start=start_index, line_spacing=2
             )
@@ -555,12 +567,12 @@ class User(object):
         group_templates = self.get_group_templates()
         if group_templates:
             template_linked_summaries = [template.generate_linked_summary(True) for template in group_templates]
-            template_text_template = PaginationTextGroup(
+            template_text_group = PaginationTextGroup(
                 template_linked_summaries, ("", f"{GROUP}_{TEMPLATE}", ""),
                 items_per_page=5, is_horizontal_buttons=True, is_cyclic=False, hidden_enabled=True
             )
 
-            page_contents, start_index = template_text_template.get_page_contents(page_number)
+            page_contents, start_index = template_text_group.get_page_contents(page_number)
             body = util.list_to_indexed_list_string(
                 page_contents, start=start_index, line_spacing=2
             )
@@ -731,6 +743,12 @@ class Group(object):
 
     def get_template_ids(self) -> Set[str]:
         return self._template_ids
+
+    def get_poll_template_ids(self) -> Set[str]:
+        return set([temp_id for temp_id in self.get_template_ids() if temp_id.startswith("P")])
+
+    def get_list_template_ids(self) -> Set[str]:
+        return set([temp_id for temp_id in self.get_template_ids() if temp_id.startswith("L")])
 
     def get_templates(self, filters="") -> Lst[Template]:
         group_templates = Template.get_templates_by_ids(self._template_ids, filters)
