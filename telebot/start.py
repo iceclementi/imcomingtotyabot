@@ -29,6 +29,7 @@ from utils import util
 
 # Environment settings
 WEB_URL = os.environ["WEB_URL"]
+WEBAPP_URL = os.environ["WEBAPP_URL"]
 TOKEN = os.environ["TOKEN"]
 PORT = int(os.environ.get("PORT", 8443))
 updater = Updater(TOKEN, use_context=True)
@@ -161,7 +162,7 @@ def handle_test(update: Update, context: CallbackContext) -> None:
         [
             InlineKeyboardButton(
                 "Test",
-                web_app=WebAppInfo(url=f"https://tya-srg-bot-webapp.herokuapp.com/#/"),
+                web_app=WebAppInfo(url=WEBAPP_URL),
             )
         ],
         [InlineKeyboardButton("Close", callback_data=const.CLOSE)],
